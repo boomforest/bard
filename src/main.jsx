@@ -6,10 +6,15 @@ import './index.css'
 function App() {
   const [user, setUser] = useState(null);
   const [userType, setUserType] = useState(null); // 'artist' or 'fan'
-  const [currentView, setCurrentView] = useState('auth'); // 'auth', 'dashboard', 'map', 'compose'
-  const [authStep, setAuthStep] = useState('phone'); // 'phone', 'verify', 'profile'
+  const [currentView, setCurrentView] = useState('auth'); // 'auth', 'phone', 'location', 'dashboard', 'map', 'compose'
+  const [authStep, setAuthStep] = useState('login'); // 'login', 'register'
   
   // Auth state
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    username: ''
+  });
   const [phoneNumber, setPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [profileData, setProfileData] = useState({
@@ -24,6 +29,8 @@ function App() {
   const [followedArtists, setFollowedArtists] = useState([]);
   const [fanLocations, setFanLocations] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
 
   // Get user's location
   useEffect(() => {
@@ -40,8 +47,288 @@ function App() {
     }
   }, [user]);
 
-  // Phone Authentication Component
-  const PhoneAuth = () => (
+  // GRAIL Login Component
+  const GrailAuth = () => (
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#f5f5dc',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1rem'
+    }}>
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: '25px',
+        padding: '2rem',
+        width: '100%',
+        maxWidth: '400px',
+        textAlign: 'center',
+        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h1 style={{
+          fontSize: '2.5rem',
+          fontWeight: 'bold',
+          margin: '0 0 0.5rem 0',
+          color: '#d2691e'
+        }}>
+          FKA BARD
+        </h1>
+        <p style={{ color: '#8b4513', margin: '0 0 2rem 0' }}>Artist-Fan Connection via GRAIL</p>
+
+        <div style={{ display: 'flex', marginBottom: '1.5rem', borderRadius: '20px', overflow: 'hidden' }}>
+          <button
+            onClick={() => setAuthStep('login')}
+            style={{
+              flex: 1,
+              padding: '1rem',
+              backgroundColor: authStep === 'login' ? '#d2691e' : '#f0f0f0',
+              color: authStep === 'login' ? 'white' : '#8b4513',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: '500'
+            }}
+          >
+            Login
+          </button>
+          <button
+            onClick={() => setAuthStep('register')}
+            style={{
+              flex: 1,
+              padding: '1rem',
+              backgroundColor: authStep === 'register' ? '#d2691e' : '#f0f0f0',
+              color: authStep === 'register' ? 'white' : '#8b4513',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: '500'
+            }}
+          >
+            Register
+          </button>
+        </div>
+
+        {message && (
+          <div style={{
+            padding: '1rem',
+            borderRadius: '15px',
+            marginBottom: '1rem',
+            backgroundColor: message.includes('successful') ? '#d4edda' : 
+                           message.includes('failed') ? '#f8d7da' : '#fff3cd',
+            color: message.includes('successful') ? '#155724' : 
+                   message.includes('failed') ? '#721c24' : '#856404',
+            fontSize: '0.9rem'
+          }}>
+            {message}
+          </div>
+        )}
+
+        <input
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          placeholder="Email"
+          style={{
+            width: '100%',
+            padding: '1rem',
+            border: '2px solid #e0e0e0',
+            borderRadius: '15px',
+            marginBottom: '1rem',
+            boxSizing: 'border-box',
+            fontSize: '1rem',
+            outline: 'none'
+          }}
+        />
+
+        <input
+          type="password"
+          value={formData.password}
+          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          placeholder="Password"
+          style={{
+            width: '100%',
+            padding: '1rem',
+            border: '2px solid #e0e0e0',
+            borderRadius: '15px',
+            marginBottom: '1rem',
+            boxSizing: 'border-box',
+            fontSize: '1rem',
+            outline: 'none'
+          }}
+        />
+
+        {authStep === 'register' && (
+          <input
+            type="text"
+            value={formData.username}
+            onChange={(e) => setFormData({ ...formData, username: e.target.value.toUpperCase() })}
+            placeholder="Username (ABC123)"
+            maxLength={6}
+            style={{
+              width: '100%',
+              padding: '1rem',
+              border: '2px solid #e0e0e0',
+              borderRadius: '15px',
+              marginBottom: '1rem',
+              boxSizing: 'border-box',
+              fontSize: '1rem',
+              outline: 'none'
+            }}
+          />
+        )}
+
+        <button 
+          onClick={() => {
+            // Simulate login success
+            setUser({ email: formData.email, username: formData.username || 'USER123' });
+            setMessage('Login successful! Now let\'s set up BARD...');
+            setTimeout(() => setCurrentView('profile'), 1000);
+          }}
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: '1rem',
+            background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '15px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            fontSize: '1rem',
+            opacity: loading ? 0.5 : 1,
+            boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
+          }}
+        >
+          {loading ? 'Loading...' : (authStep === 'login' ? 'Login to GRAIL' : 'Register GRAIL Account')}
+        </button>
+      </div>
+  // Profile Setup Component (Artist/Fan choice)
+  const ProfileSetup = () => (
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#f5f5dc',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1rem'
+    }}>
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: '25px',
+        padding: '2rem',
+        width: '100%',
+        maxWidth: '400px',
+        textAlign: 'center',
+        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h1 style={{
+          fontSize: '2rem',
+          fontWeight: 'bold',
+          margin: '0 0 0.5rem 0',
+          color: '#d2691e'
+        }}>
+          Welcome to BARD!
+        </h1>
+        <p style={{ color: '#8b4513', margin: '0 0 2rem 0', fontSize: '0.9rem' }}>
+          Hi {user?.username}! Are you an artist or fan?
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+          <button
+            onClick={() => setProfileData({...profileData, userType: 'fan'})}
+            style={{
+              padding: '1.5rem',
+              borderRadius: '15px',
+              border: profileData.userType === 'fan' ? '2px solid #d2691e' : '2px solid #e0e0e0',
+              background: profileData.userType === 'fan' ? 'rgba(210, 105, 30, 0.1)' : 'white',
+              cursor: 'pointer',
+              textAlign: 'center',
+              color: profileData.userType === 'fan' ? '#d2691e' : '#8b4513'
+            }}
+          >
+            <Users style={{ width: '2.5rem', height: '2.5rem', margin: '0 auto 0.5rem auto', display: 'block' }} />
+            <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>Fan</div>
+            <div style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Follow artists</div>
+          </button>
+          <button
+            onClick={() => setProfileData({...profileData, userType: 'artist'})}
+            style={{
+              padding: '1.5rem',
+              borderRadius: '15px',
+              border: profileData.userType === 'artist' ? '2px solid #d2691e' : '2px solid #e0e0e0',
+              background: profileData.userType === 'artist' ? 'rgba(210, 105, 30, 0.1)' : 'white',
+              cursor: 'pointer',
+              textAlign: 'center',
+              color: profileData.userType === 'artist' ? '#d2691e' : '#8b4513'
+            }}
+          >
+            <MapPin style={{ width: '2.5rem', height: '2.5rem', margin: '0 auto 0.5rem auto', display: 'block' }} />
+            <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>Artist</div>
+            <div style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Notify fans</div>
+          </button>
+        </div>
+        
+        <input
+          type="text"
+          value={profileData.displayName}
+          onChange={(e) => setProfileData({...profileData, displayName: e.target.value})}
+          placeholder="Display Name"
+          style={{
+            width: '100%',
+            padding: '1rem',
+            border: '2px solid #e0e0e0',
+            borderRadius: '15px',
+            marginBottom: '1rem',
+            boxSizing: 'border-box',
+            fontSize: '1rem',
+            outline: 'none'
+          }}
+        />
+
+        {profileData.userType === 'artist' && (
+          <input
+            type="text"
+            value={profileData.artistName}
+            onChange={(e) => setProfileData({...profileData, artistName: e.target.value})}
+            placeholder="Artist/Band Name"
+            style={{
+              width: '100%',
+              padding: '1rem',
+              border: '2px solid #e0e0e0',
+              borderRadius: '15px',
+              marginBottom: '1rem',
+              boxSizing: 'border-box',
+              fontSize: '1rem',
+              outline: 'none'
+            }}
+          />
+        )}
+
+        <button
+          onClick={() => {
+            setUserType(profileData.userType);
+            setCurrentView('phone');
+          }}
+          disabled={!profileData.userType || !profileData.displayName}
+          style={{
+            width: '100%',
+            padding: '1rem',
+            background: (!profileData.userType || !profileData.displayName) ? '#ccc' : 'linear-gradient(45deg, #d2691e, #cd853f)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '15px',
+            cursor: (!profileData.userType || !profileData.displayName) ? 'not-allowed' : 'pointer',
+            fontWeight: '600',
+            fontSize: '1rem',
+            boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
+          }}
+        >
+          Continue to Phone Setup
+        </button>
+      </div>
+    </div>
+  );
     <div style={{
       minHeight: '100vh',
       backgroundColor: '#f5f5dc',
@@ -261,7 +548,137 @@ function App() {
     </div>
   );
 
-  // Location Setup Component
+  // Phone Setup Component
+  const PhoneSetup = () => {
+    const [phoneStep, setPhoneStep] = useState('enter'); // 'enter' or 'verify'
+
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#f5f5dc',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem'
+      }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          borderRadius: '25px',
+          padding: '2rem',
+          width: '100%',
+          maxWidth: '400px',
+          textAlign: 'center',
+          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h1 style={{
+            fontSize: '2rem',
+            fontWeight: 'bold',
+            margin: '0 0 0.5rem 0',
+            color: '#d2691e'
+          }}>
+            Phone Verification
+          </h1>
+          <p style={{ color: '#8b4513', margin: '0 0 2rem 0', fontSize: '0.9rem' }}>
+            We need your phone for push notifications
+          </p>
+
+          {phoneStep === 'enter' && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="Phone Number"
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '15px',
+                  marginBottom: '1rem',
+                  boxSizing: 'border-box',
+                  fontSize: '1rem',
+                  outline: 'none'
+                }}
+              />
+              <button 
+                onClick={() => setPhoneStep('verify')}
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '15px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '1rem',
+                  boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
+                }}
+              >
+                Send Verification Code
+              </button>
+            </div>
+          )}
+
+          {phoneStep === 'verify' && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <input
+                type="text"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                placeholder="Enter 6-digit code"
+                maxLength={6}
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '15px',
+                  marginBottom: '1rem',
+                  boxSizing: 'border-box',
+                  fontSize: '1.2rem',
+                  textAlign: 'center',
+                  outline: 'none',
+                  letterSpacing: '0.2em'
+                }}
+              />
+              <button 
+                onClick={() => setCurrentView('location')}
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '15px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '1rem',
+                  marginBottom: '1rem',
+                  boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
+                }}
+              >
+                Verify Code
+              </button>
+              <button
+                onClick={() => setPhoneStep('enter')}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  color: '#8b4513',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                ← Back to phone number
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
   const LocationSetup = () => {
     const [zipCode, setZipCode] = useState('');
     const [city, setCity] = useState('');
