@@ -262,23 +262,6 @@ function App() {
           </button>
         </div>
         
-        <input
-          type="text"
-          value={profileData.displayName}
-          onChange={(e) => setProfileData({...profileData, displayName: e.target.value})}
-          placeholder="Display Name"
-          style={{
-            width: '100%',
-            padding: '1rem',
-            border: '2px solid #e0e0e0',
-            borderRadius: '15px',
-            marginBottom: '1rem',
-            boxSizing: 'border-box',
-            fontSize: '1rem',
-            outline: 'none'
-          }}
-        />
-
         {profileData.userType === 'artist' && (
           <input
             type="text"
@@ -303,15 +286,15 @@ function App() {
             setUserType(profileData.userType);
             setCurrentView('phone');
           }}
-          disabled={!profileData.userType || !profileData.displayName}
+          disabled={!profileData.userType}
           style={{
             width: '100%',
             padding: '1rem',
-            background: (!profileData.userType || !profileData.displayName) ? '#ccc' : 'linear-gradient(45deg, #d2691e, #cd853f)',
+            background: !profileData.userType ? '#ccc' : 'linear-gradient(45deg, #d2691e, #cd853f)',
             color: 'white',
             border: 'none',
             borderRadius: '15px',
-            cursor: (!profileData.userType || !profileData.displayName) ? 'not-allowed' : 'pointer',
+            cursor: !profileData.userType ? 'not-allowed' : 'pointer',
             fontWeight: '600',
             fontSize: '1rem',
             boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
