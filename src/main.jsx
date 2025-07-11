@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react'
-import { MapPin, Users, Bell, Send, Settings, Map } from 'lucide-react'
 
 function App() {
   const [user, setUser] = useState(null);
@@ -23,10 +22,6 @@ function App() {
     bio: ''
   });
 
-  const [location, setLocation] = useState(null);
-  const [followedArtists, setFollowedArtists] = useState([]);
-  const [fanLocations, setFanLocations] = useState([]);
-  const [notifications, setNotifications] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -240,7 +235,7 @@ function App() {
               color: profileData.userType === 'fan' ? '#d2691e' : '#8b4513'
             }}
           >
-            <Users style={{ width: '2.5rem', height: '2.5rem', margin: '0 auto 0.5rem auto', display: 'block' }} />
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>👥</div>
             <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>Fan</div>
             <div style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Follow artists</div>
           </button>
@@ -256,7 +251,7 @@ function App() {
               color: profileData.userType === 'artist' ? '#d2691e' : '#8b4513'
             }}
           >
-            <MapPin style={{ width: '2.5rem', height: '2.5rem', margin: '0 auto 0.5rem auto', display: 'block' }} />
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎵</div>
             <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>Artist</div>
             <div style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Notify fans</div>
           </button>
@@ -396,23 +391,6 @@ function App() {
               }}
             />
 
-            <div style={{
-              backgroundColor: '#f0f8ff',
-              padding: '1rem',
-              borderRadius: '10px',
-              marginBottom: '1.5rem',
-              border: '1px solid #e0e6ed'
-            }}>
-              <p style={{
-                margin: '0',
-                fontSize: '0.8rem',
-                color: '#4a5568',
-                lineHeight: '1.4'
-              }}>
-                🔒 We don't collect or sell your information. Location helps artists connect with local fans and plan tour stops.
-              </p>
-            </div>
-
             <button
               onClick={() => {
                 const zipCode = zipRef.current?.value || '';
@@ -442,158 +420,25 @@ function App() {
     );
   };
 
-  // Dashboard Component - This is where you can wireframe new features
+  // Dashboard Component
   const Dashboard = () => (
     <div style={{
       minHeight: '100vh',
       backgroundColor: '#f5f5dc',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      padding: '2rem'
     }}>
-      {/* Header */}
-      <div style={{
-        padding: '1rem 2rem',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        borderBottom: '1px solid #e0e0e0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <h1 style={{ color: '#d2691e', fontSize: '1.5rem', margin: 0 }}>
-          FKA BARD
+      <div style={{ textAlign: 'center' }}>
+        <h1 style={{ color: '#d2691e', fontSize: '3rem', marginBottom: '1rem' }}>
+          Welcome to BARD! 🎵
         </h1>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <Bell style={{ width: '1.5rem', height: '1.5rem', color: '#8b4513', cursor: 'pointer' }} />
-          <Settings style={{ width: '1.5rem', height: '1.5rem', color: '#8b4513', cursor: 'pointer' }} />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div style={{ padding: '2rem' }}>
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h2 style={{ color: '#d2691e', fontSize: '2rem', marginBottom: '1rem' }}>
-            Welcome to BARD! 🎵
-          </h2>
-          <p style={{ color: '#8b4513', fontSize: '1.1rem' }}>
-            {userType === 'artist' ? 'Connect with your fans and notify them about shows!' : 'Follow your favorite artists and get notified about local shows!'}
-          </p>
-        </div>
-
-        {/* Feature Cards - Perfect for wireframing */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '2rem',
-          maxWidth: '1200px',
-          margin: '0 auto'
-        }}>
-          {userType === 'artist' ? (
-            <>
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                borderRadius: '15px',
-                padding: '2rem',
-                textAlign: 'center',
-                border: '2px solid #e0e0e0'
-              }}>
-                <MapPin style={{ width: '3rem', height: '3rem', color: '#d2691e', margin: '0 auto 1rem auto', display: 'block' }} />
-                <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Show Locations</h3>
-                <p style={{ color: '#8b4513', marginBottom: '1.5rem' }}>Find where your fans are and plan tour stops</p>
-                <button style={{
-                  padding: '0.8rem 1.5rem',
-                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer'
-                }}>
-                  View Fan Map
-                </button>
-              </div>
-
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                borderRadius: '15px',
-                padding: '2rem',
-                textAlign: 'center',
-                border: '2px solid #e0e0e0'
-              }}>
-                <Send style={{ width: '3rem', height: '3rem', color: '#d2691e', margin: '0 auto 1rem auto', display: 'block' }} />
-                <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Notify Fans</h3>
-                <p style={{ color: '#8b4513', marginBottom: '1.5rem' }}>Send push notifications about shows and updates</p>
-                <button style={{
-                  padding: '0.8rem 1.5rem',
-                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer'
-                }}>
-                  Send Notification
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                borderRadius: '15px',
-                padding: '2rem',
-                textAlign: 'center',
-                border: '2px solid #e0e0e0'
-              }}>
-                <Users style={{ width: '3rem', height: '3rem', color: '#d2691e', margin: '0 auto 1rem auto', display: 'block' }} />
-                <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Follow Artists</h3>
-                <p style={{ color: '#8b4513', marginBottom: '1.5rem' }}>Discover and follow your favorite artists</p>
-                <button style={{
-                  padding: '0.8rem 1.5rem',
-                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer'
-                }}>
-                  Browse Artists
-                </button>
-              </div>
-
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                borderRadius: '15px',
-                padding: '2rem',
-                textAlign: 'center',
-                border: '2px solid #e0e0e0'
-              }}>
-                <Bell style={{ width: '3rem', height: '3rem', color: '#d2691e', margin: '0 auto 1rem auto', display: 'block' }} />
-                <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Local Shows</h3>
-                <p style={{ color: '#8b4513', marginBottom: '1.5rem' }}>Get notified about shows in your area</p>
-                <button style={{
-                  padding: '0.8rem 1.5rem',
-                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer'
-                }}>
-                  View Upcoming Shows
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* User Info Section */}
-        <div style={{
-          marginTop: '3rem',
-          padding: '2rem',
-          backgroundColor: 'rgba(255, 255, 255, 0.7)',
-          borderRadius: '15px',
-          maxWidth: '600px',
-          margin: '3rem auto 0 auto'
-        }}>
-          <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Your Profile</h3>
-          <p style={{ color: '#8b4513', margin: '0.5rem 0' }}>Type: {userType === 'artist' ? `Artist (${profileData.artistName || 'No name set'})` : 'Fan'}</p>
-          <p style={{ color: '#8b4513', margin: '0.5rem 0' }}>Location: {user?.city}, {user?.state} {user?.zipCode}</p>
-          <p style={{ color: '#8b4513', margin: '0.5rem 0' }}>Email: {user?.email}</p>
+        <p style={{ color: '#8b4513', fontSize: '1.2rem' }}>
+          {userType === 'artist' ? 'Connect with your fans!' : 'Follow your favorite artists!'}
+        </p>
+        <div style={{ marginTop: '2rem' }}>
+          <p style={{ color: '#8b4513' }}>Type: {userType}</p>
+          <p style={{ color: '#8b4513' }}>Location: {user?.city}, {user?.state} {user?.zipCode}</p>
+          <p style={{ color: '#8b4513' }}>User: {user?.username}</p>
         </div>
       </div>
     </div>
@@ -614,3 +459,5 @@ function App() {
 
   return <Dashboard />;
 }
+
+export default App;
