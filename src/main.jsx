@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom/client'
 import { MapPin, Users, Bell, Send, Settings, Phone, Map } from 'lucide-react'
 import './index.css'
@@ -9,10 +9,10 @@ function App() {
   const [currentView, setCurrentView] = useState('auth');
   const [authStep, setAuthStep] = useState('login');
   
-  // Separate state for each form field to prevent re-render issues
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
+  // Use refs for form inputs to avoid re-render issues
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const usernameRef = useRef(null);
   
   const [phoneNumber, setPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
@@ -30,7 +30,7 @@ function App() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // GRAIL Login Component
+  // GRAIL Login Component - Using refs to avoid re-render issues
   const GrailAuth = () => (
     <div style={{
       minHeight: '100vh',
@@ -107,9 +107,10 @@ function App() {
         )}
 
         <input
+          ref={emailRef}
           type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          name="email"
+          autoComplete="email"
           placeholder="Email"
           style={{
             width: '100%',
@@ -124,9 +125,10 @@ function App() {
         />
 
         <input
+          ref={passwordRef}
           type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          name="password"
+          autoComplete="current-password"
           placeholder="Password"
           style={{
             width: '100%',
@@ -142,9 +144,10 @@ function App() {
 
         {authStep === 'register' && (
           <input
+            ref={usernameRef}
             type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value.toUpperCase())}
+            name="username"
+            autoComplete="username"
             placeholder="Username (JPR333)"
             maxLength={6}
             style={{
@@ -162,7 +165,10 @@ function App() {
 
         <button 
           onClick={() => {
-            // Use the actual username they entered, or their email as fallback
+            const email = emailRef.current?.value || '';
+            const password = passwordRef.current?.value || '';
+            const username = usernameRef.current?.value || '';
+            
             const displayUsername = username || email.split('@')[0].toUpperCase();
             setUser({ email: email, username: displayUsername });
             setMessage('Login successful! Now let\'s set up BARD...');
