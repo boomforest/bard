@@ -1,3 +1,3 @@
 [build]
-  command = "cd grail-main && npm install && npm run build"
-  publish = "grail-main/dist"
+  command = "npm run build"
+  publish = "dist"
