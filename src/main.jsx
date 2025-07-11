@@ -1202,7 +1202,15 @@ function App() {
 
   // Main render logic
   if (!user || currentView === 'auth') {
-    return <PhoneAuth />;
+    return <GrailAuth />;
+  }
+
+  if (currentView === 'profile') {
+    return <ProfileSetup />;
+  }
+
+  if (currentView === 'phone') {
+    return <PhoneSetup />;
   }
 
   if (currentView === 'location') {
