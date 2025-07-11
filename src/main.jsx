@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
-import ReactDOM from 'react-dom/client'
-import { MapPin, Users, Bell, Send, Settings, Phone, Map } from 'lucide-react'
-import './index.css'
+import React, { useState, useRef } from 'react'
+import { MapPin, Users, Bell, Send, Settings, Map } from 'lucide-react'
 
 function App() {
   const [user, setUser] = useState(null);
@@ -14,14 +12,10 @@ function App() {
   const passwordRef = useRef(null);
   const usernameRef = useRef(null);
   const artistNameRef = useRef(null);
-  const phoneRef = useRef(null);
-  const verificationRef = useRef(null);
   const zipRef = useRef(null);
   const cityRef = useRef(null);
   const stateRef = useRef(null);
   
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
   const [profileData, setProfileData] = useState({
     displayName: '',
     userType: '',
@@ -292,7 +286,7 @@ function App() {
             const artistName = artistNameRef.current?.value || '';
             setProfileData({...profileData, artistName});
             setUserType(profileData.userType);
-            setCurrentView('phone');
+            setCurrentView('location');
           }}
           disabled={!profileData.userType}
           style={{
@@ -308,150 +302,11 @@ function App() {
             boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
           }}
         >
-          Continue to Phone Setup
+          Continue to Location
         </button>
       </div>
     </div>
   );
-
-  // Phone Setup Component
-  const PhoneSetup = () => {
-    const [phoneStep, setPhoneStep] = useState('enter');
-
-    return (
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: '#f5f5dc',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem'
-      }}>
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          borderRadius: '25px',
-          padding: '2rem',
-          width: '100%',
-          maxWidth: '400px',
-          textAlign: 'center',
-          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)'
-        }}>
-          <h1 style={{
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            margin: '0 0 0.5rem 0',
-            color: '#d2691e'
-          }}>
-            Phone Verification
-          </h1>
-          <p style={{ color: '#8b4513', margin: '0 0 2rem 0', fontSize: '0.9rem' }}>
-            We need your phone for push notifications
-          </p>
-
-          {phoneStep === 'enter' && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <input
-                ref={phoneRef}
-                type="tel"
-                name="phone"
-                autoComplete="tel"
-                placeholder="Phone Number"
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '15px',
-                  marginBottom: '1rem',
-                  boxSizing: 'border-box',
-                  fontSize: '1rem',
-                  outline: 'none'
-                }}
-              />
-              <button 
-                onClick={() => {
-                  setPhoneNumber(phoneRef.current?.value || '');
-                  setPhoneStep('verify');
-                }}
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '15px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '1rem',
-                  boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
-                }}
-              >
-                Send Verification Code
-              </button>
-            </div>
-          )}
-
-          {phoneStep === 'verify' && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <input
-                ref={verificationRef}
-                type="text"
-                name="verification"
-                placeholder="Enter 6-digit code"
-                maxLength={6}
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '15px',
-                  marginBottom: '1rem',
-                  boxSizing: 'border-box',
-                  fontSize: '1.2rem',
-                  textAlign: 'center',
-                  outline: 'none',
-                  letterSpacing: '0.2em'
-                }}
-              />
-              <button 
-                onClick={() => {
-                  setVerificationCode(verificationRef.current?.value || '');
-                  setCurrentView('location');
-                }}
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '15px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  fontSize: '1rem',
-                  marginBottom: '1rem',
-                  boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
-                }}
-              >
-                Verify Code
-              </button>
-              <button
-                onClick={() => setPhoneStep('enter')}
-                style={{
-                  width: '100%',
-                  background: 'transparent',
-                  color: '#8b4513',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '0.9rem'
-                }}
-              >
-                ← Back to phone number
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   // Location Setup Component
   const LocationSetup = () => {
@@ -554,7 +409,7 @@ function App() {
                 color: '#4a5568',
                 lineHeight: '1.4'
               }}>
-                🔒 We don't collect or sell your information. We need your phone because BARD only works with push notifications. You will only ever receive notifications from artists you follow.
+                🔒 We don't collect or sell your information. Location helps artists connect with local fans and plan tour stops.
               </p>
             </div>
 
@@ -579,7 +434,7 @@ function App() {
                 boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
               }}
             >
-              Continue to BARD
+              Enter BARD
             </button>
           </div>
         </div>
@@ -587,25 +442,158 @@ function App() {
     );
   };
 
-  // Simple Dashboard
+  // Dashboard Component - This is where you can wireframe new features
   const Dashboard = () => (
     <div style={{
       minHeight: '100vh',
       backgroundColor: '#f5f5dc',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      padding: '2rem'
+      fontFamily: 'system-ui, -apple-system, sans-serif'
     }}>
-      <div style={{ textAlign: 'center' }}>
-        <h1 style={{ color: '#d2691e', fontSize: '3rem', marginBottom: '1rem' }}>
-          Welcome to BARD! 🎵
+      {/* Header */}
+      <div style={{
+        padding: '1rem 2rem',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        borderBottom: '1px solid #e0e0e0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <h1 style={{ color: '#d2691e', fontSize: '1.5rem', margin: 0 }}>
+          FKA BARD
         </h1>
-        <p style={{ color: '#8b4513', fontSize: '1.2rem' }}>
-          {userType === 'artist' ? 'Start connecting with your fans!' : 'Start following your favorite artists!'}
-        </p>
-        <div style={{ marginTop: '2rem' }}>
-          <p style={{ color: '#8b4513' }}>Phone: {phoneNumber}</p>
-          <p style={{ color: '#8b4513' }}>Location: {user?.city}, {user?.state} {user?.zipCode}</p>
-          <p style={{ color: '#8b4513' }}>User Type: {userType}</p>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <Bell style={{ width: '1.5rem', height: '1.5rem', color: '#8b4513', cursor: 'pointer' }} />
+          <Settings style={{ width: '1.5rem', height: '1.5rem', color: '#8b4513', cursor: 'pointer' }} />
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div style={{ padding: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <h2 style={{ color: '#d2691e', fontSize: '2rem', marginBottom: '1rem' }}>
+            Welcome to BARD! 🎵
+          </h2>
+          <p style={{ color: '#8b4513', fontSize: '1.1rem' }}>
+            {userType === 'artist' ? 'Connect with your fans and notify them about shows!' : 'Follow your favorite artists and get notified about local shows!'}
+          </p>
+        </div>
+
+        {/* Feature Cards - Perfect for wireframing */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: '2rem',
+          maxWidth: '1200px',
+          margin: '0 auto'
+        }}>
+          {userType === 'artist' ? (
+            <>
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '15px',
+                padding: '2rem',
+                textAlign: 'center',
+                border: '2px solid #e0e0e0'
+              }}>
+                <MapPin style={{ width: '3rem', height: '3rem', color: '#d2691e', margin: '0 auto 1rem auto', display: 'block' }} />
+                <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Show Locations</h3>
+                <p style={{ color: '#8b4513', marginBottom: '1.5rem' }}>Find where your fans are and plan tour stops</p>
+                <button style={{
+                  padding: '0.8rem 1.5rem',
+                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}>
+                  View Fan Map
+                </button>
+              </div>
+
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '15px',
+                padding: '2rem',
+                textAlign: 'center',
+                border: '2px solid #e0e0e0'
+              }}>
+                <Send style={{ width: '3rem', height: '3rem', color: '#d2691e', margin: '0 auto 1rem auto', display: 'block' }} />
+                <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Notify Fans</h3>
+                <p style={{ color: '#8b4513', marginBottom: '1.5rem' }}>Send push notifications about shows and updates</p>
+                <button style={{
+                  padding: '0.8rem 1.5rem',
+                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}>
+                  Send Notification
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '15px',
+                padding: '2rem',
+                textAlign: 'center',
+                border: '2px solid #e0e0e0'
+              }}>
+                <Users style={{ width: '3rem', height: '3rem', color: '#d2691e', margin: '0 auto 1rem auto', display: 'block' }} />
+                <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Follow Artists</h3>
+                <p style={{ color: '#8b4513', marginBottom: '1.5rem' }}>Discover and follow your favorite artists</p>
+                <button style={{
+                  padding: '0.8rem 1.5rem',
+                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}>
+                  Browse Artists
+                </button>
+              </div>
+
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '15px',
+                padding: '2rem',
+                textAlign: 'center',
+                border: '2px solid #e0e0e0'
+              }}>
+                <Bell style={{ width: '3rem', height: '3rem', color: '#d2691e', margin: '0 auto 1rem auto', display: 'block' }} />
+                <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Local Shows</h3>
+                <p style={{ color: '#8b4513', marginBottom: '1.5rem' }}>Get notified about shows in your area</p>
+                <button style={{
+                  padding: '0.8rem 1.5rem',
+                  background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}>
+                  View Upcoming Shows
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* User Info Section */}
+        <div style={{
+          marginTop: '3rem',
+          padding: '2rem',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          borderRadius: '15px',
+          maxWidth: '600px',
+          margin: '3rem auto 0 auto'
+        }}>
+          <h3 style={{ color: '#d2691e', marginBottom: '1rem' }}>Your Profile</h3>
+          <p style={{ color: '#8b4513', margin: '0.5rem 0' }}>Type: {userType === 'artist' ? `Artist (${profileData.artistName || 'No name set'})` : 'Fan'}</p>
+          <p style={{ color: '#8b4513', margin: '0.5rem 0' }}>Location: {user?.city}, {user?.state} {user?.zipCode}</p>
+          <p style={{ color: '#8b4513', margin: '0.5rem 0' }}>Email: {user?.email}</p>
         </div>
       </div>
     </div>
@@ -620,15 +608,9 @@ function App() {
     return <ProfileSetup />;
   }
 
-  if (currentView === 'phone') {
-    return <PhoneSetup />;
-  }
-
   if (currentView === 'location') {
     return <LocationSetup />;
   }
 
   return <Dashboard />;
 }
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App />)
