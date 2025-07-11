@@ -9,10 +9,16 @@ function App() {
   const [currentView, setCurrentView] = useState('auth');
   const [authStep, setAuthStep] = useState('login');
   
-  // Use refs for form inputs to avoid re-render issues
+  // Use refs for all form inputs throughout the app
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
   const usernameRef = useRef(null);
+  const artistNameRef = useRef(null);
+  const phoneRef = useRef(null);
+  const verificationRef = useRef(null);
+  const zipRef = useRef(null);
+  const cityRef = useRef(null);
+  const stateRef = useRef(null);
   
   const [phoneNumber, setPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
@@ -264,9 +270,9 @@ function App() {
         
         {profileData.userType === 'artist' && (
           <input
+            ref={artistNameRef}
             type="text"
-            value={profileData.artistName}
-            onChange={(e) => setProfileData({...profileData, artistName: e.target.value})}
+            name="artistName"
             placeholder="Artist/Band Name"
             style={{
               width: '100%',
@@ -283,6 +289,8 @@ function App() {
 
         <button
           onClick={() => {
+            const artistName = artistNameRef.current?.value || '';
+            setProfileData({...profileData, artistName});
             setUserType(profileData.userType);
             setCurrentView('phone');
           }}
@@ -344,9 +352,10 @@ function App() {
           {phoneStep === 'enter' && (
             <div style={{ marginBottom: '1.5rem' }}>
               <input
+                ref={phoneRef}
                 type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                name="phone"
+                autoComplete="tel"
                 placeholder="Phone Number"
                 style={{
                   width: '100%',
@@ -360,7 +369,10 @@ function App() {
                 }}
               />
               <button 
-                onClick={() => setPhoneStep('verify')}
+                onClick={() => {
+                  setPhoneNumber(phoneRef.current?.value || '');
+                  setPhoneStep('verify');
+                }}
                 style={{
                   width: '100%',
                   padding: '1rem',
@@ -382,9 +394,9 @@ function App() {
           {phoneStep === 'verify' && (
             <div style={{ marginBottom: '1.5rem' }}>
               <input
+                ref={verificationRef}
                 type="text"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
+                name="verification"
                 placeholder="Enter 6-digit code"
                 maxLength={6}
                 style={{
@@ -401,7 +413,10 @@ function App() {
                 }}
               />
               <button 
-                onClick={() => setCurrentView('location')}
+                onClick={() => {
+                  setVerificationCode(verificationRef.current?.value || '');
+                  setCurrentView('location');
+                }}
                 style={{
                   width: '100%',
                   padding: '1rem',
@@ -440,10 +455,6 @@ function App() {
 
   // Location Setup Component
   const LocationSetup = () => {
-    const [zipCode, setZipCode] = useState('');
-    const [city, setCity] = useState('');
-    const [state, setState] = useState('');
-
     return (
       <div style={{
         minHeight: '100vh',
@@ -477,9 +488,10 @@ function App() {
 
           <div style={{ marginBottom: '1.5rem' }}>
             <input
+              ref={zipRef}
               type="text"
-              value={zipCode}
-              onChange={(e) => setZipCode(e.target.value)}
+              name="zip"
+              autoComplete="postal-code"
               placeholder="Zip Code"
               style={{
                 width: '100%',
@@ -494,9 +506,10 @@ function App() {
             />
 
             <input
+              ref={cityRef}
               type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
+              name="city"
+              autoComplete="address-level2"
               placeholder="City"
               style={{
                 width: '100%',
@@ -511,9 +524,10 @@ function App() {
             />
 
             <input
+              ref={stateRef}
               type="text"
-              value={state}
-              onChange={(e) => setState(e.target.value)}
+              name="state"
+              autoComplete="address-level1"
               placeholder="State"
               style={{
                 width: '100%',
@@ -546,6 +560,9 @@ function App() {
 
             <button
               onClick={() => {
+                const zipCode = zipRef.current?.value || '';
+                const city = cityRef.current?.value || '';
+                const state = stateRef.current?.value || '';
                 setUser({...user, zipCode, city, state});
                 setCurrentView('dashboard');
               }}
