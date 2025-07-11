@@ -109,7 +109,7 @@ function App() {
         <input
           type="email"
           value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
           placeholder="Email"
           style={{
             width: '100%',
@@ -126,7 +126,7 @@ function App() {
         <input
           type="password"
           value={formData.password}
-          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
           placeholder="Password"
           style={{
             width: '100%',
@@ -144,8 +144,8 @@ function App() {
           <input
             type="text"
             value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value.toUpperCase() })}
-            placeholder="Username (ABC123)"
+            onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value.toUpperCase() }))}
+            placeholder="Username (JPR333)"
             maxLength={6}
             style={{
               width: '100%',
@@ -162,7 +162,9 @@ function App() {
 
         <button 
           onClick={() => {
-            setUser({ email: formData.email, username: formData.username || 'USER123' });
+            // Use the actual username they entered, or their email as fallback
+            const displayUsername = formData.username || formData.email.split('@')[0].toUpperCase();
+            setUser({ email: formData.email, username: displayUsername });
             setMessage('Login successful! Now let\'s set up BARD...');
             setTimeout(() => setCurrentView('profile'), 1000);
           }}
