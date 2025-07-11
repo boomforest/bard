@@ -9,11 +9,11 @@ function App() {
   const [currentView, setCurrentView] = useState('auth');
   const [authStep, setAuthStep] = useState('login');
   
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    username: ''
-  });
+  // Separate state for each form field to prevent re-render issues
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  
   const [phoneNumber, setPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [profileData, setProfileData] = useState({
@@ -108,8 +108,8 @@ function App() {
 
         <input
           type="email"
-          value={formData.email}
-          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
           style={{
             width: '100%',
@@ -125,8 +125,8 @@ function App() {
 
         <input
           type="password"
-          value={formData.password}
-          onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
           style={{
             width: '100%',
@@ -143,8 +143,8 @@ function App() {
         {authStep === 'register' && (
           <input
             type="text"
-            value={formData.username}
-            onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value.toUpperCase() }))}
+            value={username}
+            onChange={(e) => setUsername(e.target.value.toUpperCase())}
             placeholder="Username (JPR333)"
             maxLength={6}
             style={{
@@ -163,8 +163,8 @@ function App() {
         <button 
           onClick={() => {
             // Use the actual username they entered, or their email as fallback
-            const displayUsername = formData.username || formData.email.split('@')[0].toUpperCase();
-            setUser({ email: formData.email, username: displayUsername });
+            const displayUsername = username || email.split('@')[0].toUpperCase();
+            setUser({ email: email, username: displayUsername });
             setMessage('Login successful! Now let\'s set up BARD...');
             setTimeout(() => setCurrentView('profile'), 1000);
           }}
