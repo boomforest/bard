@@ -42,33 +42,66 @@ function App() {
 
   // Phone Authentication Component
   const PhoneAuth = () => (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center p-4">
-      <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 w-full max-w-md border border-white/20">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">FKA BARD</h1>
-          <p className="text-purple-200">Connect artists with their fans</p>
-        </div>
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#f5f5dc',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1rem'
+    }}>
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: '25px',
+        padding: '2rem',
+        width: '100%',
+        maxWidth: '400px',
+        textAlign: 'center',
+        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h1 style={{
+          fontSize: '2.5rem',
+          fontWeight: 'bold',
+          margin: '0 0 0.5rem 0',
+          color: '#d2691e'
+        }}>
+          FKA BARD
+        </h1>
+        <p style={{ color: '#8b4513', margin: '0 0 2rem 0' }}>Artist-Fan Connection</p>
 
         {authStep === 'phone' && (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-white text-sm font-medium mb-2">
-                Phone Number
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-300 w-5 h-5" />
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+1 (555) 123-4567"
-                  className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:border-purple-400"
-                />
-              </div>
-            </div>
-            <button
+          <div style={{ marginBottom: '1.5rem' }}>
+            <input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="Phone Number"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                border: '2px solid #e0e0e0',
+                borderRadius: '15px',
+                marginBottom: '1rem',
+                boxSizing: 'border-box',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+            />
+            <button 
               onClick={() => setAuthStep('verify')}
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '15px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '1rem',
+                boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
+              }}
             >
               Send Verification Code
             </button>
@@ -76,29 +109,54 @@ function App() {
         )}
 
         {authStep === 'verify' && (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-white text-sm font-medium mb-2">
-                Verification Code
-              </label>
-              <input
-                type="text"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
-                placeholder="123456"
-                className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:border-purple-400 text-center text-2xl tracking-widest"
-                maxLength={6}
-              />
-            </div>
-            <button
+          <div style={{ marginBottom: '1.5rem' }}>
+            <input
+              type="text"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              placeholder="Enter 6-digit code"
+              maxLength={6}
+              style={{
+                width: '100%',
+                padding: '1rem',
+                border: '2px solid #e0e0e0',
+                borderRadius: '15px',
+                marginBottom: '1rem',
+                boxSizing: 'border-box',
+                fontSize: '1.2rem',
+                textAlign: 'center',
+                outline: 'none',
+                letterSpacing: '0.2em'
+              }}
+            />
+            <button 
               onClick={() => setAuthStep('profile')}
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '15px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '1rem',
+                marginBottom: '1rem',
+                boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
+              }}
             >
               Verify Code
             </button>
             <button
               onClick={() => setAuthStep('phone')}
-              className="w-full text-purple-300 text-sm hover:text-white transition-colors"
+              style={{
+                width: '100%',
+                background: 'transparent',
+                color: '#8b4513',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
             >
               ← Back to phone number
             </button>
@@ -106,29 +164,37 @@ function App() {
         )}
 
         {authStep === 'profile' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-3">
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
               <button
                 onClick={() => setProfileData({...profileData, userType: 'fan'})}
-                className={`p-4 rounded-xl border-2 transition-all text-center ${
-                  profileData.userType === 'fan' 
-                    ? 'border-purple-400 bg-purple-500/20 text-white' 
-                    : 'border-white/30 text-purple-300 hover:border-purple-400'
-                }`}
+                style={{
+                  padding: '1rem',
+                  borderRadius: '15px',
+                  border: profileData.userType === 'fan' ? '2px solid #d2691e' : '2px solid #e0e0e0',
+                  background: profileData.userType === 'fan' ? 'rgba(210, 105, 30, 0.1)' : 'white',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  color: profileData.userType === 'fan' ? '#d2691e' : '#8b4513'
+                }}
               >
-                <Users className="w-8 h-8 mx-auto mb-2" />
-                <div className="font-semibold">Fan</div>
+                <Users style={{ width: '2rem', height: '2rem', margin: '0 auto 0.5rem auto', display: 'block' }} />
+                <div style={{ fontWeight: '600' }}>Fan</div>
               </button>
               <button
                 onClick={() => setProfileData({...profileData, userType: 'artist'})}
-                className={`p-4 rounded-xl border-2 transition-all text-center ${
-                  profileData.userType === 'artist' 
-                    ? 'border-purple-400 bg-purple-500/20 text-white' 
-                    : 'border-white/30 text-purple-300 hover:border-purple-400'
-                }`}
+                style={{
+                  padding: '1rem',
+                  borderRadius: '15px',
+                  border: profileData.userType === 'artist' ? '2px solid #d2691e' : '2px solid #e0e0e0',
+                  background: profileData.userType === 'artist' ? 'rgba(210, 105, 30, 0.1)' : 'white',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  color: profileData.userType === 'artist' ? '#d2691e' : '#8b4513'
+                }}
               >
-                <MapPin className="w-8 h-8 mx-auto mb-2" />
-                <div className="font-semibold">Artist</div>
+                <MapPin style={{ width: '2rem', height: '2rem', margin: '0 auto 0.5rem auto', display: 'block' }} />
+                <div style={{ fontWeight: '600' }}>Artist</div>
               </button>
             </div>
             
@@ -137,7 +203,16 @@ function App() {
               value={profileData.displayName}
               onChange={(e) => setProfileData({...profileData, displayName: e.target.value})}
               placeholder="Display Name"
-              className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:border-purple-400"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                border: '2px solid #e0e0e0',
+                borderRadius: '15px',
+                marginBottom: '1rem',
+                boxSizing: 'border-box',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
             />
 
             {profileData.userType === 'artist' && (
@@ -146,27 +221,39 @@ function App() {
                 value={profileData.artistName}
                 onChange={(e) => setProfileData({...profileData, artistName: e.target.value})}
                 placeholder="Artist/Band Name"
-                className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:border-purple-400"
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '15px',
+                  marginBottom: '1rem',
+                  boxSizing: 'border-box',
+                  fontSize: '1rem',
+                  outline: 'none'
+                }}
               />
             )}
-
-            <textarea
-              value={profileData.bio}
-              onChange={(e) => setProfileData({...profileData, bio: e.target.value})}
-              placeholder="Tell us about yourself..."
-              rows={3}
-              className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:border-purple-400 resize-none"
-            />
 
             <button
               onClick={() => {
                 setUser({ phone: phoneNumber, ...profileData });
                 setUserType(profileData.userType);
-                setCurrentView('dashboard');
+                setCurrentView('location');
               }}
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '15px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '1rem',
+                boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
+              }}
             >
-              Complete Setup
+              Continue
             </button>
           </div>
         )}
@@ -174,7 +261,138 @@ function App() {
     </div>
   );
 
-  // Fan Dashboard
+  // Location Setup Component
+  const LocationSetup = () => {
+    const [zipCode, setZipCode] = useState('');
+    const [city, setCity] = useState('');
+    const [state, setState] = useState('');
+
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#f5f5dc',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem'
+      }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          borderRadius: '25px',
+          padding: '2rem',
+          width: '100%',
+          maxWidth: '400px',
+          textAlign: 'center',
+          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h1 style={{
+            fontSize: '2rem',
+            fontWeight: 'bold',
+            margin: '0 0 0.5rem 0',
+            color: '#d2691e'
+          }}>
+            Set Your Location
+          </h1>
+          <p style={{ color: '#8b4513', margin: '0 0 2rem 0', fontSize: '0.9rem' }}>
+            Help artists find fans in your area
+          </p>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <input
+              type="text"
+              value={zipCode}
+              onChange={(e) => setZipCode(e.target.value)}
+              placeholder="Zip Code"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                border: '2px solid #e0e0e0',
+                borderRadius: '15px',
+                marginBottom: '1rem',
+                boxSizing: 'border-box',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+            />
+
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                border: '2px solid #e0e0e0',
+                borderRadius: '15px',
+                marginBottom: '1rem',
+                boxSizing: 'border-box',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+            />
+
+            <input
+              type="text"
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              placeholder="State"
+              style={{
+                width: '100%',
+                padding: '1rem',
+                border: '2px solid #e0e0e0',
+                borderRadius: '15px',
+                marginBottom: '1rem',
+                boxSizing: 'border-box',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+            />
+
+            <div style={{
+              backgroundColor: '#f0f8ff',
+              padding: '1rem',
+              borderRadius: '10px',
+              marginBottom: '1.5rem',
+              border: '1px solid #e0e6ed'
+            }}>
+              <p style={{
+                margin: '0',
+                fontSize: '0.8rem',
+                color: '#4a5568',
+                lineHeight: '1.4'
+              }}>
+                🔒 We don't collect or sell your information. We need your phone because BARD only works with push notifications. You will only ever receive notifications from artists you follow.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                // Save location data
+                setUser({...user, zipCode, city, state});
+                setCurrentView('dashboard');
+              }}
+              style={{
+                width: '100%',
+                padding: '1rem',
+                background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '15px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '1rem',
+                boxShadow: '0 4px 15px rgba(210, 105, 30, 0.3)'
+              }}
+            >
+              Continue to BARD
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const FanDashboard = () => (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -568,6 +786,10 @@ function App() {
   // Main render logic
   if (!user || currentView === 'auth') {
     return <PhoneAuth />;
+  }
+
+  if (currentView === 'location') {
+    return <LocationSetup />;
   }
 
   if (currentView === 'compose' && userType === 'artist') {
