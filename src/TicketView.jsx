@@ -245,7 +245,7 @@ export default function TicketView() {
           <img
             src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nonlinear%20outline.svg"
             alt="Nonlinear"
-            style={{ width: '180px', display: 'block', margin: '0 auto 1rem auto', filter: 'brightness(0) invert(1)' }}
+            style={{ width: '100%', display: 'block', margin: '0 auto 1rem auto', filter: 'brightness(0) invert(1)' }}
           />
 
           <h1 style={{
@@ -354,8 +354,8 @@ export default function TicketView() {
             qrStyle="dots"
             eyeRadius={6}
             logoImage={whiteNlnrLogo || 'https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg'}
-            logoWidth={48}
-            logoHeight={48}
+            logoWidth={80}
+            logoHeight={80}
             logoOpacity={1}
             removeQrCodeBehindLogo={true}
             level="H"

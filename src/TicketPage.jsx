@@ -225,7 +225,7 @@ export default function TicketPage() {
           <img
             src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nonlinear%20outline.svg"
             alt="Nonlinear"
-            style={{ width: '220px', display: 'block', margin: '0 auto 0.25rem auto', filter: 'brightness(0) invert(1)' }}
+            style={{ width: '100%', display: 'block', margin: '0 auto 0.25rem auto', filter: 'brightness(0) invert(1)' }}
           />
           <div style={{ width: '60px', height: '2px', background: '#d2691e', margin: '1rem auto' }} />
           <div style={{ color: '#e8d5b0', fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>
