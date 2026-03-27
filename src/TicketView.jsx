@@ -205,6 +205,17 @@ export default function TicketView() {
             pointerEvents: 'none',
           }} />
 
+          <img
+            src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/ticket-1757348111626.jpg"
+            alt="Nonlinear"
+            style={{
+              width: '100%',
+              borderRadius: '12px',
+              marginBottom: '1rem',
+              display: 'block',
+            }}
+          />
+
           <div style={{
             fontSize: '0.65rem',
             letterSpacing: '0.3em',
