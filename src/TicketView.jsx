@@ -232,7 +232,7 @@ export default function TicketView() {
           <img
             src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nonlinear%20outline.svg"
             alt="Nonlinear"
-            style={{ width: '180px', display: 'block', margin: '0 auto 1rem auto' }}
+            style={{ width: '180px', display: 'block', margin: '0 auto 1rem auto', filter: 'brightness(0) invert(1)' }}
           />
 
           <h1 style={{
@@ -343,7 +343,7 @@ export default function TicketView() {
             logoImage="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg"
             logoWidth={36}
             logoHeight={36}
-            logoOpacity={1}
+            logoOpacity={0.2}
             removeQrCodeBehindLogo={true}
             level="H"
             style={{ display: 'block', margin: '0 auto 1rem auto' }}
