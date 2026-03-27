@@ -22,6 +22,19 @@ export default function TicketView() {
   const [revealed, setRevealed] = useState(isAddressRevealed());
   const [tearing, setTearing] = useState(false);
   const [tornCount, setTornCount] = useState(null);
+  const [whiteNlnrLogo, setWhiteNlnrLogo] = useState(null);
+
+  useEffect(() => {
+    fetch('https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg')
+      .then(r => r.text())
+      .then(svg => {
+        const white = svg
+          .replace(/fill="#000000"/gi, 'fill="#ffffff"')
+          .replace(/fill="black"/gi, 'fill="#ffffff"');
+        setWhiteNlnrLogo('data:image/svg+xml;base64,' + btoa(white));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (ticketId) fetchTicket();
@@ -340,10 +353,10 @@ export default function TicketView() {
             fgColor="#d2691e"
             qrStyle="dots"
             eyeRadius={6}
-            logoImage="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg"
-            logoWidth={36}
-            logoHeight={36}
-            logoOpacity={0.2}
+            logoImage={whiteNlnrLogo || 'https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg'}
+            logoWidth={48}
+            logoHeight={48}
+            logoOpacity={1}
             removeQrCodeBehindLogo={true}
             level="H"
             style={{ display: 'block', margin: '0 auto 1rem auto' }}
