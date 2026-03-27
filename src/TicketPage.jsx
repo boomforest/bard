@@ -56,16 +56,22 @@ export default function TicketPage() {
   // ---------------------------------------------------------------
   // Stub email confirmation — replace with Resend / SendGrid later
   // ---------------------------------------------------------------
-  const sendConfirmationEmail = (ticketIds, purchaserName, purchaserEmail, qty) => {
-    console.log('=== EMAIL STUB ===');
-    console.log(`To: ${purchaserEmail}`);
-    console.log(`Subject: Your Nonlinear Tickets — April 11`);
-    console.log(`Hi ${purchaserName}, here are your ${qty} ticket(s):`);
-    ticketIds.forEach((id, i) => {
-      console.log(`  Ticket ${i + 1}: ${window.location.origin}/t/${id}`);
-    });
-    console.log('=================');
-    // TODO: Replace with real email service (Resend, SendGrid, etc.)
+  const sendConfirmationEmail = async (ticketIds, purchaserName, purchaserEmail, qty) => {
+    try {
+      await fetch('/.netlify/functions/send-ticket-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: purchaserEmail,
+          name: purchaserName,
+          ticketIds,
+          quantity: qty,
+          origin: window.location.origin
+        })
+      })
+    } catch (err) {
+      console.error('Email send failed:', err)
+    }
   };
 
   // ---------------------------------------------------------------
@@ -156,7 +162,7 @@ export default function TicketPage() {
 
       sendConfirmationEmail(ticketIds, name, email, quantity);
 
-      setMessage(`Payment successful! Check your console for ticket links. (Stripe mock — real charges activate once key is added)`);
+      setMessage(`You're in! Check your email for your ticket link${quantity > 1 ? 's' : ''}.`);
       setMessageType('success');
 
       // In production with Stripe key, redirect to Stripe Checkout like:
