@@ -359,8 +359,8 @@ export default function TicketView() {
             qrStyle="dots"
             eyeRadius={6}
             logoImage={whiteNlnrLogo || 'https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg'}
-            logoWidth={80}
-            logoHeight={80}
+            logoWidth={28}
+            logoHeight={28}
             logoOpacity={0.75}
             removeQrCodeBehindLogo={true}
             level="L"
