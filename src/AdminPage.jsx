@@ -1,58 +1,157 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
+const ADMIN_EMAIL = 'jproney@gmail.com'
+
+function LoginGate({ onLogin }) {
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSend = async () => {
+    setSending(true)
+    setError('')
+    const { error } = await supabase.auth.signInWithOtp({
+      email: ADMIN_EMAIL,
+      options: { emailRedirectTo: window.location.href },
+    })
+    if (error) {
+      setError(error.message)
+    } else {
+      setSent(true)
+    }
+    setSending(false)
+  }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#f5f5dc',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: 'system-ui, sans-serif',
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '20px',
+        padding: '2.5rem',
+        maxWidth: '360px',
+        width: '100%',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+        textAlign: 'center',
+      }}>
+        <div style={{ color: '#d2691e', fontSize: '1.5rem', fontWeight: '800', marginBottom: '0.5rem' }}>
+          Nonlinear Admin
+        </div>
+        <div style={{ color: '#8b4513', fontSize: '0.9rem', marginBottom: '2rem' }}>
+          April 11, 2026
+        </div>
+        {sent ? (
+          <div style={{ color: '#4caf50', fontSize: '0.95rem', lineHeight: 1.6 }}>
+            Magic link sent to<br />
+            <strong>{ADMIN_EMAIL}</strong><br /><br />
+            Check your email and click the link to log in.
+          </div>
+        ) : (
+          <>
+            <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              Send a magic link to <strong>{ADMIN_EMAIL}</strong>
+            </p>
+            <button
+              onClick={handleSend}
+              disabled={sending}
+              style={{
+                width: '100%',
+                padding: '0.9rem',
+                background: sending ? '#ccc' : 'linear-gradient(45deg, #d2691e, #cd853f)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: sending ? 'not-allowed' : 'pointer',
+                fontWeight: '700',
+                fontSize: '1rem',
+              }}
+            >
+              {sending ? 'Sending...' : 'Send Magic Link'}
+            </button>
+            {error && (
+              <div style={{ color: '#cc2200', fontSize: '0.85rem', marginTop: '1rem' }}>{error}</div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function AdminPage() {
-  const [tickets, setTickets] = useState([]);
-  const [followers, setFollowers] = useState([]);
-  const [event, setEvent] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [copyMsg, setCopyMsg] = useState('');
+  const [session, setSession] = useState(undefined) // undefined = loading
+  const [tickets, setTickets] = useState([])
+  const [followers, setFollowers] = useState([])
+  const [event, setEvent] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [copyMsg, setCopyMsg] = useState('')
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setSession(session))
+    return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (session?.user?.email === ADMIN_EMAIL) fetchData()
+  }, [session])
 
   const fetchData = async () => {
-    setLoading(true);
-
+    setLoading(true)
     const [{ data: ticketData }, { data: followerData }, { data: eventData }] = await Promise.all([
       supabase.from('tickets').select('*').order('ticket_number', { ascending: true }),
       supabase.from('followers').select('*').eq('artist_id', 'nonlinear').order('created_at', { ascending: true }),
       supabase.from('events').select('*').eq('artist_name', 'Nonlinear').single(),
-    ]);
-
-    setTickets(ticketData || []);
-    setFollowers(followerData || []);
-    setEvent(eventData || null);
-    setLoading(false);
-  };
+    ])
+    setTickets(ticketData || [])
+    setFollowers(followerData || [])
+    setEvent(eventData || null)
+    setLoading(false)
+  }
 
   const copyToClipboard = async (text, label) => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopyMsg(`${label} copied!`);
-      setTimeout(() => setCopyMsg(''), 2500);
+      await navigator.clipboard.writeText(text)
+      setCopyMsg(`${label} copied!`)
+      setTimeout(() => setCopyMsg(''), 2500)
     } catch {
-      setCopyMsg('Copy failed — check browser permissions');
-      setTimeout(() => setCopyMsg(''), 2500);
+      setCopyMsg('Copy failed — check browser permissions')
+      setTimeout(() => setCopyMsg(''), 2500)
     }
-  };
+  }
 
-  const allPurchaserEmails = [...new Set(tickets.map(t => t.email))].join(', ');
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+  }
+
+  // Loading auth state
+  if (session === undefined) return null
+
+  // Not logged in or wrong account
+  if (!session || session.user?.email !== ADMIN_EMAIL) {
+    return <LoginGate />
+  }
+
+  const allPurchaserEmails = [...new Set(tickets.map(t => t.email))].join(', ')
   const followerEmails = [...new Set(
     tickets.filter(t => t.follow_nonlinear).map(t => t.email)
-  )].join(', ');
+  )].join(', ')
 
-  const ticketsSold = event?.tickets_sold || tickets.length;
-  const capacity = event?.capacity || 250;
+  const ticketsSold = event?.tickets_sold || tickets.length
+  const capacity = event?.capacity || 250
 
-  // Calculate revenue: sum ticket_number * price per ticket (approximate — we don't store price per ticket)
-  // Use early bird threshold (April 7 2026 06:00 UTC)
-  const EARLY_BIRD_ENDS_UTC = new Date('2026-04-07T06:00:00Z');
+  const EARLY_BIRD_ENDS_UTC = new Date('2026-04-07T06:00:00Z')
   const totalRevenueMXN = tickets.reduce((sum, t) => {
-    const price = new Date(t.created_at) < EARLY_BIRD_ENDS_UTC ? 400 : 500;
-    return sum + price * t.quantity;
-  }, 0);
+    const price = new Date(t.created_at) < EARLY_BIRD_ENDS_UTC ? 400 : 500
+    return sum + price * t.quantity
+  }, 0)
 
   const s = {
     page: {
@@ -68,18 +167,8 @@ export default function AdminPage() {
       marginBottom: '1.5rem',
       boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
     },
-    h1: {
-      color: '#d2691e',
-      fontSize: '2rem',
-      fontWeight: '800',
-      margin: '0 0 0.25rem 0',
-    },
-    h2: {
-      color: '#8b4513',
-      fontSize: '1.1rem',
-      fontWeight: '700',
-      margin: '0 0 1rem 0',
-    },
+    h1: { color: '#d2691e', fontSize: '2rem', fontWeight: '800', margin: '0 0 0.25rem 0' },
+    h2: { color: '#8b4513', fontSize: '1.1rem', fontWeight: '700', margin: '0 0 1rem 0' },
     btn: {
       padding: '0.6rem 1.2rem',
       background: 'linear-gradient(45deg, #d2691e, #cd853f)',
@@ -103,57 +192,32 @@ export default function AdminPage() {
       marginBottom: '0.75rem',
       textAlign: 'center',
     },
-    statNum: {
-      fontSize: '1.8rem',
-      fontWeight: '800',
-      color: '#d2691e',
-      display: 'block',
-      lineHeight: 1,
-    },
-    statLabel: {
-      fontSize: '0.75rem',
-      color: '#8b4513',
-      textTransform: 'uppercase',
-      letterSpacing: '0.08em',
-      marginTop: '0.25rem',
-      display: 'block',
-    },
-    table: {
-      width: '100%',
-      borderCollapse: 'collapse',
-      fontSize: '0.875rem',
-    },
-    th: {
-      textAlign: 'left',
-      padding: '0.6rem 0.75rem',
-      color: '#8b4513',
-      fontWeight: '600',
-      fontSize: '0.75rem',
-      textTransform: 'uppercase',
-      letterSpacing: '0.05em',
-      borderBottom: '2px solid #e8d5b0',
-    },
-    td: {
-      padding: '0.6rem 0.75rem',
-      borderBottom: '1px solid #f0e8d8',
-      color: '#4a2800',
-      verticalAlign: 'middle',
-    },
-  };
+    statNum: { fontSize: '1.8rem', fontWeight: '800', color: '#d2691e', display: 'block', lineHeight: 1 },
+    statLabel: { fontSize: '0.75rem', color: '#8b4513', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.25rem', display: 'block' },
+    table: { width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' },
+    th: { textAlign: 'left', padding: '0.6rem 0.75rem', color: '#8b4513', fontWeight: '600', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '2px solid #e8d5b0' },
+    td: { padding: '0.6rem 0.75rem', borderBottom: '1px solid #f0e8d8', color: '#4a2800', verticalAlign: 'middle' },
+  }
 
   return (
     <div style={s.page}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
 
-        {/* Header */}
-        <div style={{ ...s.card, paddingBottom: '1rem' }}>
-          <h1 style={s.h1}>Nonlinear — Admin</h1>
-          <p style={{ color: '#8b4513', margin: '0', fontSize: '0.9rem' }}>
-            April 11, 2026 — 10PM–Sunrise — Mexico City
-          </p>
+        <div style={{ ...s.card, paddingBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={s.h1}>Nonlinear — Admin</h1>
+            <p style={{ color: '#8b4513', margin: '0', fontSize: '0.9rem' }}>
+              April 11, 2026 — 10PM–Sunrise — Mexico City
+            </p>
+          </div>
+          <button
+            onClick={handleLogout}
+            style={{ ...s.btn, background: '#888', marginBottom: 0 }}
+          >
+            Log Out
+          </button>
         </div>
 
-        {/* Stats */}
         <div style={s.card}>
           <h2 style={s.h2}>Overview</h2>
           {loading ? (
@@ -180,7 +244,6 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* Email tools */}
         <div style={s.card}>
           <h2 style={s.h2}>Email Lists</h2>
           <button style={s.btn} onClick={() => copyToClipboard(allPurchaserEmails, 'All purchaser emails')}>
@@ -208,7 +271,6 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* Ticket table */}
         <div style={s.card}>
           <h2 style={s.h2}>Tickets ({tickets.length})</h2>
           {loading ? (
@@ -232,9 +294,7 @@ export default function AdminPage() {
                 <tbody>
                   {tickets.map(t => (
                     <tr key={t.id}>
-                      <td style={{ ...s.td, fontWeight: '700', color: '#d2691e' }}>
-                        {t.ticket_number}
-                      </td>
+                      <td style={{ ...s.td, fontWeight: '700', color: '#d2691e' }}>{t.ticket_number}</td>
                       <td style={s.td}>{t.name}</td>
                       <td style={{ ...s.td, fontSize: '0.8rem', wordBreak: 'break-all' }}>{t.email}</td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{t.quantity}</td>
@@ -246,22 +306,8 @@ export default function AdminPage() {
                       </td>
                       <td style={s.td}>
                         {t.torn
-                          ? <span style={{
-                            background: '#cc2200',
-                            color: 'white',
-                            padding: '0.2rem 0.6rem',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: '700',
-                          }}>TORN</span>
-                          : <span style={{
-                            background: 'rgba(76,175,80,0.15)',
-                            color: '#4caf50',
-                            padding: '0.2rem 0.6rem',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                          }}>VALID</span>
+                          ? <span style={{ background: '#cc2200', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700' }}>TORN</span>
+                          : <span style={{ background: 'rgba(76,175,80,0.15)', color: '#4caf50', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600' }}>VALID</span>
                         }
                       </td>
                       <td style={{ ...s.td, fontSize: '0.78rem', color: '#8b4513' }}>
@@ -277,7 +323,6 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* Followers table */}
         <div style={s.card}>
           <h2 style={s.h2}>Followers / Mailing List ({followers.length})</h2>
           {loading ? (
@@ -302,9 +347,7 @@ export default function AdminPage() {
                       <td style={{ ...s.td, fontSize: '0.8rem', wordBreak: 'break-all' }}>{f.email}</td>
                       <td style={s.td}>{f.city}</td>
                       <td style={{ ...s.td, fontSize: '0.78rem', color: '#8b4513' }}>
-                        {new Date(f.created_at).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric',
-                        })}
+                        {new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </td>
                     </tr>
                   ))}
@@ -316,5 +359,5 @@ export default function AdminPage() {
 
       </div>
     </div>
-  );
+  )
 }
