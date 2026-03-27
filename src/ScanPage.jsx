@@ -15,7 +15,6 @@ export default function ScanPage() {
 
   const startScanner = async () => {
     setResult(null)
-    setDebugMsg('Requesting camera...')
     handledRef.current = false
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
