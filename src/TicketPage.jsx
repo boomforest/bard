@@ -222,16 +222,11 @@ export default function TicketPage() {
           <div style={{ fontSize: '0.75rem', letterSpacing: '0.25em', color: '#cd853f', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
             Secret Show
           </div>
-          <h1 style={{
-            fontSize: '3rem',
-            fontWeight: '900',
-            color: '#fff',
-            margin: '0 0 0.25rem 0',
-            letterSpacing: '-0.02em',
-            lineHeight: 1,
-          }}>
-            NONLINEAR
-          </h1>
+          <img
+            src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nonlinear%20outline.svg"
+            alt="Nonlinear"
+            style={{ width: '220px', display: 'block', margin: '0 auto 0.25rem auto', filter: 'brightness(0) invert(1)' }}
+          />
           <div style={{ width: '60px', height: '2px', background: '#d2691e', margin: '1rem auto' }} />
           <div style={{ color: '#e8d5b0', fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>
             April 11, 2026
@@ -492,7 +487,7 @@ export default function TicketPage() {
                           const tickets = await createTicketsInSupabase(paypalOrderId);
                           const ticketIds = tickets.map(t => t.id);
                           await sendConfirmationEmail(ticketIds, name, email, quantity);
-                          setMessage(`Payment successful via PayPal! Check your console for ticket links.`);
+                          setMessage(`You're in! Check your email for your ticket link${quantity > 1 ? 's' : ''}.`);
                           setMessageType('success');
                         } catch (err) {
                           setMessage(`PayPal payment failed: ${err.message}`);
