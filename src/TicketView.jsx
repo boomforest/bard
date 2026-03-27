@@ -361,7 +361,7 @@ export default function TicketView() {
             logoImage={whiteNlnrLogo || 'https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg'}
             logoWidth={80}
             logoHeight={80}
-            logoOpacity={1}
+            logoOpacity={0.75}
             removeQrCodeBehindLogo={true}
             level="L"
             style={{ display: 'block', margin: '0 auto 1rem auto' }}
