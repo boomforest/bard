@@ -17,23 +17,26 @@ export default function ScanPage() {
       .then(({ data }) => { if (data) setEventId(data.id) })
   }, [])
 
-  const startScanner = async () => {
+  const startScanner = () => {
     setResult(null)
     setScanning(true)
+    // actual camera start happens in useEffect once DOM has updated with the visible div
+  }
+
+  useEffect(() => {
+    if (!scanning) return
     const qr = new Html5Qrcode('qr-reader')
     html5QrRef.current = qr
-    try {
-      await qr.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
-        (text) => handleScan(text, qr),
-        () => {}
-      )
-    } catch (err) {
+    qr.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 220, height: 220 } },
+      (text) => handleScan(text),
+      () => {}
+    ).catch(() => {
       setScanning(false)
       setResult({ status: 'error', message: 'Camera access denied. Check browser permissions.' })
-    }
-  }
+    })
+  }, [scanning])
 
   const stopScanner = async () => {
     if (html5QrRef.current) {
@@ -43,7 +46,7 @@ export default function ScanPage() {
     setScanning(false)
   }
 
-  const handleScan = async (text, qr) => {
+  const handleScan = async (text) => {
     await stopScanner()
     const ticketNumber = parseInt(text.trim(), 10)
     if (isNaN(ticketNumber)) {
