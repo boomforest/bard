@@ -7,6 +7,7 @@ export default function ScanPage() {
   const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState(null)
   const [admitting, setAdmitting] = useState(false)
+  const [debugMsg, setDebugMsg] = useState('')
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
@@ -15,17 +16,20 @@ export default function ScanPage() {
 
   const startScanner = async () => {
     setResult(null)
+    setDebugMsg('Requesting camera...')
     handledRef.current = false
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: { facingMode: { ideal: 'environment' } }
       })
       streamRef.current = stream
       videoRef.current.srcObject = stream
       await videoRef.current.play()
       setScanning(true)
+      setDebugMsg('Camera live — scanning...')
       tick()
-    } catch {
+    } catch (err) {
+      setDebugMsg('Camera error: ' + err.message)
       setResult({ status: 'error', message: 'Camera access denied. Check browser permissions.' })
     }
   }
@@ -33,20 +37,26 @@ export default function ScanPage() {
   const tick = () => {
     const video = videoRef.current
     const canvas = canvasRef.current
-    if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) {
+    if (!video || !canvas) {
+      setDebugMsg('No video/canvas ref')
+      return
+    }
+    if (video.readyState < 2) {
       rafRef.current = requestAnimationFrame(tick)
       return
     }
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
+    setDebugMsg(`Frame ${canvas.width}x${canvas.height} — scanning...`)
     const ctx = canvas.getContext('2d')
     ctx.drawImage(video, 0, 0)
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: 'dontInvert',
+      inversionAttempts: 'attemptBoth',
     })
     if (code && !handledRef.current) {
       handledRef.current = true
+      setDebugMsg('QR found: ' + code.data)
       stopScanner()
       handleScan(code.data)
     } else {
@@ -124,6 +134,12 @@ export default function ScanPage() {
 
         {/* Hidden canvas for frame processing */}
         <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+        {debugMsg ? (
+          <div style={{ color: '#555', fontSize: '0.75rem', textAlign: 'center', marginBottom: '0.75rem', fontFamily: 'monospace' }}>
+            {debugMsg}
+          </div>
+        ) : null}
 
         {/* Live camera feed */}
         <video
