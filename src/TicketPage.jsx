@@ -50,7 +50,7 @@ export default function TicketPage() {
     if (error) console.error('Could not load event:', error.message);
   };
 
-  const pricePerTicket = 0; // TEST MODE — set to earlyBird ? 400 : 500 before go-live
+  const pricePerTicket = 1; // TEST MODE — set to earlyBird ? 400 : 500 before go-live
   const totalPrice = pricePerTicket * quantity;
 
   // ---------------------------------------------------------------
@@ -426,7 +426,7 @@ export default function TicketPage() {
                   transition: 'all 0.2s',
                 }}
               >
-                {loading ? 'Processing...' : `Get ${quantity} Ticket${quantity > 1 ? 's' : ''} — FREE (Test Mode)`}
+                {loading ? 'Processing...' : `Get ${quantity} Ticket${quantity > 1 ? 's' : ''} — $${totalPrice} MXN`}
               </button>
 
               {/* PayPal divider + button */}
