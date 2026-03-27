@@ -7,6 +7,7 @@ export default function ScanPage() {
   const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState(null)
   const [admitting, setAdmitting] = useState(false)
+  const [manualInput, setManualInput] = useState('')
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
@@ -241,6 +242,44 @@ export default function ScanPage() {
             Cancel
           </button>
         )}
+
+        {/* Manual entry */}
+        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem' }}>
+          <input
+            type="number"
+            value={manualInput}
+            onChange={e => setManualInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && manualInput.trim()) {
+                handleScan(manualInput.trim())
+                setManualInput('')
+              }
+            }}
+            placeholder="Ticket #"
+            style={{
+              flex: 1, padding: '0.85rem 1rem',
+              background: '#1a1a1a', border: '1px solid #333',
+              borderRadius: '10px', color: '#fff', fontSize: '1rem',
+              outline: 'none',
+            }}
+          />
+          <button
+            onClick={() => {
+              if (manualInput.trim()) {
+                handleScan(manualInput.trim())
+                setManualInput('')
+              }
+            }}
+            style={{
+              padding: '0.85rem 1.25rem',
+              background: 'linear-gradient(45deg, #d2691e, #cd853f)',
+              color: 'white', border: 'none', borderRadius: '10px',
+              fontWeight: '700', fontSize: '1rem', cursor: 'pointer',
+            }}
+          >
+            Go
+          </button>
+        </div>
 
       </div>
     </div>
