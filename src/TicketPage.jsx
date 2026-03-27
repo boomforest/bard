@@ -87,34 +87,44 @@ export default function TicketPage() {
       .eq('id', eventData.id)
       .single();
 
-    const currentSold = freshEvent?.tickets_sold || 0;
-
-    if (currentSold + quantity > (freshEvent?.capacity || 250)) {
+    if ((freshEvent?.tickets_sold || 0) + quantity > (freshEvent?.capacity || 250)) {
       throw new Error('Sorry, not enough tickets remaining!');
     }
 
-    // Create one ticket row per ticket in the order
-    const ticketRows = Array.from({ length: quantity }, (_, i) => ({
-      event_id: eventData.id,
-      email,
-      name,
-      quantity: 1,
-      ticket_number: currentSold + i + 1,
-      stripe_payment_intent_id: paymentIntentId,
-      follow_nonlinear: followNonlinear,
-    }));
+    // Insert tickets one at a time to avoid number conflicts
+    const insertedTickets = [];
+    for (let i = 0; i < quantity; i++) {
+      const { data: countData } = await supabase
+        .from('tickets')
+        .select('ticket_number')
+        .eq('event_id', eventData.id)
+        .order('ticket_number', { ascending: false })
+        .limit(1);
 
-    const { data: insertedTickets, error: insertError } = await supabase
-      .from('tickets')
-      .insert(ticketRows)
-      .select('id, ticket_number');
+      const nextNumber = (countData?.[0]?.ticket_number || 0) + 1;
 
-    if (insertError) throw insertError;
+      const { data: ticket, error: insertError } = await supabase
+        .from('tickets')
+        .insert({
+          event_id: eventData.id,
+          email,
+          name,
+          quantity: 1,
+          ticket_number: nextNumber,
+          stripe_payment_intent_id: paymentIntentId,
+          follow_nonlinear: followNonlinear,
+        })
+        .select('id, ticket_number')
+        .single();
+
+      if (insertError) throw insertError;
+      insertedTickets.push(ticket);
+    }
 
     // Update tickets_sold count on event
     await supabase
       .from('events')
-      .update({ tickets_sold: currentSold + quantity })
+      .update({ tickets_sold: (freshEvent?.tickets_sold || 0) + quantity })
       .eq('id', eventData.id);
 
     // Optionally add to followers
