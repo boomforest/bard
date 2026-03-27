@@ -363,7 +363,7 @@ export default function TicketView() {
             logoHeight={80}
             logoOpacity={1}
             removeQrCodeBehindLogo={true}
-            level="H"
+            level="L"
             style={{ display: 'block', margin: '0 auto 1rem auto' }}
           />
 
