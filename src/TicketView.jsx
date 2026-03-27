@@ -20,6 +20,7 @@ export default function TicketView() {
   const [error, setError] = useState(null);
   const [revealed, setRevealed] = useState(isAddressRevealed());
   const [tearing, setTearing] = useState(false);
+  const [tornCount, setTornCount] = useState(null);
 
   useEffect(() => {
     if (ticketId) fetchTicket();
@@ -67,6 +68,13 @@ export default function TicketView() {
 
     if (!error) {
       setTicket(prev => ({ ...prev, torn: true, torn_at: new Date().toISOString() }));
+      // Fetch live torn count for this event
+      const { count } = await supabase
+        .from('tickets')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', ticket.event_id)
+        .eq('torn', true);
+      setTornCount(count);
     }
     setTearing(false);
   };
@@ -147,20 +155,35 @@ export default function TicketView() {
             backdropFilter: 'blur(1px)',
             pointerEvents: 'none',
           }}>
-            <div style={{
-              border: '4px solid #cc2200',
-              borderRadius: '8px',
-              padding: '0.6rem 1.8rem',
-              transform: 'rotate(-12deg)',
-              color: '#cc2200',
-              fontSize: '2.8rem',
-              fontWeight: '900',
-              letterSpacing: '0.08em',
-              textShadow: '0 0 20px rgba(204,34,0,0.6)',
-              boxShadow: '0 0 20px rgba(204,34,0,0.3)',
-              userSelect: 'none',
-            }}>
-              TORN
+            <div style={{ textAlign: 'center' }}>
+              <div style={{
+                border: '4px solid #cc2200',
+                borderRadius: '8px',
+                padding: '0.6rem 1.8rem',
+                transform: 'rotate(-12deg)',
+                color: '#cc2200',
+                fontSize: '2.8rem',
+                fontWeight: '900',
+                letterSpacing: '0.08em',
+                textShadow: '0 0 20px rgba(204,34,0,0.6)',
+                boxShadow: '0 0 20px rgba(204,34,0,0.3)',
+                userSelect: 'none',
+                display: 'inline-block',
+              }}>
+                TORN
+              </div>
+              {tornCount !== null && (
+                <div style={{
+                  color: '#cc2200',
+                  fontSize: '0.8rem',
+                  marginTop: '1rem',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  opacity: 0.8,
+                }}>
+                  #{tornCount} admitted tonight
+                </div>
+              )}
             </div>
           </div>
         )}
