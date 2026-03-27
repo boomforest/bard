@@ -30,7 +30,12 @@ export default function TicketView() {
       .then(svg => {
         const white = svg
           .replace(/fill="#000000"/gi, 'fill="#ffffff"')
-          .replace(/fill="black"/gi, 'fill="#ffffff"');
+          .replace(/fill="black"/gi, 'fill="#ffffff"')
+          // Remove fixed dimensions so it scales to the container
+          .replace(/width="2048px"/, 'width="100%"')
+          .replace(/height="1335px"/, 'height="100%"')
+          // Crop viewBox tight to just the letters (x:610-1420, y:490-820)
+          .replace('<svg ', '<svg viewBox="610 490 810 340" ');
         setWhiteNlnrLogo('data:image/svg+xml;base64,' + btoa(white));
       })
       .catch(() => {});
