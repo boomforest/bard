@@ -1,0 +1,275 @@
+import React, { useState, useEffect, useRef } from 'react'
+import { Html5Qrcode } from 'html5-qrcode'
+import { supabase } from './supabase'
+
+const EVENT_NAME = 'Nonlinear'
+
+export default function ScanPage() {
+  const [scanning, setScanning] = useState(false)
+  const [result, setResult] = useState(null) // { status, ticket }
+  const [admitting, setAdmitting] = useState(false)
+  const [eventId, setEventId] = useState(null)
+  const scannerRef = useRef(null)
+  const html5QrRef = useRef(null)
+
+  useEffect(() => {
+    supabase.from('events').select('id').eq('artist_name', EVENT_NAME).single()
+      .then(({ data }) => { if (data) setEventId(data.id) })
+  }, [])
+
+  const startScanner = async () => {
+    setResult(null)
+    setScanning(true)
+    const qr = new Html5Qrcode('qr-reader')
+    html5QrRef.current = qr
+    try {
+      await qr.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (text) => handleScan(text, qr),
+        () => {}
+      )
+    } catch (err) {
+      setScanning(false)
+      setResult({ status: 'error', message: 'Camera access denied. Check browser permissions.' })
+    }
+  }
+
+  const stopScanner = async () => {
+    if (html5QrRef.current) {
+      try { await html5QrRef.current.stop() } catch {}
+      html5QrRef.current = null
+    }
+    setScanning(false)
+  }
+
+  const handleScan = async (text, qr) => {
+    await stopScanner()
+    const ticketNumber = parseInt(text.trim(), 10)
+    if (isNaN(ticketNumber)) {
+      setResult({ status: 'error', message: `Unrecognized QR: "${text}"` })
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('*')
+      .eq('ticket_number', ticketNumber)
+      .eq('event_id', eventId)
+      .single()
+
+    if (error || !data) {
+      setResult({ status: 'not_found', ticketNumber })
+      return
+    }
+
+    setResult({ status: data.torn ? 'already_torn' : 'valid', ticket: data })
+  }
+
+  const handleAdmit = async () => {
+    if (!result?.ticket) return
+    setAdmitting(true)
+    const { error } = await supabase
+      .from('tickets')
+      .update({ torn: true, torn_at: new Date().toISOString() })
+      .eq('id', result.ticket.id)
+
+    if (!error) {
+      setResult(prev => ({ ...prev, status: 'admitted', ticket: { ...prev.ticket, torn: true } }))
+    }
+    setAdmitting(false)
+    // Auto-reset after 3 seconds so scanner is ready for next person
+    setTimeout(() => setResult(null), 3000)
+  }
+
+  const handleReset = () => {
+    stopScanner()
+    setResult(null)
+  }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#0d0d0d',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '2rem 1rem',
+      color: '#fff',
+    }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <img
+            src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nonlinear%20outline.svg"
+            alt="Nonlinear"
+            style={{ width: '160px', filter: 'brightness(0) invert(1)', marginBottom: '0.5rem' }}
+          />
+          <div style={{ color: '#cd853f', fontSize: '0.75rem', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+            Door Scanner
+          </div>
+        </div>
+
+        {/* QR reader container — always in DOM when scanning so html5-qrcode can attach */}
+        <div
+          id="qr-reader"
+          style={{
+            display: scanning ? 'block' : 'none',
+            width: '100%',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            marginBottom: '1rem',
+          }}
+        />
+
+        {/* Result card */}
+        {result && (
+          <div style={{
+            borderRadius: '16px',
+            padding: '1.75rem',
+            marginBottom: '1.5rem',
+            textAlign: 'center',
+            background:
+              result.status === 'valid' ? 'rgba(76,175,80,0.1)' :
+              result.status === 'admitted' ? 'rgba(76,175,80,0.2)' :
+              result.status === 'already_torn' ? 'rgba(204,34,0,0.15)' :
+              'rgba(255,100,50,0.1)',
+            border: `2px solid ${
+              result.status === 'valid' ? '#4caf50' :
+              result.status === 'admitted' ? '#4caf50' :
+              result.status === 'already_torn' ? '#cc2200' :
+              '#ff6432'
+            }`,
+          }}>
+            {result.status === 'valid' && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>✓</div>
+                <div style={{ color: '#4caf50', fontSize: '0.8rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+                  Valid Ticket
+                </div>
+                <div style={{ fontSize: '2rem', fontWeight: '900', color: '#d2691e', marginBottom: '0.25rem' }}>
+                  #{result.ticket.ticket_number}
+                </div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: '#fff', marginBottom: '1.5rem' }}>
+                  {result.ticket.name}
+                </div>
+                <button
+                  onClick={handleAdmit}
+                  disabled={admitting}
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    background: admitting ? '#333' : '#4caf50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '1.1rem',
+                    fontWeight: '800',
+                    letterSpacing: '0.05em',
+                    cursor: admitting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {admitting ? 'Admitting...' : 'ADMIT'}
+                </button>
+              </>
+            )}
+
+            {result.status === 'admitted' && (
+              <>
+                <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>🎉</div>
+                <div style={{ color: '#4caf50', fontSize: '1.2rem', fontWeight: '800', letterSpacing: '0.1em' }}>
+                  ADMITTED
+                </div>
+                <div style={{ color: '#888', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                  {result.ticket.name}
+                </div>
+              </>
+            )}
+
+            {result.status === 'already_torn' && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>⛔</div>
+                <div style={{ color: '#cc2200', fontSize: '1rem', fontWeight: '800', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+                  ALREADY ADMITTED
+                </div>
+                <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
+                  #{result.ticket.ticket_number} — {result.ticket.name}
+                </div>
+                {result.ticket.torn_at && (
+                  <div style={{ color: '#888', fontSize: '0.8rem' }}>
+                    Admitted at {new Date(result.ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {result.status === 'not_found' && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>❓</div>
+                <div style={{ color: '#ff6432', fontSize: '1rem', fontWeight: '800', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+                  TICKET NOT FOUND
+                </div>
+                <div style={{ color: '#888', fontSize: '0.85rem' }}>
+                  #{result.ticketNumber} doesn't match any ticket for this event.
+                </div>
+              </>
+            )}
+
+            {result.status === 'error' && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>⚠️</div>
+                <div style={{ color: '#ff6432', fontSize: '0.95rem', marginTop: '0.5rem' }}>
+                  {result.message}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Action buttons */}
+        {!scanning && (
+          <button
+            onClick={startScanner}
+            disabled={!eventId}
+            style={{
+              width: '100%',
+              padding: '1.1rem',
+              background: eventId ? 'linear-gradient(45deg, #d2691e, #cd853f)' : '#333',
+              color: 'white',
+              border: 'none',
+              borderRadius: '14px',
+              fontSize: '1.1rem',
+              fontWeight: '800',
+              letterSpacing: '0.05em',
+              cursor: eventId ? 'pointer' : 'not-allowed',
+              boxShadow: eventId ? '0 4px 20px rgba(210,105,30,0.4)' : 'none',
+            }}
+          >
+            {result ? 'Scan Next Ticket' : 'Start Scanning'}
+          </button>
+        )}
+
+        {scanning && (
+          <button
+            onClick={handleReset}
+            style={{
+              width: '100%',
+              padding: '1rem',
+              background: 'transparent',
+              color: '#888',
+              border: '1px solid #333',
+              borderRadius: '14px',
+              fontSize: '1rem',
+              cursor: 'pointer',
+              marginTop: '0.5rem',
+            }}
+          >
+            Cancel
+          </button>
+        )}
+
+      </div>
+    </div>
+  )
+}
