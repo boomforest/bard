@@ -1,0 +1,354 @@
+import React, { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
+import { supabase } from './supabase'
+
+// Mexico City timezone: UTC-6 (no DST)
+// Reveal time: midnight April 11 2026 CDMX = 2026-04-11T06:00:00Z
+const REVEAL_UTC = new Date('2026-04-11T06:00:00Z');
+const REAL_ADDRESS = 'Alvarez de Icaza 13';
+const HINT_ADDRESS = 'Less than 10 minutes from Condesa/Roma';
+
+function isAddressRevealed() {
+  return new Date() >= REVEAL_UTC;
+}
+
+export default function TicketView() {
+  const { ticketId } = useParams();
+  const [ticket, setTicket] = useState(null);
+  const [event, setEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [revealed, setRevealed] = useState(isAddressRevealed());
+  const [tearing, setTearing] = useState(false);
+
+  useEffect(() => {
+    if (ticketId) fetchTicket();
+  }, [ticketId]);
+
+  // Poll for reveal time if not yet revealed
+  useEffect(() => {
+    if (revealed) return;
+    const checkReveal = setInterval(() => {
+      if (isAddressRevealed()) {
+        setRevealed(true);
+        clearInterval(checkReveal);
+      }
+    }, 30000);
+    return () => clearInterval(checkReveal);
+  }, [revealed]);
+
+  const fetchTicket = async () => {
+    setLoading(true);
+    const { data: ticketData, error: ticketError } = await supabase
+      .from('tickets')
+      .select('*, events(*)')
+      .eq('id', ticketId)
+      .single();
+
+    if (ticketError || !ticketData) {
+      setError('Ticket not found. Check your link and try again.');
+      setLoading(false);
+      return;
+    }
+
+    setTicket(ticketData);
+    setEvent(ticketData.events);
+    setLoading(false);
+  };
+
+  const handleTear = async () => {
+    if (!ticket || ticket.torn || tearing) return;
+
+    setTearing(true);
+    const { error } = await supabase
+      .from('tickets')
+      .update({ torn: true, torn_at: new Date().toISOString() })
+      .eq('id', ticket.id);
+
+    if (!error) {
+      setTicket(prev => ({ ...prev, torn: true, torn_at: new Date().toISOString() }));
+    }
+    setTearing(false);
+  };
+
+  const capacity = event?.capacity || 250;
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0d0d0d',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#555',
+        fontFamily: 'system-ui, sans-serif',
+      }}>
+        Loading ticket...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0d0d0d',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem',
+        fontFamily: 'system-ui, sans-serif',
+      }}>
+        <div style={{
+          background: '#1a1a1a',
+          border: '1px solid #333',
+          borderRadius: '16px',
+          padding: '2rem',
+          textAlign: 'center',
+          maxWidth: '360px',
+        }}>
+          <div style={{ color: '#ff6b6b', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Ticket Not Found</div>
+          <div style={{ color: '#666', fontSize: '0.9rem' }}>{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(160deg, #0d0d0d 0%, #1a0800 60%, #0d0d0d 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2rem 1rem',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+    }}>
+
+      {/* Ticket card */}
+      <div style={{
+        width: '100%',
+        maxWidth: '360px',
+        position: 'relative',
+      }}>
+
+        {/* Torn overlay */}
+        {ticket?.torn && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '20px',
+            background: 'rgba(0,0,0,0.35)',
+            backdropFilter: 'blur(1px)',
+            pointerEvents: 'none',
+          }}>
+            <div style={{
+              border: '4px solid #cc2200',
+              borderRadius: '8px',
+              padding: '0.6rem 1.8rem',
+              transform: 'rotate(-12deg)',
+              color: '#cc2200',
+              fontSize: '2.8rem',
+              fontWeight: '900',
+              letterSpacing: '0.08em',
+              textShadow: '0 0 20px rgba(204,34,0,0.6)',
+              boxShadow: '0 0 20px rgba(204,34,0,0.3)',
+              userSelect: 'none',
+            }}>
+              TORN
+            </div>
+          </div>
+        )}
+
+        {/* Main ticket */}
+        <div style={{
+          background: 'linear-gradient(180deg, #1a0800 0%, #200e00 100%)',
+          border: '1px solid #4a2800',
+          borderRadius: '20px 20px 0 0',
+          padding: '2rem 1.75rem 1.5rem',
+          textAlign: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          {/* Background texture lines */}
+          <div style={{
+            position: 'absolute', inset: 0, opacity: 0.04,
+            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 20px, #fff 20px, #fff 21px)',
+            pointerEvents: 'none',
+          }} />
+
+          <div style={{
+            fontSize: '0.65rem',
+            letterSpacing: '0.3em',
+            color: '#cd853f',
+            textTransform: 'uppercase',
+            marginBottom: '1rem',
+          }}>
+            Secret Show — CDMX
+          </div>
+
+          <h1 style={{
+            fontSize: '2.8rem',
+            fontWeight: '900',
+            color: '#fff',
+            margin: '0 0 0.5rem 0',
+            letterSpacing: '-0.02em',
+            lineHeight: 1,
+          }}>
+            NONLINEAR
+          </h1>
+
+          <div style={{ width: '40px', height: '2px', background: '#d2691e', margin: '1rem auto' }} />
+
+          <div style={{ color: '#e8d5b0', fontSize: '1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
+            Friday, April 11 — 2026
+          </div>
+          <div style={{ color: '#cd853f', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+            10:00 PM — Sunrise
+          </div>
+
+          {/* Address reveal */}
+          <div style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '12px',
+            padding: '1rem',
+            marginBottom: '1rem',
+          }}>
+            {revealed ? (
+              <>
+                <div style={{ color: '#4caf50', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.4rem' }}>
+                  Address Revealed
+                </div>
+                <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: '700' }}>
+                  {REAL_ADDRESS}
+                </div>
+                <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                  Mexico City
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ color: '#cd853f', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.4rem' }}>
+                  Location
+                </div>
+                <div style={{ color: '#e8d5b0', fontSize: '0.95rem' }}>
+                  {HINT_ADDRESS}
+                </div>
+                <div style={{ color: '#555', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                  Full address revealed at midnight April 11
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Perforated tear line */}
+        <div style={{
+          background: '#0d0d0d',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 12px',
+          height: '24px',
+          position: 'relative',
+        }}>
+          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#0d0d0d', marginLeft: '-24px', flexShrink: 0 }} />
+          <div style={{
+            flex: 1,
+            borderTop: '2px dashed #2a1500',
+          }} />
+          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#0d0d0d', marginRight: '-24px', flexShrink: 0 }} />
+        </div>
+
+        {/* Ticket stub */}
+        <div style={{
+          background: 'linear-gradient(180deg, #1a0a00 0%, #130800 100%)',
+          border: '1px solid #4a2800',
+          borderTop: 'none',
+          borderRadius: '0 0 20px 20px',
+          padding: '1.25rem 1.75rem',
+          textAlign: 'center',
+          position: 'relative',
+        }}>
+          {/* Ticket number */}
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div style={{
+              fontSize: '1.4rem',
+              fontWeight: '900',
+              color: '#d2691e',
+              letterSpacing: '0.05em',
+            }}>
+              TICKET #{ticket?.ticket_number} <span style={{ color: '#444', fontWeight: '400', fontSize: '0.9rem' }}>of {capacity}</span>
+            </div>
+          </div>
+
+          {/* Name */}
+          <div style={{ color: '#888', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
+            Holder
+          </div>
+          <div style={{ color: '#e8d5b0', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>
+            {ticket?.name}
+          </div>
+
+          {/* UUID (shortened) */}
+          <div style={{ color: '#333', fontSize: '0.6rem', letterSpacing: '0.05em', marginBottom: '0.5rem', wordBreak: 'break-all' }}>
+            {ticket?.id}
+          </div>
+
+          {/* Invisible tear button — see spec: no label, no styling, 60x30px */}
+          {!ticket?.torn && (
+            <button
+              onClick={handleTear}
+              disabled={tearing}
+              aria-label="Tear ticket"
+              style={{
+                position: 'absolute',
+                bottom: '0',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '60px',
+                height: '30px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                outline: 'none',
+                padding: 0,
+              }}
+            />
+          )}
+        </div>
+
+        {/* Torn-at timestamp */}
+        {ticket?.torn && ticket?.torn_at && (
+          <div style={{
+            textAlign: 'center',
+            color: '#cc2200',
+            fontSize: '0.75rem',
+            marginTop: '0.75rem',
+            opacity: 0.7,
+          }}>
+            Torn at {new Date(ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City' })}
+          </div>
+        )}
+
+        {/* Instructions */}
+        {!ticket?.torn && (
+          <div style={{
+            textAlign: 'center',
+            color: '#2a1500',
+            fontSize: '0.7rem',
+            marginTop: '0.75rem',
+          }}>
+            Show this screen at the door
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
