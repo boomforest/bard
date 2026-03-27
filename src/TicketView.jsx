@@ -141,49 +141,62 @@ export default function TicketView() {
         position: 'relative',
       }}>
 
-        {/* Torn overlay */}
+        {/* Torn state — full replacement view */}
         {ticket?.torn && (
           <div style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             borderRadius: '20px',
-            background: 'rgba(0,0,0,0.35)',
-            backdropFilter: 'blur(1px)',
-            pointerEvents: 'none',
+            overflow: 'hidden',
+            position: 'relative',
           }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{
-                border: '4px solid #cc2200',
-                borderRadius: '8px',
-                padding: '0.6rem 1.8rem',
-                transform: 'rotate(-12deg)',
-                color: '#cc2200',
-                fontSize: '2.8rem',
-                fontWeight: '900',
-                letterSpacing: '0.08em',
-                textShadow: '0 0 20px rgba(204,34,0,0.6)',
-                boxShadow: '0 0 20px rgba(204,34,0,0.3)',
-                userSelect: 'none',
-                display: 'inline-block',
-              }}>
-                TORN
-              </div>
+            <img
+              src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/ticket-1757348111626.jpg"
+              alt="Nonlinear"
+              style={{ width: '100%', display: 'block' }}
+            />
+            {/* Big number overlay */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.55)',
+            }}>
               {tornCount !== null && (
                 <div style={{
-                  color: '#cc2200',
-                  fontSize: '0.8rem',
-                  marginTop: '1rem',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  opacity: 0.8,
+                  fontSize: '8rem',
+                  fontWeight: '900',
+                  color: '#fff',
+                  lineHeight: 1,
+                  textShadow: '0 0 40px rgba(210,105,30,0.9)',
                 }}>
-                  #{tornCount} admitted tonight
+                  {tornCount}
                 </div>
               )}
+              <div style={{
+                color: '#d2691e',
+                fontSize: '1rem',
+                fontWeight: '700',
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                marginTop: '0.5rem',
+              }}>
+                admitted tonight
+              </div>
+              <div style={{
+                border: '3px solid #cc2200',
+                borderRadius: '6px',
+                padding: '0.3rem 1.2rem',
+                color: '#cc2200',
+                fontSize: '1.4rem',
+                fontWeight: '900',
+                letterSpacing: '0.15em',
+                marginTop: '1.5rem',
+                textShadow: '0 0 10px rgba(204,34,0,0.6)',
+              }}>
+                ADMITTED
+              </div>
             </div>
           </div>
         )}
@@ -204,17 +217,6 @@ export default function TicketView() {
             backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 20px, #fff 20px, #fff 21px)',
             pointerEvents: 'none',
           }} />
-
-          <img
-            src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/ticket-1757348111626.jpg"
-            alt="Nonlinear"
-            style={{
-              width: '100%',
-              borderRadius: '12px',
-              marginBottom: '1rem',
-              display: 'block',
-            }}
-          />
 
           <div style={{
             fontSize: '0.65rem',
