@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from './supabase'
+import { QRCode } from 'react-qrcode-logo'
 
 // Mexico City timezone: UTC-6 (no DST)
 // Reveal time: midnight April 11 2026 CDMX = 2026-04-11T06:00:00Z
@@ -228,13 +229,20 @@ export default function TicketView() {
             Secret Show — CDMX
           </div>
 
+          <img
+            src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nonlinear%20outline.svg"
+            alt="Nonlinear"
+            style={{ width: '180px', display: 'block', margin: '0 auto 1rem auto' }}
+          />
+
           <h1 style={{
-            fontSize: '2.8rem',
-            fontWeight: '900',
-            color: '#fff',
+            fontSize: '1rem',
+            fontWeight: '700',
+            color: '#cd853f',
             margin: '0 0 0.5rem 0',
-            letterSpacing: '-0.02em',
+            letterSpacing: '0.3em',
             lineHeight: 1,
+            textTransform: 'uppercase',
           }}>
             NONLINEAR
           </h1>
@@ -323,6 +331,23 @@ export default function TicketView() {
               TICKET #{ticket?.ticket_number} <span style={{ color: '#444', fontWeight: '400', fontSize: '0.9rem' }}>of {capacity}</span>
             </div>
           </div>
+
+          {/* QR Code */}
+          <QRCode
+            value={`${window.location.origin}/t/${ticket?.id}`}
+            size={160}
+            bgColor="#130800"
+            fgColor="#d2691e"
+            qrStyle="dots"
+            eyeRadius={6}
+            logoImage="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg"
+            logoWidth={36}
+            logoHeight={36}
+            logoOpacity={1}
+            removeQrCodeBehindLogo={true}
+            level="H"
+            style={{ display: 'block', margin: '0 auto 1rem auto' }}
+          />
 
           {/* Name */}
           <div style={{ color: '#888', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
