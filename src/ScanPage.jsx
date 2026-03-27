@@ -2,26 +2,16 @@ import React, { useState, useEffect, useRef } from 'react'
 import jsQR from 'jsqr'
 import { supabase } from './supabase'
 
-const EVENT_NAME = 'Nonlinear'
 
 export default function ScanPage() {
   const [scanning, setScanning] = useState(false)
   const [result, setResult] = useState(null)
   const [admitting, setAdmitting] = useState(false)
-  const [eventId, setEventId] = useState(null)
-  const eventIdRef = useRef(null)
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
   const rafRef = useRef(null)
   const handledRef = useRef(false)
-
-  useEffect(() => {
-    supabase.from('events').select('id').eq('artist_name', EVENT_NAME).single()
-      .then(({ data }) => {
-        if (data) { setEventId(data.id); eventIdRef.current = data.id }
-      })
-  }, [])
 
   const startScanner = async () => {
     setResult(null)
@@ -83,7 +73,6 @@ export default function ScanPage() {
       .from('tickets')
       .select('*')
       .eq('ticket_number', ticketNumber)
-      .eq('event_id', eventIdRef.current)
       .single()
 
     if (error || !data) {
@@ -225,14 +214,13 @@ export default function ScanPage() {
         {!scanning && (
           <button
             onClick={startScanner}
-            disabled={!eventId}
             style={{
               width: '100%', padding: '1.1rem',
-              background: eventId ? 'linear-gradient(45deg, #d2691e, #cd853f)' : '#333',
+              background: 'linear-gradient(45deg, #d2691e, #cd853f)',
               color: 'white', border: 'none', borderRadius: '14px',
               fontSize: '1.1rem', fontWeight: '800', letterSpacing: '0.05em',
-              cursor: eventId ? 'pointer' : 'not-allowed',
-              boxShadow: eventId ? '0 4px 20px rgba(210,105,30,0.4)' : 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(210,105,30,0.4)',
             }}
           >
             {result ? 'Scan Next' : 'Start Scanning'}
