@@ -352,7 +352,7 @@ export default function TicketView() {
 
           {/* QR Code */}
           <QRCode
-            value={`${ticket?.ticket_number}`}
+            value={`${window.location.origin}/t/${ticket?.id}`}
             size={160}
             bgColor="#130800"
             fgColor="#d2691e"
