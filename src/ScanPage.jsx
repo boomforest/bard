@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Html5Qrcode } from 'html5-qrcode'
+import jsQR from 'jsqr'
 import { supabase } from './supabase'
 
 const EVENT_NAME = 'Nonlinear'
@@ -9,56 +9,76 @@ export default function ScanPage() {
   const [result, setResult] = useState(null)
   const [admitting, setAdmitting] = useState(false)
   const [eventId, setEventId] = useState(null)
-  const html5QrRef = useRef(null)
-  const eventIdRef = useRef(null) // ref so scanner callback always reads latest value
+  const eventIdRef = useRef(null)
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const streamRef = useRef(null)
+  const rafRef = useRef(null)
+  const handledRef = useRef(false)
 
   useEffect(() => {
     supabase.from('events').select('id').eq('artist_name', EVENT_NAME).single()
       .then(({ data }) => {
-        if (data) {
-          setEventId(data.id)
-          eventIdRef.current = data.id
-        }
+        if (data) { setEventId(data.id); eventIdRef.current = data.id }
       })
   }, [])
 
-  const startScanner = () => {
+  const startScanner = async () => {
     setResult(null)
-    setScanning(true)
-    // actual camera start happens in useEffect once DOM has updated with the visible div
+    handledRef.current = false
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      })
+      streamRef.current = stream
+      videoRef.current.srcObject = stream
+      await videoRef.current.play()
+      setScanning(true)
+      tick()
+    } catch {
+      setResult({ status: 'error', message: 'Camera access denied. Check browser permissions.' })
+    }
   }
 
-  useEffect(() => {
-    if (!scanning) return
-    const qr = new Html5Qrcode('qr-reader')
-    html5QrRef.current = qr
-    qr.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 220, height: 220 } },
-      (text) => handleScan(text),
-      () => {}
-    ).catch(() => {
-      setScanning(false)
-      setResult({ status: 'error', message: 'Camera access denied. Check browser permissions.' })
+  const tick = () => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) {
+      rafRef.current = requestAnimationFrame(tick)
+      return
+    }
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(video, 0, 0)
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'dontInvert',
     })
-  }, [scanning])
+    if (code && !handledRef.current) {
+      handledRef.current = true
+      stopScanner()
+      handleScan(code.data)
+    } else {
+      rafRef.current = requestAnimationFrame(tick)
+    }
+  }
 
-  const stopScanner = async () => {
-    if (html5QrRef.current) {
-      try { await html5QrRef.current.stop() } catch {}
-      html5QrRef.current = null
+  const stopScanner = () => {
+    cancelAnimationFrame(rafRef.current)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
     }
     setScanning(false)
   }
 
   const handleScan = async (text) => {
-    await stopScanner()
     const ticketNumber = parseInt(text.trim(), 10)
     if (isNaN(ticketNumber)) {
       setResult({ status: 'error', message: `Unrecognized QR: "${text}"` })
       return
     }
-
     const { data, error } = await supabase
       .from('tickets')
       .select('*')
@@ -70,7 +90,6 @@ export default function ScanPage() {
       setResult({ status: 'not_found', ticketNumber })
       return
     }
-
     setResult({ status: data.torn ? 'already_torn' : 'valid', ticket: data })
   }
 
@@ -81,19 +100,14 @@ export default function ScanPage() {
       .from('tickets')
       .update({ torn: true, torn_at: new Date().toISOString() })
       .eq('id', result.ticket.id)
-
     if (!error) {
-      setResult(prev => ({ ...prev, status: 'admitted', ticket: { ...prev.ticket, torn: true } }))
+      setResult(prev => ({ ...prev, status: 'admitted' }))
+      setTimeout(() => setResult(null), 3000)
     }
     setAdmitting(false)
-    // Auto-reset after 3 seconds so scanner is ready for next person
-    setTimeout(() => setResult(null), 3000)
   }
 
-  const handleReset = () => {
-    stopScanner()
-    setResult(null)
-  }
+  useEffect(() => () => stopScanner(), [])
 
   return (
     <div style={{
@@ -119,15 +133,20 @@ export default function ScanPage() {
           </div>
         </div>
 
-        {/* QR reader container — always in DOM when scanning so html5-qrcode can attach */}
-        <div
-          id="qr-reader"
+        {/* Hidden canvas for frame processing */}
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+        {/* Live camera feed */}
+        <video
+          ref={videoRef}
+          playsInline
+          muted
           style={{
             display: scanning ? 'block' : 'none',
             width: '100%',
             borderRadius: '16px',
-            overflow: 'hidden',
             marginBottom: '1rem',
+            background: '#111',
           }}
         />
 
@@ -144,133 +163,90 @@ export default function ScanPage() {
               result.status === 'already_torn' ? 'rgba(204,34,0,0.15)' :
               'rgba(255,100,50,0.1)',
             border: `2px solid ${
-              result.status === 'valid' ? '#4caf50' :
-              result.status === 'admitted' ? '#4caf50' :
-              result.status === 'already_torn' ? '#cc2200' :
-              '#ff6432'
+              result.status === 'valid' || result.status === 'admitted' ? '#4caf50' :
+              result.status === 'already_torn' ? '#cc2200' : '#ff6432'
             }`,
           }}>
             {result.status === 'valid' && (
               <>
                 <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>✓</div>
-                <div style={{ color: '#4caf50', fontSize: '0.8rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                  Valid Ticket
-                </div>
-                <div style={{ fontSize: '2rem', fontWeight: '900', color: '#d2691e', marginBottom: '0.25rem' }}>
-                  #{result.ticket.ticket_number}
-                </div>
-                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: '#fff', marginBottom: '1.5rem' }}>
-                  {result.ticket.name}
-                </div>
+                <div style={{ color: '#4caf50', fontSize: '0.8rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Valid Ticket</div>
+                <div style={{ fontSize: '2rem', fontWeight: '900', color: '#d2691e', marginBottom: '0.25rem' }}>#{result.ticket.ticket_number}</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: '#fff', marginBottom: '1.5rem' }}>{result.ticket.name}</div>
                 <button
                   onClick={handleAdmit}
                   disabled={admitting}
                   style={{
-                    width: '100%',
-                    padding: '1rem',
+                    width: '100%', padding: '1rem',
                     background: admitting ? '#333' : '#4caf50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontSize: '1.1rem',
-                    fontWeight: '800',
-                    letterSpacing: '0.05em',
-                    cursor: admitting ? 'not-allowed' : 'pointer',
+                    color: 'white', border: 'none', borderRadius: '12px',
+                    fontSize: '1.1rem', fontWeight: '800', cursor: admitting ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {admitting ? 'Admitting...' : 'ADMIT'}
                 </button>
               </>
             )}
-
             {result.status === 'admitted' && (
               <>
                 <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>🎉</div>
-                <div style={{ color: '#4caf50', fontSize: '1.2rem', fontWeight: '800', letterSpacing: '0.1em' }}>
-                  ADMITTED
-                </div>
-                <div style={{ color: '#888', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                  {result.ticket.name}
-                </div>
+                <div style={{ color: '#4caf50', fontSize: '1.2rem', fontWeight: '800' }}>ADMITTED</div>
+                <div style={{ color: '#888', fontSize: '0.9rem', marginTop: '0.5rem' }}>{result.ticket?.name}</div>
               </>
             )}
-
             {result.status === 'already_torn' && (
               <>
                 <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>⛔</div>
-                <div style={{ color: '#cc2200', fontSize: '1rem', fontWeight: '800', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-                  ALREADY ADMITTED
-                </div>
-                <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
-                  #{result.ticket.ticket_number} — {result.ticket.name}
-                </div>
+                <div style={{ color: '#cc2200', fontSize: '1rem', fontWeight: '800', marginBottom: '0.5rem' }}>ALREADY ADMITTED</div>
+                <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>#{result.ticket.ticket_number} — {result.ticket.name}</div>
                 {result.ticket.torn_at && (
                   <div style={{ color: '#888', fontSize: '0.8rem' }}>
-                    Admitted at {new Date(result.ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit' })}
+                    at {new Date(result.ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit' })}
                   </div>
                 )}
               </>
             )}
-
             {result.status === 'not_found' && (
               <>
                 <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>❓</div>
-                <div style={{ color: '#ff6432', fontSize: '1rem', fontWeight: '800', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-                  TICKET NOT FOUND
-                </div>
-                <div style={{ color: '#888', fontSize: '0.85rem' }}>
-                  #{result.ticketNumber} doesn't match any ticket for this event.
-                </div>
+                <div style={{ color: '#ff6432', fontSize: '1rem', fontWeight: '800', marginBottom: '0.5rem' }}>TICKET NOT FOUND</div>
+                <div style={{ color: '#888', fontSize: '0.85rem' }}>#{result.ticketNumber} not found.</div>
               </>
             )}
-
             {result.status === 'error' && (
               <>
                 <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>⚠️</div>
-                <div style={{ color: '#ff6432', fontSize: '0.95rem', marginTop: '0.5rem' }}>
-                  {result.message}
-                </div>
+                <div style={{ color: '#ff6432', fontSize: '0.95rem', marginTop: '0.5rem' }}>{result.message}</div>
               </>
             )}
           </div>
         )}
 
-        {/* Action buttons */}
         {!scanning && (
           <button
             onClick={startScanner}
             disabled={!eventId}
             style={{
-              width: '100%',
-              padding: '1.1rem',
+              width: '100%', padding: '1.1rem',
               background: eventId ? 'linear-gradient(45deg, #d2691e, #cd853f)' : '#333',
-              color: 'white',
-              border: 'none',
-              borderRadius: '14px',
-              fontSize: '1.1rem',
-              fontWeight: '800',
-              letterSpacing: '0.05em',
+              color: 'white', border: 'none', borderRadius: '14px',
+              fontSize: '1.1rem', fontWeight: '800', letterSpacing: '0.05em',
               cursor: eventId ? 'pointer' : 'not-allowed',
               boxShadow: eventId ? '0 4px 20px rgba(210,105,30,0.4)' : 'none',
             }}
           >
-            {result ? 'Scan Next Ticket' : 'Start Scanning'}
+            {result ? 'Scan Next' : 'Start Scanning'}
           </button>
         )}
 
         {scanning && (
           <button
-            onClick={handleReset}
+            onClick={() => { stopScanner(); setResult(null) }}
             style={{
-              width: '100%',
-              padding: '1rem',
-              background: 'transparent',
-              color: '#888',
-              border: '1px solid #333',
-              borderRadius: '14px',
-              fontSize: '1rem',
-              cursor: 'pointer',
-              marginTop: '0.5rem',
+              width: '100%', padding: '1rem',
+              background: 'transparent', color: '#888',
+              border: '1px solid #333', borderRadius: '14px',
+              fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem',
             }}
           >
             Cancel
