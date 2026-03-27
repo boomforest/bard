@@ -170,7 +170,7 @@ export default function TicketPage() {
       const tickets = await createTicketsInSupabase(mockPaymentIntentId);
       const ticketIds = tickets.map(t => t.id);
 
-      sendConfirmationEmail(ticketIds, name, email, quantity);
+      await sendConfirmationEmail(ticketIds, name, email, quantity);
 
       setMessage(`You're in! Check your email for your ticket link${quantity > 1 ? 's' : ''}.`);
       setMessageType('success');
@@ -491,7 +491,7 @@ export default function TicketPage() {
                           // (webhook also handles this server-side as the durable fallback)
                           const tickets = await createTicketsInSupabase(paypalOrderId);
                           const ticketIds = tickets.map(t => t.id);
-                          sendConfirmationEmail(ticketIds, name, email, quantity);
+                          await sendConfirmationEmail(ticketIds, name, email, quantity);
                           setMessage(`Payment successful via PayPal! Check your console for ticket links.`);
                           setMessageType('success');
                         } catch (err) {
