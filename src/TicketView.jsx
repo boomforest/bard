@@ -356,7 +356,7 @@ export default function TicketView() {
             size={160}
             bgColor="#130800"
             fgColor="#d2691e"
-            qrStyle="dots"
+            qrStyle="squares"
             eyeRadius={6}
             logoImage={whiteNlnrLogo || 'https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg'}
             logoWidth={28}
