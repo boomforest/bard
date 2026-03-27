@@ -6,15 +6,20 @@ const EVENT_NAME = 'Nonlinear'
 
 export default function ScanPage() {
   const [scanning, setScanning] = useState(false)
-  const [result, setResult] = useState(null) // { status, ticket }
+  const [result, setResult] = useState(null)
   const [admitting, setAdmitting] = useState(false)
   const [eventId, setEventId] = useState(null)
-  const scannerRef = useRef(null)
   const html5QrRef = useRef(null)
+  const eventIdRef = useRef(null) // ref so scanner callback always reads latest value
 
   useEffect(() => {
     supabase.from('events').select('id').eq('artist_name', EVENT_NAME).single()
-      .then(({ data }) => { if (data) setEventId(data.id) })
+      .then(({ data }) => {
+        if (data) {
+          setEventId(data.id)
+          eventIdRef.current = data.id
+        }
+      })
   }, [])
 
   const startScanner = () => {
@@ -58,7 +63,7 @@ export default function ScanPage() {
       .from('tickets')
       .select('*')
       .eq('ticket_number', ticketNumber)
-      .eq('event_id', eventId)
+      .eq('event_id', eventIdRef.current)
       .single()
 
     if (error || !data) {
