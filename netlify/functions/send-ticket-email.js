@@ -19,7 +19,7 @@ exports.handler = async (event) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'Nonlinear <tickets@fkabard.com>',
+        from: 'Nonlinear <onboarding@resend.dev>',
         to: email,
         subject: 'Your Nonlinear Tickets — April 11',
         html: `
