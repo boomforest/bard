@@ -35,7 +35,7 @@ function StripeCheckoutForm({ onSuccess, onCancel, loading, setLoading, setMessa
 
   return (
     <form onSubmit={handleSubmit}>
-      <PaymentElement options={{ layout: 'tabs' }} />
+      <PaymentElement options={{ layout: 'tabs', wallets: { link: 'never' } }} />
       <button
         type="submit"
         disabled={!stripe || loading}
