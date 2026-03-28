@@ -106,7 +106,7 @@ export default function TicketPage() {
     if (error) console.error('Could not load event:', error.message);
   };
 
-  const pricePerTicket = 10; // TEST — set to earlyBird ? 400 : 500 before go-live
+  const pricePerTicket = earlyBird ? 400 : 500;
   const totalPrice = pricePerTicket * quantity;
 
   // ---------------------------------------------------------------
