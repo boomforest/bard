@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -87,6 +87,7 @@ export default function TicketPage() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('info'); // 'info' | 'error' | 'success'
   const [eventData, setEventData] = useState(null);
+  const eventDataRef = useRef(null);
   const [earlyBird, setEarlyBird] = useState(isEarlyBird());
 
   useEffect(() => {
@@ -102,7 +103,7 @@ export default function TicketPage() {
       .select('*')
       .eq('artist_name', 'Nonlinear')
       .single();
-    if (data) setEventData(data);
+    if (data) { setEventData(data); eventDataRef.current = data; }
     if (error) console.error('Could not load event:', error.message);
   };
 
@@ -134,13 +135,14 @@ export default function TicketPage() {
   // Write tickets to Supabase after payment succeeds
   // ---------------------------------------------------------------
   const createTicketsInSupabase = async (paymentIntentId) => {
-    if (!eventData) throw new Error('Event data not loaded');
+    const event = eventDataRef.current;
+    if (!event) throw new Error('Event data not loaded');
 
     // Get current tickets_sold to assign sequential numbers
     const { data: freshEvent } = await supabase
       .from('events')
       .select('tickets_sold, capacity')
-      .eq('id', eventData.id)
+      .eq('id', event.id)
       .single();
 
     if ((freshEvent?.tickets_sold || 0) + quantity > (freshEvent?.capacity || 250)) {
@@ -153,7 +155,7 @@ export default function TicketPage() {
       const { data: countData } = await supabase
         .from('tickets')
         .select('ticket_number')
-        .eq('event_id', eventData.id)
+        .eq('event_id', event.id)
         .order('ticket_number', { ascending: false })
         .limit(1);
 
@@ -162,7 +164,7 @@ export default function TicketPage() {
       const { data: ticket, error: insertError } = await supabase
         .from('tickets')
         .insert({
-          event_id: eventData.id,
+          event_id: event.id,
           email,
           name,
           quantity: 1,
@@ -181,7 +183,7 @@ export default function TicketPage() {
     await supabase
       .from('events')
       .update({ tickets_sold: (freshEvent?.tickets_sold || 0) + quantity })
-      .eq('id', eventData.id);
+      .eq('id', event.id);
 
     // Optionally add to followers
     if (followNonlinear) {
