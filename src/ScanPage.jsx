@@ -47,7 +47,7 @@ export default function ScanPage() {
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
       inversionAttempts: 'attemptBoth',
     })
-    if (code && !handledRef.current) {
+    if (code && !handledRef.current && !isNaN(parseInt(code.data.trim(), 10))) {
       handledRef.current = true
       stopScanner()
       handleScan(code.data)
