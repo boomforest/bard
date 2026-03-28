@@ -303,7 +303,7 @@ export default function TicketView() {
                   {HINT_ADDRESS}
                 </div>
                 <div style={{ color: '#555', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-                  Full address revealed at midnight April 11
+                  Location revealed day of show
                 </div>
               </>
             )}
