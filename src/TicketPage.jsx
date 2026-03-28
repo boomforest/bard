@@ -1,14 +1,67 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { loadStripe } from '@stripe/stripe-js'
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js'
-
-// TODO: Add VITE_STRIPE_SECRET_KEY to env for real payment processing
-// For now, mock success flow is used so the rest of the app is testable.
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
   : null;
+
+function StripeCheckoutForm({ onSuccess, onCancel, loading, setLoading, setMessage, setMessageType }) {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setLoading(true);
+    setMessage('');
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      redirect: 'if_required',
+    });
+    if (error) {
+      setMessage(error.message);
+      setMessageType('error');
+    } else if (paymentIntent?.status === 'succeeded') {
+      await onSuccess(paymentIntent.id);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <PaymentElement options={{ layout: 'tabs' }} />
+      <button
+        type="submit"
+        disabled={!stripe || loading}
+        style={{
+          width: '100%', marginTop: '1.25rem', padding: '1.1rem',
+          background: loading ? '#333' : 'linear-gradient(45deg, #d2691e, #cd853f)',
+          color: 'white', border: 'none', borderRadius: '12px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          fontWeight: '700', fontSize: '1.1rem',
+          boxShadow: loading ? 'none' : '0 4px 20px rgba(210,105,30,0.4)',
+        }}
+      >
+        {loading ? 'Processing...' : 'Pay & Get Tickets'}
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        style={{
+          width: '100%', marginTop: '0.5rem', padding: '0.75rem',
+          background: 'transparent', color: '#666',
+          border: '1px solid #333', borderRadius: '12px',
+          cursor: 'pointer', fontSize: '0.9rem',
+        }}
+      >
+        Cancel
+      </button>
+    </form>
+  );
+}
 
 // Mexico City timezone offset: UTC-6
 const CDMX_OFFSET_HOURS = -6;
@@ -50,7 +103,7 @@ export default function TicketPage() {
     if (error) console.error('Could not load event:', error.message);
   };
 
-  const pricePerTicket = 0; // TEST MODE — set to earlyBird ? 400 : 500 before go-live
+  const pricePerTicket = earlyBird ? 400 : 500;
   const totalPrice = pricePerTicket * quantity;
 
   // ---------------------------------------------------------------
@@ -147,7 +200,9 @@ export default function TicketPage() {
   // below with actual Stripe Checkout Session creation once
   // VITE_STRIPE_SECRET_KEY is added to environment.
   // ---------------------------------------------------------------
-  const handlePurchase = async () => {
+  const [clientSecret, setClientSecret] = useState(null);
+
+  const handlePreparePayment = async () => {
     if (!name.trim() || !email.trim()) {
       setMessage('Please enter your name and email.');
       setMessageType('error');
@@ -158,40 +213,36 @@ export default function TicketPage() {
       setMessageType('error');
       return;
     }
-
     setLoading(true);
     setMessage('');
-
     try {
-      // ---- MOCK PAYMENT FLOW (replace with real Stripe when key is added) ----
-      const mockPaymentIntentId = `mock_pi_${Date.now()}`;
-      console.log('MOCK PAYMENT: Would charge', totalPrice, 'MXN via Stripe');
-
-      const tickets = await createTicketsInSupabase(mockPaymentIntentId);
-      const ticketIds = tickets.map(t => t.id);
-
-      await sendConfirmationEmail(ticketIds, name, email, quantity);
-
-      setMessage(`You're in! Check your email for your ticket link${quantity > 1 ? 's' : ''}.`);
-      setMessageType('success');
-
-      // In production with Stripe key, redirect to Stripe Checkout like:
-      // const stripe = await stripePromise;
-      // const response = await fetch('/api/create-checkout-session', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ quantity, email, name, followNonlinear, eventId: eventData.id }),
-      // });
-      // const session = await response.json();
-      // await stripe.redirectToCheckout({ sessionId: session.id });
-      // -------------------------------------------------------------------------
-
+      const res = await fetch('/.netlify/functions/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: totalPrice, currency: 'mxn' }),
+      });
+      const { clientSecret: cs, error } = await res.json();
+      if (error) throw new Error(error);
+      setClientSecret(cs);
     } catch (err) {
-      setMessage(`Purchase failed: ${err.message}`);
+      setMessage(`Could not start payment: ${err.message}`);
       setMessageType('error');
     }
-
     setLoading(false);
+  };
+
+  const handleStripeSuccess = async (paymentIntentId) => {
+    try {
+      const tickets = await createTicketsInSupabase(paymentIntentId);
+      const ticketIds = tickets.map(t => t.id);
+      await sendConfirmationEmail(ticketIds, name, email, quantity);
+      setClientSecret(null);
+      setMessage(`You're in! Check your email for your ticket link${quantity > 1 ? 's' : ''}.`);
+      setMessageType('success');
+    } catch (err) {
+      setMessage(`Payment succeeded but ticket creation failed: ${err.message}`);
+      setMessageType('error');
+    }
   };
 
   const ticketsSoldCount = eventData?.tickets_sold || 0;
@@ -402,111 +453,34 @@ export default function TicketPage() {
                 </div>
               )}
 
-              {/* Buy button — Stripe mock */}
-              <button
-                onClick={handlePurchase}
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '1.1rem',
-                  background: loading ? '#333' : 'linear-gradient(45deg, #d2691e, #cd853f)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontWeight: '700',
-                  fontSize: '1.1rem',
-                  letterSpacing: '0.02em',
-                  boxShadow: loading ? 'none' : '0 4px 20px rgba(210, 105, 30, 0.4)',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {loading ? 'Processing...' : `Get ${quantity} Ticket${quantity > 1 ? 's' : ''} — FREE (Test Mode)`}
-              </button>
-
-              {/* PayPal divider + button */}
-              {import.meta.env.VITE_PAYPAL_CLIENT_ID && (
-                <>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    margin: '1.25rem 0',
-                  }}>
-                    <div style={{ flex: 1, height: '1px', background: '#2a2a2a' }} />
-                    <span style={{ color: '#555', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                      — or pay with —
-                    </span>
-                    <div style={{ flex: 1, height: '1px', background: '#2a2a2a' }} />
-                  </div>
-
-                  <PayPalScriptProvider options={{
-                    'client-id': import.meta.env.VITE_PAYPAL_CLIENT_ID,
-                    currency: 'MXN',
-                  }}>
-                    <PayPalButtons
-                      style={{ layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay' }}
-                      disabled={!name.trim() || !email.trim() || loading}
-                      createOrder={(_data, actions) => {
-                        if (!name.trim() || !email.trim()) {
-                          setMessage('Please enter your name and email before paying with PayPal.');
-                          setMessageType('error');
-                          return Promise.reject(new Error('Missing name or email'));
-                        }
-                        if (!/^\S+@\S+\.\S+$/.test(email)) {
-                          setMessage('Please enter a valid email address.');
-                          setMessageType('error');
-                          return Promise.reject(new Error('Invalid email'));
-                        }
-                        const customId = JSON.stringify({
-                          email,
-                          name,
-                          quantity,
-                          follow_nonlinear: followNonlinear,
-                          event_id: eventData?.id,
-                        });
-                        return actions.order.create({
-                          purchase_units: [{
-                            amount: {
-                              value: String(totalPrice),
-                              currency_code: 'MXN',
-                            },
-                            custom_id: customId,
-                            description: `Nonlinear — ${quantity} ticket${quantity > 1 ? 's' : ''} (April 11, 2026)`,
-                          }],
-                        });
-                      }}
-                      onApprove={async (_data, actions) => {
-                        setLoading(true);
-                        setMessage('');
-                        try {
-                          const order = await actions.order.capture();
-                          const paypalOrderId = order.id;
-                          // Mirror the mock Stripe success flow: write tickets to Supabase client-side
-                          // (webhook also handles this server-side as the durable fallback)
-                          const tickets = await createTicketsInSupabase(paypalOrderId);
-                          const ticketIds = tickets.map(t => t.id);
-                          await sendConfirmationEmail(ticketIds, name, email, quantity);
-                          setMessage(`You're in! Check your email for your ticket link${quantity > 1 ? 's' : ''}.`);
-                          setMessageType('success');
-                        } catch (err) {
-                          setMessage(`PayPal payment failed: ${err.message}`);
-                          setMessageType('error');
-                        }
-                        setLoading(false);
-                      }}
-                      onError={(err) => {
-                        console.error('PayPal button error:', err);
-                        setMessage('PayPal encountered an error. Please try again or use the button above.');
-                        setMessageType('error');
-                      }}
-                      onCancel={() => {
-                        setMessage('PayPal payment cancelled.');
-                        setMessageType('info');
-                      }}
-                    />
-                  </PayPalScriptProvider>
-                </>
+              {/* Stripe payment */}
+              {clientSecret && stripePromise ? (
+                <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
+                  <StripeCheckoutForm
+                    onSuccess={handleStripeSuccess}
+                    onCancel={() => setClientSecret(null)}
+                    loading={loading}
+                    setLoading={setLoading}
+                    setMessage={setMessage}
+                    setMessageType={setMessageType}
+                  />
+                </Elements>
+              ) : (
+                <button
+                  onClick={handlePreparePayment}
+                  disabled={loading}
+                  style={{
+                    width: '100%', padding: '1.1rem',
+                    background: loading ? '#333' : 'linear-gradient(45deg, #d2691e, #cd853f)',
+                    color: 'white', border: 'none', borderRadius: '12px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    fontWeight: '700', fontSize: '1.1rem', letterSpacing: '0.02em',
+                    boxShadow: loading ? 'none' : '0 4px 20px rgba(210,105,30,0.4)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {loading ? 'Loading...' : `Get ${quantity} Ticket${quantity > 1 ? 's' : ''} — $${totalPrice} MXN`}
+                </button>
               )}
 
               <div style={{ textAlign: 'center', color: '#555', fontSize: '0.75rem', marginTop: '1rem' }}>
