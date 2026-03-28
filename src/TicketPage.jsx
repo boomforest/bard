@@ -24,8 +24,11 @@ function StripeCheckoutForm({ onSuccess, onCancel, loading, setLoading, setMessa
     if (error) {
       setMessage(error.message);
       setMessageType('error');
-    } else if (paymentIntent?.status === 'succeeded') {
+    } else if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'processing') {
       await onSuccess(paymentIntent.id);
+    } else {
+      setMessage(`Unexpected payment status: ${paymentIntent?.status}. Contact us with your payment confirmation.`);
+      setMessageType('error');
     }
     setLoading(false);
   };
@@ -110,20 +113,20 @@ export default function TicketPage() {
   // Stub email confirmation — replace with Resend / SendGrid later
   // ---------------------------------------------------------------
   const sendConfirmationEmail = async (ticketIds, purchaserName, purchaserEmail, qty) => {
-    try {
-      await fetch('/.netlify/functions/send-ticket-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: purchaserEmail,
-          name: purchaserName,
-          ticketIds,
-          quantity: qty,
-          origin: window.location.origin
-        })
+    const res = await fetch('/.netlify/functions/send-ticket-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: purchaserEmail,
+        name: purchaserName,
+        ticketIds,
+        quantity: qty,
+        origin: window.location.origin
       })
-    } catch (err) {
-      console.error('Email send failed:', err)
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(`Email function error ${res.status}: ${body}`)
     }
   };
 
