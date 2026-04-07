@@ -70,6 +70,7 @@ function StripeCheckoutForm({ onSuccess, onCancel, loading, setLoading, setMessa
 // Mexico City timezone offset: UTC-6
 const CDMX_OFFSET_HOURS = -6;
 const EARLY_BIRD_ENDS = new Date('2026-04-07T06:00:00Z'); // April 7 midnight CDMX
+const PROMO_ENDS = new Date('2026-04-11T06:00:00Z'); // April 10 midnight CDMX
 
 function getNowCDMX() {
   return new Date(new Date().getTime() + CDMX_OFFSET_HOURS * 60 * 60 * 1000);
@@ -92,6 +93,9 @@ export default function TicketPage() {
   const [eventData, setEventData] = useState(null);
   const eventDataRef = useRef(null);
   const [earlyBird, setEarlyBird] = useState(isEarlyBird());
+  const [promoCode, setPromoCode] = useState('');
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoMessage, setPromoMessage] = useState('');
 
   useEffect(() => {
     fetchEvent();
@@ -110,7 +114,8 @@ export default function TicketPage() {
     if (error) console.error('Could not load event:', error.message);
   };
 
-  const pricePerTicket = earlyBird ? 400 : 500;
+  const promoActive = promoApplied && new Date() < PROMO_ENDS;
+  const pricePerTicket = promoActive ? 400 : (earlyBird ? 400 : 500);
   const totalPrice = pricePerTicket * quantity;
 
   // ---------------------------------------------------------------
@@ -210,6 +215,16 @@ export default function TicketPage() {
   // VITE_STRIPE_SECRET_KEY is added to environment.
   // ---------------------------------------------------------------
   const [clientSecret, setClientSecret] = useState(null);
+
+  const handlePromoApply = () => {
+    if (promoCode.trim().toUpperCase() === 'FF' && new Date() < PROMO_ENDS) {
+      setPromoApplied(true);
+      setPromoMessage(T.promoSuccess);
+    } else {
+      setPromoApplied(false);
+      setPromoMessage(T.promoInvalid);
+    }
+  };
 
   const handlePreparePayment = async () => {
     if (!name.trim() || !email.trim()) {
@@ -421,6 +436,58 @@ export default function TicketPage() {
                     <option key={n} value={n}>{T.ticketOption(n, pricePerTicket)}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Promo code */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={e => { setPromoCode(e.target.value); setPromoApplied(false); setPromoMessage(''); }}
+                    placeholder={T.promoPlaceholder}
+                    style={{
+                      flex: 1,
+                      padding: '0.85rem 1rem',
+                      background: '#1a1a1a',
+                      border: `1px solid ${promoApplied ? 'rgba(50,150,50,0.6)' : '#333'}`,
+                      borderRadius: '10px',
+                      color: '#fff',
+                      fontSize: '1rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.1em',
+                    }}
+                    onKeyDown={e => e.key === 'Enter' && handlePromoApply()}
+                  />
+                  <button
+                    onClick={handlePromoApply}
+                    style={{
+                      padding: '0.85rem 1.1rem',
+                      background: '#1a1a1a',
+                      border: '1px solid #333',
+                      borderRadius: '10px',
+                      color: '#cd853f',
+                      fontSize: '0.85rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {T.promoApply}
+                  </button>
+                </div>
+                {promoMessage && (
+                  <div style={{
+                    marginTop: '0.4rem',
+                    fontSize: '0.8rem',
+                    color: promoApplied ? '#4caf50' : '#ff8080',
+                  }}>
+                    {promoMessage}
+                  </div>
+                )}
               </div>
 
               {/* Follow checkbox */}
