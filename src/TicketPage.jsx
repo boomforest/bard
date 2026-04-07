@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { t } from './translations'
 import { supabase } from './supabase'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -8,7 +9,7 @@ const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
   : null;
 
-function StripeCheckoutForm({ onSuccess, onCancel, loading, setLoading, setMessage, setMessageType }) {
+function StripeCheckoutForm({ onSuccess, onCancel, loading, setLoading, setMessage, setMessageType, T }) {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -27,7 +28,7 @@ function StripeCheckoutForm({ onSuccess, onCancel, loading, setLoading, setMessa
     } else if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'processing') {
       await onSuccess(paymentIntent.id);
     } else {
-      setMessage(`Unexpected payment status: ${paymentIntent?.status}. Contact us with your payment confirmation.`);
+      setMessage(`Unexpected payment status: ${paymentIntent?.status}. Contact jp@casadecopas.com with your payment confirmation.`);
       setMessageType('error');
     }
     setLoading(false);
@@ -48,7 +49,7 @@ function StripeCheckoutForm({ onSuccess, onCancel, loading, setLoading, setMessa
           boxShadow: loading ? 'none' : '0 4px 20px rgba(210,105,30,0.4)',
         }}
       >
-        {loading ? 'Processing...' : 'Pay & Get Tickets'}
+        {loading ? T.processing : T.payStripe}
       </button>
       <button
         type="button"
@@ -60,7 +61,7 @@ function StripeCheckoutForm({ onSuccess, onCancel, loading, setLoading, setMessa
           cursor: 'pointer', fontSize: '0.9rem',
         }}
       >
-        Cancel
+        {T.cancel}
       </button>
     </form>
   );
@@ -79,6 +80,8 @@ function isEarlyBird() {
 }
 
 export default function TicketPage() {
+  const [lang, setLang] = useState('en');
+  const T = t[lang];
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -122,7 +125,8 @@ export default function TicketPage() {
         name: purchaserName,
         ticketIds,
         quantity: qty,
-        origin: window.location.origin
+        origin: window.location.origin,
+        lang,
       })
     })
     if (!res.ok) {
@@ -209,12 +213,12 @@ export default function TicketPage() {
 
   const handlePreparePayment = async () => {
     if (!name.trim() || !email.trim()) {
-      setMessage('Please enter your name and email.');
+      setMessage(T.errNameEmail);
       setMessageType('error');
       return;
     }
     if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setMessage('Please enter a valid email address.');
+      setMessage(T.errEmail);
       setMessageType('error');
       return;
     }
@@ -230,7 +234,7 @@ export default function TicketPage() {
       if (error) throw new Error(error);
       setClientSecret(cs);
     } catch (err) {
-      setMessage(`Could not start payment: ${err.message}`);
+      setMessage(T.errPayment(err.message));
       setMessageType('error');
     }
     setLoading(false);
@@ -242,10 +246,10 @@ export default function TicketPage() {
       const ticketIds = tickets.map(t => t.id);
       await sendConfirmationEmail(ticketIds, name, email, quantity);
       setClientSecret(null);
-      setMessage(`You're in! Check your email for your ticket link${quantity > 1 ? 's' : ''}.`);
+      setMessage(T.success(quantity));
       setMessageType('success');
     } catch (err) {
-      setMessage(`Payment succeeded but ticket creation failed: ${err.message}`);
+      setMessage(`Payment succeeded but ticket creation failed: ${err.message}. Contact jp@casadecopas.com immediately with your payment confirmation.`);
       setMessageType('error');
     }
   };
@@ -267,6 +271,22 @@ export default function TicketPage() {
     }}>
       <div style={{ width: '100%', maxWidth: '420px' }}>
 
+        {/* Language toggle */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', background: '#1a0a00', border: '1px solid #2a1500', borderRadius: '8px', overflow: 'hidden' }}>
+            {['en', 'es'].map(l => (
+              <button key={l} onClick={() => setLang(l)} style={{
+                padding: '0.35rem 0.75rem',
+                background: lang === l ? 'linear-gradient(45deg, #d2691e, #cd853f)' : 'transparent',
+                color: lang === l ? '#fff' : '#666',
+                border: 'none', cursor: 'pointer',
+                fontSize: '0.75rem', fontWeight: '700', letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+              }}>{l}</button>
+            ))}
+          </div>
+        </div>
+
         {/* Poster header */}
         <div style={{
           background: 'linear-gradient(180deg, #1a0800 0%, #2d1200 100%)',
@@ -276,7 +296,7 @@ export default function TicketPage() {
           textAlign: 'center',
         }}>
           <div style={{ fontSize: '0.75rem', letterSpacing: '0.25em', color: '#cd853f', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-            Secret Show
+            {T.secretShow}
           </div>
           <img
             src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nonlinear%20outline.svg"
@@ -285,10 +305,10 @@ export default function TicketPage() {
           />
           <div style={{ width: '60px', height: '2px', background: '#d2691e', margin: '1rem auto' }} />
           <div style={{ color: '#e8d5b0', fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>
-            April 11, 2026
+            {T.date}
           </div>
           <div style={{ color: '#cd853f', fontSize: '0.95rem', marginBottom: '0.5rem' }}>
-            10PM — Sunrise
+            {T.time}
           </div>
           <div style={{
             display: 'inline-block',
@@ -300,11 +320,11 @@ export default function TicketPage() {
             fontSize: '0.85rem',
             marginTop: '0.5rem',
           }}>
-            Less than 10 minutes from Condesa/Roma
+            {T.location}
           </div>
           {remaining < 30 && remaining > 0 && (
             <div style={{ color: '#ff6b35', fontSize: '0.85rem', marginTop: '1rem', fontWeight: '600' }}>
-              Only {remaining} tickets left
+              {T.onlyLeft(remaining)}
             </div>
           )}
         </div>
@@ -320,8 +340,8 @@ export default function TicketPage() {
 
           {soldOut ? (
             <div style={{ textAlign: 'center', color: '#cd853f', padding: '2rem 0' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>SOLD OUT</div>
-              <div style={{ fontSize: '0.9rem', color: '#666' }}>All {capacity} tickets have been claimed.</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>{T.soldOut}</div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>{T.soldOutMsg(capacity)}</div>
             </div>
           ) : (
             <>
@@ -335,22 +355,22 @@ export default function TicketPage() {
                 borderRadius: '12px',
               }}>
                 <div style={{ color: earlyBird ? '#4caf50' : '#cd853f', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.25rem' }}>
-                  {earlyBird ? 'Early Bird Pricing' : 'Week-Of Pricing'}
+                  {earlyBird ? T.earlyBird : T.weekOf}
                 </div>
                 <div style={{ color: '#fff', fontSize: '1.8rem', fontWeight: '800' }}>
-                  ${pricePerTicket} <span style={{ fontSize: '1rem', fontWeight: '400', color: '#999' }}>MXN / ticket</span>
+                  ${pricePerTicket} <span style={{ fontSize: '1rem', fontWeight: '400', color: '#999' }}>{T.perTicket}</span>
                 </div>
                 {earlyBird && (
                   <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                    Price goes to $500 MXN on April 7
+                    {T.priceRises}
                   </div>
                 )}
               </div>
 
               {/* Form fields */}
               {[
-                { label: 'Name', value: name, setter: setName, type: 'text', placeholder: 'Your name', autoComplete: 'name' },
-                { label: 'Email', value: email, setter: setEmail, type: 'email', placeholder: 'your@email.com', autoComplete: 'email' },
+                { label: T.name, value: name, setter: setName, type: 'text', placeholder: T.namePlaceholder, autoComplete: 'name' },
+                { label: T.email, value: email, setter: setEmail, type: 'email', placeholder: T.emailPlaceholder, autoComplete: 'email' },
               ].map(field => (
                 <div key={field.label} style={{ marginBottom: '1rem' }}>
                   <label style={{ display: 'block', color: '#999', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
@@ -380,7 +400,7 @@ export default function TicketPage() {
               {/* Quantity */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', color: '#999', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
-                  Tickets
+                  {T.tickets}
                 </label>
                 <select
                   value={quantity}
@@ -398,7 +418,7 @@ export default function TicketPage() {
                   }}
                 >
                   {Array.from({ length: Math.min(10, remaining) }, (_, i) => i + 1).map(n => (
-                    <option key={n} value={n}>{n} ticket{n > 1 ? 's' : ''} — ${n * pricePerTicket} MXN</option>
+                    <option key={n} value={n}>{T.ticketOption(n, pricePerTicket)}</option>
                   ))}
                 </select>
               </div>
@@ -435,7 +455,7 @@ export default function TicketPage() {
                   )}
                 </div>
                 <span style={{ color: '#ccc', fontSize: '0.9rem', lineHeight: 1.4 }}>
-                  Keep me posted on secret shows and exclusive presales from Nonlinear
+                  {T.followLabel}
                 </span>
               </label>
 
@@ -468,6 +488,7 @@ export default function TicketPage() {
                     setLoading={setLoading}
                     setMessage={setMessage}
                     setMessageType={setMessageType}
+                    T={T}
                   />
                 </Elements>
               ) : (
@@ -484,12 +505,12 @@ export default function TicketPage() {
                     transition: 'all 0.2s',
                   }}
                 >
-                  {loading ? 'Loading...' : `Get ${quantity} Ticket${quantity > 1 ? 's' : ''} — $${totalPrice} MXN`}
+                  {loading ? T.loading : T.getTickets(quantity, totalPrice)}
                 </button>
               )}
 
               <div style={{ textAlign: 'center', color: '#555', fontSize: '0.75rem', marginTop: '1rem' }}>
-                Each ticket gets its own unique link. Tickets are non-refundable.
+                {T.disclaimer}
               </div>
             </>
           )}
@@ -497,7 +518,7 @@ export default function TicketPage() {
 
         {/* Footer */}
         <div style={{ textAlign: 'center', color: '#333', fontSize: '0.75rem', marginTop: '1.5rem' }}>
-          Powered by BARD
+          Powered by Grail
         </div>
       </div>
     </div>
