@@ -115,7 +115,7 @@ export default function TicketPage() {
     if (error) console.error('Could not load event:', error.message);
   };
 
-  const promoActive = promoApplied && (promoCode.trim().toUpperCase() === 'MARCARIO' || new Date() < PROMO_ENDS);
+  const promoActive = promoApplied && (promoCode.trim().toUpperCase() === 'MARCARIO' || promoCode.trim().toUpperCase() === 'DJFRIEND' || new Date() < PROMO_ENDS);
   const pricePerTicket = promoActive ? 400 : (earlyBird ? 400 : 500);
   const totalPrice = pricePerTicket * quantity;
 
@@ -219,7 +219,7 @@ export default function TicketPage() {
 
   const handlePromoApply = () => {
     const code = promoCode.trim().toUpperCase();
-    if (code === 'MARCARIO' || (code === 'FF' && new Date() < PROMO_ENDS)) {
+    if (code === 'MARCARIO' || code === 'DJFRIEND' || (code === 'FF' && new Date() < PROMO_ENDS)) {
       setPromoApplied(true);
       setPromoMessage(T.promoSuccess);
     } else {
