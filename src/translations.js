@@ -4,7 +4,7 @@ export const t = {
     secretShow: 'Secret Show',
     date: 'April 11, 2026',
     time: '10PM — Sunrise',
-    location: 'Less than 10 minutes from Condesa/Roma',
+    location: 'Studio Olbrera — Álvarez de Icaza 13',
     onlyLeft: (n) => `Only ${n} tickets left`,
     earlyBird: 'Early Bird Pricing',
     weekOf: 'Week-Of Pricing',
@@ -46,14 +46,14 @@ export const t = {
     of: 'of',
     admittedTonight: 'admitted tonight',
     admitted: 'ADMITTED',
-    hint: 'Less than 10 minutes from Condesa/Roma',
+    hint: 'Studio Olbrera — Álvarez de Icaza 13',
   },
   es: {
     // Purchase page
     secretShow: 'Show Secreto',
     date: '11 de Abril, 2026',
     time: '10PM — Amanecer',
-    location: 'A menos de 10 min de Condesa/Roma',
+    location: 'Studio Olbrera — Álvarez de Icaza 13',
     onlyLeft: (n) => `Solo quedan ${n} boletos`,
     earlyBird: 'Precio Madrugador',
     weekOf: 'Precio en Puerta',
@@ -95,6 +95,6 @@ export const t = {
     of: 'de',
     admittedTonight: 'admitido esta noche',
     admitted: 'ADMITIDO',
-    hint: 'A menos de 10 min de Condesa/Roma',
+    hint: 'Studio Olbrera — Álvarez de Icaza 13',
   }
 }

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from './supabase'
 import { QRCode } from 'react-qrcode-logo'
+import { t } from './translations'
 
 // Mexico City timezone: UTC-6 (no DST)
 // Reveal time: midnight April 11 2026 CDMX = 2026-04-11T06:00:00Z
 const REVEAL_UTC = new Date('2026-04-11T06:00:00Z');
-const REAL_ADDRESS = 'Alvarez de Icaza 13';
+const REAL_ADDRESS = 'Studio Olbrera — Álvarez de Icaza 13';
 const HINT_ADDRESS = 'Less than 10 minutes from Condesa/Roma';
 
 function isAddressRevealed() {
@@ -15,6 +16,9 @@ function isAddressRevealed() {
 
 export default function TicketView() {
   const { ticketId } = useParams();
+  const [searchParams] = useSearchParams();
+  const lang = searchParams.get('lang') === 'es' ? 'es' : 'en';
+  const T = t[lang];
   const [ticket, setTicket] = useState(null);
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -201,7 +205,7 @@ export default function TicketView() {
                 textTransform: 'uppercase',
                 marginTop: '0.5rem',
               }}>
-                admitted tonight
+                {T.admittedTonight}
               </div>
               <div style={{
                 border: '3px solid #cc2200',
@@ -214,7 +218,7 @@ export default function TicketView() {
                 marginTop: '1.5rem',
                 textShadow: '0 0 10px rgba(204,34,0,0.6)',
               }}>
-                ADMITTED
+                {T.admitted}
               </div>
             </div>
           </div>
@@ -244,7 +248,7 @@ export default function TicketView() {
             textTransform: 'uppercase',
             marginBottom: '1rem',
           }}>
-            Secret Show — CDMX
+            {T.secretShowCDMX}
           </div>
 
           <img
@@ -268,10 +272,10 @@ export default function TicketView() {
           <div style={{ width: '40px', height: '2px', background: '#d2691e', margin: '1rem auto' }} />
 
           <div style={{ color: '#e8d5b0', fontSize: '1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
-            Friday, April 11 — 2026
+            {T.dateLong}
           </div>
           <div style={{ color: '#cd853f', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-            10:00 PM — Sunrise
+            {T.timeLong}
           </div>
 
           {/* Address reveal */}
@@ -285,25 +289,25 @@ export default function TicketView() {
             {revealed ? (
               <>
                 <div style={{ color: '#4caf50', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.4rem' }}>
-                  Address Revealed
+                  {T.addressRevealed}
                 </div>
                 <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: '700' }}>
                   {REAL_ADDRESS}
                 </div>
                 <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                  Mexico City
+                  {T.mexicoCity}
                 </div>
               </>
             ) : (
               <>
                 <div style={{ color: '#cd853f', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.4rem' }}>
-                  Location
+                  {T.locationLabel}
                 </div>
                 <div style={{ color: '#e8d5b0', fontSize: '0.95rem' }}>
-                  {HINT_ADDRESS}
+                  {T.hint}
                 </div>
                 <div style={{ color: '#555', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-                  Location revealed day of show
+                  {T.locationHidden}
                 </div>
               </>
             )}
@@ -346,7 +350,7 @@ export default function TicketView() {
               color: '#d2691e',
               letterSpacing: '0.05em',
             }}>
-              TICKET #{ticket?.ticket_number} <span style={{ color: '#444', fontWeight: '400', fontSize: '0.9rem' }}>of {capacity}</span>
+              {T.ticketLabel} #{ticket?.ticket_number} <span style={{ color: '#444', fontWeight: '400', fontSize: '0.9rem' }}>{T.of} {capacity}</span>
             </div>
           </div>
 
@@ -359,8 +363,8 @@ export default function TicketView() {
             qrStyle="squares"
             eyeRadius={6}
             logoImage={whiteNlnrLogo || 'https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg'}
-            logoWidth={28}
-            logoHeight={28}
+            logoWidth={42}
+            logoHeight={18}
             logoOpacity={0.75}
             removeQrCodeBehindLogo={true}
             level="L"
