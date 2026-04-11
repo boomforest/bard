@@ -96,6 +96,7 @@ export default function TicketPage() {
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoMessage, setPromoMessage] = useState('');
+  const [showFlier, setShowFlier] = useState(false);
 
   useEffect(() => {
     fetchEvent();
@@ -114,7 +115,7 @@ export default function TicketPage() {
     if (error) console.error('Could not load event:', error.message);
   };
 
-  const promoActive = promoApplied && new Date() < PROMO_ENDS;
+  const promoActive = promoApplied && (promoCode.trim().toUpperCase() === 'MARCARIO' || new Date() < PROMO_ENDS);
   const pricePerTicket = promoActive ? 400 : (earlyBird ? 400 : 500);
   const totalPrice = pricePerTicket * quantity;
 
@@ -217,7 +218,8 @@ export default function TicketPage() {
   const [clientSecret, setClientSecret] = useState(null);
 
   const handlePromoApply = () => {
-    if (promoCode.trim().toUpperCase() === 'FF' && new Date() < PROMO_ENDS) {
+    const code = promoCode.trim().toUpperCase();
+    if (code === 'MARCARIO' || (code === 'FF' && new Date() < PROMO_ENDS)) {
       setPromoApplied(true);
       setPromoMessage(T.promoSuccess);
     } else {
@@ -342,7 +344,76 @@ export default function TicketPage() {
               {T.onlyLeft(remaining)}
             </div>
           )}
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '1rem' }}>
+            <button
+              onClick={() => setShowFlier(true)}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(210,105,30,0.4)',
+                borderRadius: '20px',
+                padding: '0.35rem 1rem',
+                color: '#cd853f',
+                fontSize: '0.75rem',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              View Flier
+            </button>
+            <a
+              href="/nonlinear.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(210,105,30,0.4)',
+                borderRadius: '20px',
+                padding: '0.35rem 1rem',
+                color: '#cd853f',
+                fontSize: '0.75rem',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                textDecoration: 'none',
+              }}
+            >
+              Event Info
+            </a>
+          </div>
         </div>
+
+        {/* Flier modal */}
+        {showFlier && (
+          <div
+            onClick={() => setShowFlier(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 1000,
+              background: 'rgba(0,0,0,0.9)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '1rem',
+            }}
+          >
+            <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '480px', width: '100%' }}>
+              <img
+                src="/flyer.jpg"
+                alt="Event flier"
+                style={{ width: '100%', borderRadius: '12px', display: 'block' }}
+              />
+              <button
+                onClick={() => setShowFlier(false)}
+                style={{
+                  position: 'absolute', top: '0.5rem', right: '0.5rem',
+                  background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%',
+                  width: '2rem', height: '2rem', color: '#fff',
+                  fontSize: '1rem', cursor: 'pointer', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Purchase form */}
         <div style={{
