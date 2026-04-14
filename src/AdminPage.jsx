@@ -121,6 +121,7 @@ export default function AdminPage() {
   const [tickets, setTickets] = useState([])
   const [followers, setFollowers] = useState([])
   const [event, setEvent] = useState(null)
+  const [feedback, setFeedback] = useState([])
   const [loading, setLoading] = useState(true)
   const [copyMsg, setCopyMsg] = useState('')
   const [emailStatuses, setEmailStatuses] = useState({}) // key: first ticketId → 'sending'|'ok'|'err'
@@ -133,15 +134,17 @@ export default function AdminPage() {
 
   const fetchData = async () => {
     setLoading(true)
-    const [{ data: ticketData }, { data: followerData }, { data: eventData }, emailRes] = await Promise.all([
+    const [{ data: ticketData }, { data: followerData }, { data: eventData }, { data: feedbackData }, emailRes] = await Promise.all([
       supabase.from('tickets').select('*').order('ticket_number', { ascending: true }),
       supabase.from('followers').select('*').eq('artist_id', 'nonlinear').order('created_at', { ascending: true }),
       supabase.from('events').select('*').eq('artist_name', 'Nonlinear').single(),
+      supabase.from('feedback').select('*').order('created_at', { ascending: false }),
       fetch('/.netlify/functions/get-email-status').then(r => r.ok ? r.json() : null).catch(() => null),
     ])
     setTickets(ticketData || [])
     setFollowers(followerData || [])
     setEvent(eventData || null)
+    setFeedback(feedbackData || [])
     setResendStatus(emailRes || {})
     setLoading(false)
   }
@@ -490,6 +493,62 @@ export default function AdminPage() {
             </table>
           </div>
         </div>
+
+      <div style={s.card}>
+        <h2 style={s.h2}>Feedback ({feedback.length})</h2>
+        {loading ? (
+          <p style={{ color: '#cd853f' }}>Loading...</p>
+        ) : feedback.length === 0 ? (
+          <p style={{ color: '#4a2800', fontSize: '0.9rem' }}>No feedback yet.</p>
+        ) : (
+          <>
+            <div style={{ marginBottom: '1.5rem' }}>
+              {['vibe_rating', 'sound_rating'].map(field => {
+                const vals = feedback.map(f => f[field]).filter(Boolean)
+                const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : '—'
+                return (
+                  <span key={field} style={s.stat}>
+                    <span style={s.statNum}>{avg} 🌶️</span>
+                    <span style={s.statLabel}>{field === 'vibe_rating' ? 'Avg Vibe' : 'Avg Sound'}</span>
+                  </span>
+                )
+              })}
+              <span style={s.stat}>
+                <span style={s.statNum}>{feedback.filter(f => f.email).length}</span>
+                <span style={s.statLabel}>Left Email</span>
+              </span>
+              <span style={s.stat}>
+                <span style={s.statNum}>{feedback.filter(f => f.come_back === 'bring_friends').length}</span>
+                <span style={s.statLabel}>Bringing Friends</span>
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {feedback.map(f => (
+                <div key={f.id} style={{ background: '#0d0d0d', border: '1px solid #1a0a00', borderRadius: '12px', padding: '1rem 1.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      {f.vibe_rating && <span style={{ color: '#cd853f', fontSize: '0.8rem' }}>Vibe: {'🌶️'.repeat(f.vibe_rating)}</span>}
+                      {f.sound_rating && <span style={{ color: '#cd853f', fontSize: '0.8rem' }}>Sound: {'🌶️'.repeat(f.sound_rating)}</span>}
+                    </div>
+                    <span style={{ color: '#333', fontSize: '0.72rem' }}>
+                      {new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  {f.what_worked && <div style={{ color: '#e8d5b0', fontSize: '0.85rem', marginBottom: '0.4rem' }}><span style={{ color: '#555', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Worked: </span>{f.what_worked}</div>}
+                  {f.what_didnt && <div style={{ color: '#e8d5b0', fontSize: '0.85rem', marginBottom: '0.4rem' }}><span style={{ color: '#555', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Didn't: </span>{f.what_didnt}</div>}
+                  {f.anything_else && <div style={{ color: '#e8d5b0', fontSize: '0.85rem', marginBottom: '0.4rem' }}><span style={{ color: '#555', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Also: </span>{f.anything_else}</div>}
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                    {f.come_back && <span style={{ color: '#555', fontSize: '0.75rem' }}>↩ {f.come_back.replace('_', ' ')}</span>}
+                    {f.heard_from && <span style={{ color: '#555', fontSize: '0.75rem' }}>📣 {f.heard_from.replace('_', ' ')}</span>}
+                    {f.email && <span style={{ color: '#4caf50', fontSize: '0.75rem' }}>✉ {f.email}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       </div>
     </div>
