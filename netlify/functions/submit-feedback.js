@@ -1,38 +1,67 @@
+const SUPABASE_URL = 'https://elkfhmyhiyyubtqzqlpq.supabase.co'
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) }
   }
 
   try {
-    const { vibe_rating, sound_rating, heard_from, what_worked, what_didnt, come_back, anything_else, email } = JSON.parse(event.body)
+    const { vibe_rating, sound_rating, heard_from, what_worked, what_didnt, come_back, anything_else, email, password } = JSON.parse(event.body)
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    const res = await fetch('https://elkfhmyhiyyubtqzqlpq.supabase.co/rest/v1/feedback', {
+    // Save feedback
+    const feedbackRes = await fetch(`${SUPABASE_URL}/rest/v1/feedback`, {
       method: 'POST',
       headers: {
-        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal',
       },
       body: JSON.stringify({
         event: 'nonlinear-2026-04-11',
-        vibe_rating,
-        sound_rating,
-        heard_from,
-        what_worked,
-        what_didnt,
-        come_back,
-        anything_else,
+        vibe_rating, sound_rating, heard_from,
+        what_worked, what_didnt, come_back, anything_else,
         email: email || null,
       })
     })
 
-    if (!res.ok) {
-      const err = await res.text()
+    if (!feedbackRes.ok) {
+      const err = await feedbackRes.text()
       return { statusCode: 500, body: JSON.stringify({ error: err }) }
     }
 
-    return { statusCode: 200, body: JSON.stringify({ success: true }) }
+    // Create Grail account if email + password provided
+    let accountCreated = false
+    if (email && password) {
+      const authRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          'apikey': key,
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { source: 'nonlinear-feedback', promo_code: 'NLNR10' }
+        })
+      })
+
+      if (authRes.ok) {
+        accountCreated = true
+      } else {
+        const authErr = await authRes.json()
+        // Account already exists — that's fine, just don't overwrite
+        if (authErr.code !== 'email_exists') {
+          console.error('Auth error:', authErr)
+        }
+        accountCreated = authErr.code === 'email_exists' ? 'exists' : false
+      }
+    }
+
+    return { statusCode: 200, body: JSON.stringify({ success: true, accountCreated }) }
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) }
   }
