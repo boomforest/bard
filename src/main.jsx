@@ -6,6 +6,7 @@ import TicketPage from './TicketPage'
 import TicketView from './TicketView'
 import AdminPage from './AdminPage'
 import ScanPage from './ScanPage'
+import ProfilePage from './ProfilePage'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -17,6 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/t/:ticketId" element={<TicketView />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/scan" element={<ScanPage />} />
+        <Route path="/me" element={<ProfilePage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
