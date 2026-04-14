@@ -6,7 +6,6 @@
   <title>Nonlinear — How Was It?</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     html, body {
       background: #080808;
       color: #f0ece4;
@@ -14,332 +13,79 @@
       -webkit-font-smoothing: antialiased;
       min-height: 100dvh;
     }
-
-    .page {
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 3rem 1.5rem 4rem;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
-
-    .event-name {
-      font-size: 0.7rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: #d2691e;
-      margin-bottom: 0.75rem;
-    }
-
-    .headline {
-      font-size: 2.2rem;
-      font-weight: 800;
-      color: #f0ece4;
-      line-height: 1.1;
-      margin-bottom: 0.75rem;
-    }
-
-    .divider {
-      width: 40px;
-      height: 2px;
-      background: #d2691e;
-      margin: 1.5rem auto;
-    }
-
-    .subhead {
-      font-size: 0.9rem;
-      color: #555;
-      line-height: 1.6;
-    }
-
-    .section {
-      margin-bottom: 2.5rem;
-    }
-
-    .section-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #555;
-      margin-bottom: 1rem;
-    }
-
-    /* Chili rating */
-    .chili-row {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .chili {
-      font-size: 2rem;
-      cursor: pointer;
-      transition: transform 0.1s, filter 0.1s;
-      filter: grayscale(1) opacity(0.25);
-      user-select: none;
-      line-height: 1;
-    }
-
-    .chili.active {
-      filter: none;
-    }
-
-    .chili:hover {
-      transform: scale(1.15);
-    }
-
-    /* Select + textarea */
+    .page { max-width: 480px; margin: 0 auto; padding: 3rem 1.5rem 4rem; }
+    .lang-toggle { display: flex; justify-content: flex-end; margin-bottom: 1.5rem; }
+    .lang-toggle div { display: flex; background: #111; border: 1px solid #1e1e1e; border-radius: 8px; overflow: hidden; }
+    .lang-btn { padding: 0.35rem 0.75rem; border: none; cursor: pointer; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-family: inherit; }
+    .lang-btn.active { background: linear-gradient(45deg, #d2691e, #cd853f); color: #fff; }
+    .lang-btn:not(.active) { background: transparent; color: #555; }
+    .header { text-align: center; margin-bottom: 3rem; }
+    .event-name { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: #d2691e; margin-bottom: 0.75rem; }
+    .headline { font-size: 2.2rem; font-weight: 800; color: #f0ece4; line-height: 1.1; margin-bottom: 0.75rem; }
+    .divider { width: 40px; height: 2px; background: #d2691e; margin: 1.5rem auto; }
+    .subhead { font-size: 0.9rem; color: #555; line-height: 1.6; }
+    .section { margin-bottom: 2.5rem; }
+    .section-label { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: #555; margin-bottom: 1rem; }
+    .chili-row { display: flex; gap: 0.5rem; }
+    .chili { font-size: 2rem; cursor: pointer; transition: transform 0.1s, filter 0.1s; filter: grayscale(1) opacity(0.25); user-select: none; line-height: 1; }
+    .chili.active { filter: none; }
+    .chili:hover { transform: scale(1.15); }
     select, textarea, input[type="email"], input[type="password"] {
-      width: 100%;
-      background: #111;
-      border: 1px solid #222;
-      border-radius: 10px;
-      color: #f0ece4;
-      font-family: inherit;
-      font-size: 0.95rem;
-      padding: 0.85rem 1rem;
-      outline: none;
-      transition: border-color 0.15s;
-      appearance: none;
+      width: 100%; background: #111; border: 1px solid #222; border-radius: 10px;
+      color: #f0ece4; font-family: inherit; font-size: 0.95rem; padding: 0.85rem 1rem;
+      outline: none; transition: border-color 0.15s; appearance: none;
     }
-
-    select:focus, textarea:focus, input[type="email"]:focus, input[type="password"]:focus {
-      border-color: #d2691e;
-    }
-
-    textarea {
-      resize: vertical;
-      min-height: 90px;
-      line-height: 1.5;
-    }
-
-    /* Pills */
-    .pill-row {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .pill {
-      padding: 0.5rem 1.1rem;
-      border-radius: 20px;
-      border: 1px solid #222;
-      background: transparent;
-      color: #666;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-family: inherit;
-    }
-
-    .pill.active {
-      border-color: #d2691e;
-      color: #d2691e;
-      background: rgba(210,105,30,0.1);
-    }
-
-    /* Anonymous toggle */
-    .anon-toggle {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem 1.25rem;
-      background: #111;
-      border: 1px solid #1e1e1e;
-      border-radius: 12px;
-      cursor: pointer;
-      margin-bottom: 2.5rem;
-      transition: border-color 0.15s;
-      user-select: none;
-    }
-
-    .anon-toggle:hover {
-      border-color: #333;
-    }
-
-    .toggle-track {
-      width: 36px;
-      height: 20px;
-      border-radius: 10px;
-      background: #222;
-      position: relative;
-      flex-shrink: 0;
-      transition: background 0.2s;
-    }
-
-    .toggle-track.on {
-      background: #d2691e;
-    }
-
-    .toggle-thumb {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: #fff;
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      transition: left 0.2s;
-    }
-
-    .toggle-track.on .toggle-thumb {
-      left: 19px;
-    }
-
-    .toggle-label {
-      font-size: 0.85rem;
-      color: #888;
-    }
-
-    .toggle-label strong {
-      color: #f0ece4;
-      display: block;
-      font-size: 0.9rem;
-      margin-bottom: 0.1rem;
-    }
-
-    /* Email section */
-    .email-section {
-      margin-bottom: 2.5rem;
-      overflow: hidden;
-      transition: max-height 0.3s ease, opacity 0.3s ease;
-      max-height: 200px;
-      opacity: 1;
-    }
-
-    .email-section.hidden {
-      max-height: 0;
-      opacity: 0;
-      margin-bottom: 0;
-    }
-
-    .grail-offer {
-      margin-top: 0.75rem;
-      padding: 0.85rem 1rem;
-      background: rgba(210,105,30,0.08);
-      border: 1px solid rgba(210,105,30,0.2);
-      border-radius: 10px;
-      font-size: 0.8rem;
-      color: #cd853f;
-      line-height: 1.5;
-    }
-
-    /* Submit */
-    .submit-btn {
-      width: 100%;
-      padding: 1.1rem;
-      background: linear-gradient(45deg, #d2691e, #cd853f);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: inherit;
-      transition: opacity 0.15s;
-    }
-
-    .submit-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    /* Success */
-    .success {
-      text-align: center;
-      padding: 3rem 1rem;
-    }
-
-    .success .dawn {
-      font-size: 3.5rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .success h2 {
-      font-size: 1.5rem;
-      color: #f0ece4;
-      margin-bottom: 0.5rem;
-    }
-
-    .success .sub {
-      color: #555;
-      font-size: 0.9rem;
-      margin-bottom: 2rem;
-    }
-
-    .reward-box {
-      padding: 1.5rem;
-      background: rgba(210,105,30,0.08);
-      border: 1px solid rgba(210,105,30,0.3);
-      border-radius: 16px;
-      margin-bottom: 1rem;
-    }
-
-    .reward-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #cd853f;
-      margin-bottom: 0.5rem;
-    }
-
-    .reward-code {
-      font-size: 2rem;
-      font-weight: 900;
-      letter-spacing: 0.15em;
-      color: #fff;
-      margin-bottom: 0.4rem;
-    }
-
-    .reward-note {
-      font-size: 0.8rem;
-      color: #555;
-    }
-
-    .grail-cta {
-      display: block;
-      width: 100%;
-      padding: 0.9rem;
-      margin-top: 1rem;
-      background: linear-gradient(45deg, #d2691e, #cd853f);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: inherit;
-      text-decoration: none;
-      text-align: center;
-    }
-
-    .footer {
-      text-align: center;
-      margin-top: 3rem;
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #1e1e1e;
-    }
+    select:focus, textarea:focus, input[type="email"]:focus, input[type="password"]:focus { border-color: #d2691e; }
+    textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+    .pill-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .pill { padding: 0.5rem 1.1rem; border-radius: 20px; border: 1px solid #222; background: transparent; color: #666; font-size: 0.85rem; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .pill.active { border-color: #d2691e; color: #d2691e; background: rgba(210,105,30,0.1); }
+    .anon-toggle { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; background: #111; border: 1px solid #1e1e1e; border-radius: 12px; cursor: pointer; margin-bottom: 2.5rem; transition: border-color 0.15s; user-select: none; }
+    .anon-toggle:hover { border-color: #333; }
+    .toggle-track { width: 36px; height: 20px; border-radius: 10px; background: #222; position: relative; flex-shrink: 0; transition: background 0.2s; }
+    .toggle-track.on { background: #d2691e; }
+    .toggle-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; position: absolute; top: 3px; left: 3px; transition: left 0.2s; }
+    .toggle-track.on .toggle-thumb { left: 19px; }
+    .toggle-label { font-size: 0.85rem; color: #888; }
+    .toggle-label strong { color: #f0ece4; display: block; font-size: 0.9rem; margin-bottom: 0.1rem; }
+    .email-section { margin-bottom: 2.5rem; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 400px; opacity: 1; }
+    .email-section.hidden { max-height: 0; opacity: 0; margin-bottom: 0; }
+    .submit-btn { width: 100%; padding: 1.1rem; background: linear-gradient(45deg, #d2691e, #cd853f); color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.15s; }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .success { text-align: center; padding: 3rem 1rem; }
+    .success .dawn { font-size: 3.5rem; margin-bottom: 1.25rem; }
+    .success h2 { font-size: 1.5rem; color: #f0ece4; margin-bottom: 0.5rem; }
+    .success .sub { color: #555; font-size: 0.9rem; margin-bottom: 2rem; }
+    .reward-box { padding: 1.5rem; background: rgba(210,105,30,0.08); border: 1px solid rgba(210,105,30,0.3); border-radius: 16px; margin-bottom: 1rem; }
+    .reward-label { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: #cd853f; margin-bottom: 0.5rem; }
+    .reward-code { font-size: 2rem; font-weight: 900; letter-spacing: 0.15em; color: #fff; margin-bottom: 0.4rem; }
+    .reward-note { font-size: 0.8rem; color: #555; }
+    .grail-cta { display: block; width: 100%; padding: 0.9rem; margin-top: 1rem; background: linear-gradient(45deg, #d2691e, #cd853f); color: white; border: none; border-radius: 12px; font-size: 0.95rem; font-weight: 700; cursor: pointer; font-family: inherit; text-decoration: none; text-align: center; }
+    .footer { text-align: center; margin-top: 3rem; font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: #1e1e1e; }
   </style>
 </head>
 <body>
   <div class="page">
 
+    <!-- Language toggle -->
+    <div class="lang-toggle">
+      <div>
+        <button class="lang-btn active" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" onclick="setLang('es')">ES</button>
+      </div>
+    </div>
+
     <div class="header">
       <div class="event-name">Nonlinear — April 11, 2026</div>
-      <div class="headline">How was the sunrise?</div>
+      <div class="headline" id="t-headline">How was the sunrise?</div>
       <div class="divider"></div>
-      <div class="subhead">Honest feedback helps us make the next one better.</div>
+      <div class="subhead" id="t-subhead">Honest feedback helps us make the next one better.</div>
     </div>
 
     <div id="form-wrap">
 
-      <!-- Vibe -->
       <div class="section">
-        <div class="section-label">Overall vibe</div>
+        <div class="section-label" id="t-vibe-label">Overall vibe</div>
         <div class="chili-row" id="vibe-row">
           <span class="chili" data-val="1">🌶️</span>
           <span class="chili" data-val="2">🌶️</span>
@@ -349,9 +95,8 @@
         </div>
       </div>
 
-      <!-- Sound -->
       <div class="section">
-        <div class="section-label">Sound quality</div>
+        <div class="section-label" id="t-sound-label">Sound quality</div>
         <div class="chili-row" id="sound-row">
           <span class="chili" data-val="1">🌶️</span>
           <span class="chili" data-val="2">🌶️</span>
@@ -361,46 +106,41 @@
         </div>
       </div>
 
-      <!-- Heard from -->
       <div class="section">
-        <div class="section-label">How'd you hear about it?</div>
+        <div class="section-label" id="t-heard-label">How'd you hear about it?</div>
         <select id="heard-from">
-          <option value="" disabled selected>Choose one</option>
-          <option value="friend">A friend told me</option>
+          <option value="" disabled selected id="t-heard-default">Choose one</option>
+          <option value="friend" id="t-heard-friend">A friend told me</option>
           <option value="instagram">Instagram</option>
-          <option value="whatsapp">WhatsApp / group chat</option>
-          <option value="flyer">Saw a flyer</option>
-          <option value="scene">I was already in the scene</option>
-          <option value="other">Other</option>
+          <option value="whatsapp" id="t-heard-wa">WhatsApp / group chat</option>
+          <option value="flyer" id="t-heard-flyer">Saw a flyer</option>
+          <option value="scene" id="t-heard-scene">I was already in the scene</option>
+          <option value="other" id="t-heard-other">Other</option>
         </select>
       </div>
 
-      <!-- What worked -->
       <div class="section">
-        <div class="section-label">What worked?</div>
+        <div class="section-label" id="t-worked-label">What worked?</div>
         <textarea id="what-worked" placeholder="The sound, the crowd, the vibe at 4am..."></textarea>
       </div>
 
-      <!-- What didn't -->
       <div class="section">
-        <div class="section-label">What didn't?</div>
+        <div class="section-label" id="t-didnt-label">What didn't?</div>
         <textarea id="what-didnt" placeholder="Be honest. We can take it."></textarea>
       </div>
 
-      <!-- Come back -->
       <div class="section">
-        <div class="section-label">Would you come back?</div>
+        <div class="section-label" id="t-back-label">Would you come back?</div>
         <div class="pill-row" id="come-back-row">
-          <button class="pill" data-val="yes">Yes</button>
-          <button class="pill" data-val="bring_friends">Yes — and bringing people</button>
-          <button class="pill" data-val="maybe">Maybe</button>
-          <button class="pill" data-val="no">No</button>
+          <button class="pill" data-val="yes" id="t-pill-yes">Yes</button>
+          <button class="pill" data-val="bring_friends" id="t-pill-bring">Yes — and bringing people</button>
+          <button class="pill" data-val="maybe" id="t-pill-maybe">Maybe</button>
+          <button class="pill" data-val="no" id="t-pill-no">No</button>
         </div>
       </div>
 
-      <!-- Anything else -->
       <div class="section">
-        <div class="section-label">Anything else?</div>
+        <div class="section-label" id="t-else-label">Anything else?</div>
         <textarea id="anything-else" placeholder="Say whatever you want."></textarea>
       </div>
 
@@ -410,22 +150,21 @@
           <div class="toggle-thumb"></div>
         </div>
         <div class="toggle-label">
-          <strong>Make it anonymous</strong>
-          Leave your email off — your feedback still counts.
+          <strong id="t-anon-title">Make it anonymous</strong>
+          <span id="t-anon-sub">Leave your email off — your feedback still counts.</span>
         </div>
       </div>
 
       <!-- Account signup -->
       <div class="email-section" id="email-section">
         <div style="margin-bottom: 1.5rem; padding: 1.25rem; background: rgba(210,105,30,0.06); border: 1px solid rgba(210,105,30,0.2); border-radius: 12px;">
-          <div style="font-size: 0.95rem; color: #f0ece4; font-weight: 700; margin-bottom: 0.4rem;">🕊️ This party remembers you.</div>
-          <div style="font-size: 0.82rem; color: #666; line-height: 1.5;">Set up a Grail account and get <strong style="color:#cd853f;">$100 MXN off</strong> your next ticket. Early access. No spam.</div>
+          <div style="font-size: 0.95rem; color: #f0ece4; font-weight: 700; margin-bottom: 0.4rem;" id="t-grail-title">🕊️ This party remembers you.</div>
+          <div style="font-size: 0.82rem; color: #666; line-height: 1.5;" id="t-grail-sub">Set up a Grail account and get <strong style="color:#cd853f;">$100 MXN off</strong> your next ticket. Early access. No spam.</div>
         </div>
 
-        <!-- Login / Signup toggle -->
         <div style="display: flex; gap: 0; margin-bottom: 1.25rem; background: #111; border: 1px solid #1e1e1e; border-radius: 10px; overflow: hidden;">
-          <button id="tab-signup" onclick="setAuthMode('signup')" style="flex:1; padding: 0.65rem; background: #d2691e; color: #fff; border: none; font-family: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; cursor: pointer;">New here</button>
-          <button id="tab-login" onclick="setAuthMode('login')" style="flex:1; padding: 0.65rem; background: transparent; color: #555; border: none; font-family: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; cursor: pointer;">Already have an account</button>
+          <button id="tab-signup" onclick="setAuthMode('signup')" style="flex:1; padding: 0.65rem; background: #d2691e; color: #fff; border: none; font-family: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; cursor: pointer;" id="t-tab-new">New here</button>
+          <button id="tab-login" onclick="setAuthMode('login')" style="flex:1; padding: 0.65rem; background: transparent; color: #555; border: none; font-family: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; cursor: pointer;" id="t-tab-existing">Already have an account</button>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -435,18 +174,13 @@
         </div>
       </div>
 
-      <button class="submit-btn" id="submit-btn" onclick="submitFeedback()">
-        Send it
-      </button>
-
+      <button class="submit-btn" id="submit-btn" onclick="submitFeedback()">Send it</button>
     </div>
 
-    <!-- Success -->
     <div id="success" style="display:none;" class="success">
       <div class="dawn">🌅</div>
-      <h2>Thank you</h2>
-      <p class="sub">See you at the next sunrise.</p>
-
+      <h2 id="t-thanks">Thank you</h2>
+      <p class="sub" id="t-thanks-sub">See you at the next sunrise.</p>
       <div id="reward-wrap"></div>
     </div>
 
@@ -454,11 +188,144 @@
   </div>
 
   <script>
+    const copy = {
+      en: {
+        headline: 'How was the sunrise?',
+        subhead: 'Honest feedback helps us make the next one better.',
+        vibeLabel: 'Overall vibe',
+        soundLabel: 'Sound quality',
+        heardLabel: "How'd you hear about it?",
+        heardDefault: 'Choose one',
+        heardFriend: 'A friend told me',
+        heardWa: 'WhatsApp / group chat',
+        heardFlyer: 'Saw a flyer',
+        heardScene: 'I was already in the scene',
+        heardOther: 'Other',
+        workedLabel: 'What worked?',
+        workedPlaceholder: 'The sound, the crowd, the vibe at 4am...',
+        didntLabel: "What didn't?",
+        didntPlaceholder: 'Be honest. We can take it.',
+        backLabel: 'Would you come back?',
+        pillYes: 'Yes',
+        pillBring: 'Yes — and bringing people',
+        pillMaybe: 'Maybe',
+        pillNo: 'No',
+        elseLabel: 'Anything else?',
+        elsePlaceholder: 'Say whatever you want.',
+        anonTitle: 'Make it anonymous',
+        anonSub: 'Leave your email off — your feedback still counts.',
+        grailTitle: '🕊️ This party remembers you.',
+        grailSub: 'Set up a Grail account and get <strong style="color:#cd853f;">$100 MXN off</strong> your next ticket. Early access. No spam.',
+        tabNew: 'New here',
+        tabExisting: 'Already have an account',
+        passwordPlaceholder: 'Create a password',
+        confirmPlaceholder: 'Confirm password',
+        submit: 'Send it',
+        sending: 'Sending...',
+        thanks: 'Thank you',
+        thanksSub: 'See you at the next sunrise.',
+        rewardIn: "You're in. This party remembers you.",
+        rewardBack: 'Welcome back.',
+        rewardNote: '$100 MXN off your next ticket — use it at grail.mx',
+        ctaNew: 'Go to your Grail account →',
+        ctaExisting: 'Log in to your Grail account →',
+        anonReceived: 'Feedback received. See you at the next one.',
+        passwordMismatch: "Passwords don't match.",
+        error: 'Something went wrong. Try again.',
+      },
+      es: {
+        headline: '¿Cómo amaneció?',
+        subhead: 'Tu opinión honesta nos ayuda a mejorar la próxima.',
+        vibeLabel: 'Vibra general',
+        soundLabel: 'Calidad del sonido',
+        heardLabel: '¿Cómo te enteraste?',
+        heardDefault: 'Elige una opción',
+        heardFriend: 'Un amigo me avisó',
+        heardWa: 'WhatsApp / grupo',
+        heardFlyer: 'Vi un flyer',
+        heardScene: 'Ya estaba en el ambiente',
+        heardOther: 'Otro',
+        workedLabel: '¿Qué funcionó?',
+        workedPlaceholder: 'El sonido, la gente, la vibra a las 4am...',
+        didntLabel: '¿Qué no funcionó?',
+        didntPlaceholder: 'Sé honesto/a. Lo podemos tomar.',
+        backLabel: '¿Volverías?',
+        pillYes: 'Sí',
+        pillBring: 'Sí — y trayendo gente',
+        pillMaybe: 'Tal vez',
+        pillNo: 'No',
+        elseLabel: '¿Algo más?',
+        elsePlaceholder: 'Di lo que quieras.',
+        anonTitle: 'Enviar anónimamente',
+        anonSub: 'Sin email — tu opinión igual cuenta.',
+        grailTitle: '🕊️ Esta fiesta te recuerda.',
+        grailSub: 'Crea una cuenta Grail y obtén <strong style="color:#cd853f;">$100 MXN de descuento</strong> en tu próximo boleto. Acceso anticipado. Sin spam.',
+        tabNew: 'Soy nuevo/a',
+        tabExisting: 'Ya tengo cuenta',
+        passwordPlaceholder: 'Crea una contraseña',
+        confirmPlaceholder: 'Confirma tu contraseña',
+        submit: 'Enviar',
+        sending: 'Enviando...',
+        thanks: 'Gracias',
+        thanksSub: 'Nos vemos en el próximo amanecer.',
+        rewardIn: 'Ya estás dentro. Esta fiesta te recuerda.',
+        rewardBack: 'Bienvenido/a de vuelta.',
+        rewardNote: '$100 MXN de descuento en tu próximo boleto — úsalo en grail.mx',
+        ctaNew: 'Ir a tu cuenta Grail →',
+        ctaExisting: 'Iniciar sesión en Grail →',
+        anonReceived: 'Opinión recibida. Nos vemos en la próxima.',
+        passwordMismatch: 'Las contraseñas no coinciden.',
+        error: 'Algo salió mal. Intenta de nuevo.',
+      }
+    };
+
+    let lang = 'en';
+    let T = copy.en;
     let vibeRating = 0;
     let soundRating = 0;
     let comeBack = '';
     let anonymous = false;
     let authMode = 'signup';
+
+    function setLang(l) {
+      lang = l;
+      T = copy[l];
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent === l.toUpperCase()));
+
+      document.getElementById('t-headline').textContent = T.headline;
+      document.getElementById('t-subhead').textContent = T.subhead;
+      document.getElementById('t-vibe-label').textContent = T.vibeLabel;
+      document.getElementById('t-sound-label').textContent = T.soundLabel;
+      document.getElementById('t-heard-label').textContent = T.heardLabel;
+      document.getElementById('t-heard-default').textContent = T.heardDefault;
+      document.getElementById('t-heard-friend').textContent = T.heardFriend;
+      document.getElementById('t-heard-wa').textContent = T.heardWa;
+      document.getElementById('t-heard-flyer').textContent = T.heardFlyer;
+      document.getElementById('t-heard-scene').textContent = T.heardScene;
+      document.getElementById('t-heard-other').textContent = T.heardOther;
+      document.getElementById('t-worked-label').textContent = T.workedLabel;
+      document.getElementById('what-worked').placeholder = T.workedPlaceholder;
+      document.getElementById('t-didnt-label').textContent = T.didntLabel;
+      document.getElementById('what-didnt').placeholder = T.didntPlaceholder;
+      document.getElementById('t-back-label').textContent = T.backLabel;
+      document.getElementById('t-pill-yes').textContent = T.pillYes;
+      document.getElementById('t-pill-bring').textContent = T.pillBring;
+      document.getElementById('t-pill-maybe').textContent = T.pillMaybe;
+      document.getElementById('t-pill-no').textContent = T.pillNo;
+      document.getElementById('t-else-label').textContent = T.elseLabel;
+      document.getElementById('anything-else').placeholder = T.elsePlaceholder;
+      document.getElementById('t-anon-title').textContent = T.anonTitle;
+      document.getElementById('t-anon-sub').textContent = T.anonSub;
+      document.getElementById('t-grail-title').textContent = T.grailTitle;
+      document.getElementById('t-grail-sub').innerHTML = T.grailSub;
+      document.getElementById('tab-signup').textContent = T.tabNew;
+      document.getElementById('tab-login').textContent = T.tabExisting;
+      document.getElementById('password').placeholder = authMode === 'login' ? T.passwordPlaceholder.replace('Create', 'Your').replace('Crea una', 'Tu') : T.passwordPlaceholder;
+      document.getElementById('password-confirm').placeholder = T.confirmPlaceholder;
+      document.getElementById('submit-btn').textContent = T.submit;
+      document.getElementById('t-thanks').textContent = T.thanks;
+      document.getElementById('t-thanks-sub').textContent = T.thanksSub;
+    }
 
     function setAuthMode(mode) {
       authMode = mode;
@@ -469,7 +336,7 @@
 
       if (mode === 'login') {
         confirmField.style.display = 'none';
-        passwordField.placeholder = 'Your password';
+        passwordField.placeholder = lang === 'es' ? 'Tu contraseña' : 'Your password';
         passwordField.autocomplete = 'current-password';
         signupTab.style.background = 'transparent';
         signupTab.style.color = '#555';
@@ -477,7 +344,7 @@
         loginTab.style.color = '#fff';
       } else {
         confirmField.style.display = 'block';
-        passwordField.placeholder = 'Create a password';
+        passwordField.placeholder = T.passwordPlaceholder;
         passwordField.autocomplete = 'new-password';
         signupTab.style.background = '#d2691e';
         signupTab.style.color = '#fff';
@@ -517,16 +384,16 @@
     async function submitFeedback() {
       const btn = document.getElementById('submit-btn');
       btn.disabled = true;
-      btn.textContent = 'Sending...';
+      btn.textContent = T.sending;
 
       const email = anonymous ? null : (document.getElementById('email').value.trim() || null);
       const password = anonymous ? null : (document.getElementById('password').value || null);
       const passwordConfirm = anonymous ? null : (document.getElementById('password-confirm').value || null);
 
-      if (!anonymous && password && password !== passwordConfirm) {
+      if (!anonymous && authMode === 'signup' && password && password !== passwordConfirm) {
         btn.disabled = false;
-        btn.textContent = 'Send it';
-        alert('Passwords don\'t match.');
+        btn.textContent = T.submit;
+        alert(T.passwordMismatch);
         return;
       }
 
@@ -538,9 +405,7 @@
         what_didnt: document.getElementById('what-didnt').value.trim() || null,
         come_back: comeBack || null,
         anything_else: document.getElementById('anything-else').value.trim() || null,
-        email,
-        password,
-        auth_mode: authMode,
+        email, password, auth_mode: authMode,
       };
 
       try {
@@ -559,35 +424,33 @@
           if (email && password && data.accountCreated === true) {
             rewardWrap.innerHTML = `
               <div class="reward-box">
-                <div class="reward-label">You're in. This party remembers you.</div>
+                <div class="reward-label">${T.rewardIn}</div>
                 <div class="reward-code">NLNR10</div>
-                <div class="reward-note">$100 MXN off your next ticket — use it at grail.mx</div>
+                <div class="reward-note">${T.rewardNote}</div>
               </div>
-              <a href="https://grail.mx" class="grail-cta">Go to your Grail account →</a>
+              <a href="https://grail.mx" class="grail-cta">${T.ctaNew}</a>
             `;
           } else if (email && data.accountCreated === 'exists') {
             rewardWrap.innerHTML = `
               <div class="reward-box">
-                <div class="reward-label">Welcome back.</div>
+                <div class="reward-label">${T.rewardBack}</div>
                 <div class="reward-code">NLNR10</div>
-                <div class="reward-note">$100 MXN off your next ticket — use it at grail.mx</div>
+                <div class="reward-note">${T.rewardNote}</div>
               </div>
-              <a href="https://grail.mx" class="grail-cta">Log in to your Grail account →</a>
+              <a href="https://grail.mx" class="grail-cta">${T.ctaExisting}</a>
             `;
           } else {
-            rewardWrap.innerHTML = `
-              <p style="color:#444; font-size:0.85rem; margin-top:1rem;">Feedback received. See you at the next one.</p>
-            `;
+            rewardWrap.innerHTML = `<p style="color:#444; font-size:0.85rem; margin-top:1rem;">${T.anonReceived}</p>`;
           }
         } else {
           btn.disabled = false;
-          btn.textContent = 'Send it';
-          alert('Something went wrong. Try again.');
+          btn.textContent = T.submit;
+          alert(T.error);
         }
       } catch (e) {
         btn.disabled = false;
-        btn.textContent = 'Send it';
-        alert('Something went wrong. Try again.');
+        btn.textContent = T.submit;
+        alert(T.error);
       }
     }
   </script>
