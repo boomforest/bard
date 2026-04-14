@@ -421,6 +421,13 @@
           <div style="font-size: 0.95rem; color: #f0ece4; font-weight: 700; margin-bottom: 0.4rem;">🕊️ This party remembers you.</div>
           <div style="font-size: 0.82rem; color: #666; line-height: 1.5;">Set up a Grail account and get <strong style="color:#cd853f;">$100 MXN off</strong> your next ticket. Early access. No spam.</div>
         </div>
+
+        <!-- Login / Signup toggle -->
+        <div style="display: flex; gap: 0; margin-bottom: 1.25rem; background: #111; border: 1px solid #1e1e1e; border-radius: 10px; overflow: hidden;">
+          <button id="tab-signup" onclick="setAuthMode('signup')" style="flex:1; padding: 0.65rem; background: #d2691e; color: #fff; border: none; font-family: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; cursor: pointer;">New here</button>
+          <button id="tab-login" onclick="setAuthMode('login')" style="flex:1; padding: 0.65rem; background: transparent; color: #555; border: none; font-family: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; cursor: pointer;">Already have an account</button>
+        </div>
+
         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
           <input type="email" id="email" placeholder="your@email.com" autocomplete="email" />
           <input type="password" id="password" placeholder="Create a password" autocomplete="new-password" />
@@ -451,6 +458,33 @@
     let soundRating = 0;
     let comeBack = '';
     let anonymous = false;
+    let authMode = 'signup';
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      const confirmField = document.getElementById('password-confirm');
+      const signupTab = document.getElementById('tab-signup');
+      const loginTab = document.getElementById('tab-login');
+      const passwordField = document.getElementById('password');
+
+      if (mode === 'login') {
+        confirmField.style.display = 'none';
+        passwordField.placeholder = 'Your password';
+        passwordField.autocomplete = 'current-password';
+        signupTab.style.background = 'transparent';
+        signupTab.style.color = '#555';
+        loginTab.style.background = '#d2691e';
+        loginTab.style.color = '#fff';
+      } else {
+        confirmField.style.display = 'block';
+        passwordField.placeholder = 'Create a password';
+        passwordField.autocomplete = 'new-password';
+        signupTab.style.background = '#d2691e';
+        signupTab.style.color = '#fff';
+        loginTab.style.background = 'transparent';
+        loginTab.style.color = '#555';
+      }
+    }
 
     function setupChili(rowId, setter) {
       const chilies = document.querySelectorAll(`#${rowId} .chili`);
@@ -506,6 +540,7 @@
         anything_else: document.getElementById('anything-else').value.trim() || null,
         email,
         password,
+        auth_mode: authMode,
       };
 
       try {

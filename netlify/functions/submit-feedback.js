@@ -6,7 +6,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { vibe_rating, sound_rating, heard_from, what_worked, what_didnt, come_back, anything_else, email, password } = JSON.parse(event.body)
+    const { vibe_rating, sound_rating, heard_from, what_worked, what_didnt, come_back, anything_else, email, password, auth_mode } = JSON.parse(event.body)
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     // Save feedback
@@ -31,33 +31,41 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: JSON.stringify({ error: err }) }
     }
 
-    // Create Grail account if email + password provided
+    // Create or login to Grail account if email + password provided
     let accountCreated = false
     if (email && password) {
-      const authRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
-        method: 'POST',
-        headers: {
-          'apikey': key,
-          'Authorization': `Bearer ${key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { source: 'nonlinear-feedback', promo_code: 'NLNR10' }
+      if (auth_mode === 'login') {
+        const loginRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+          method: 'POST',
+          headers: {
+            'apikey': key,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password })
         })
-      })
-
-      if (authRes.ok) {
-        accountCreated = true
+        accountCreated = loginRes.ok ? 'exists' : false
       } else {
-        const authErr = await authRes.json()
-        // Account already exists — that's fine, just don't overwrite
-        if (authErr.code !== 'email_exists') {
-          console.error('Auth error:', authErr)
+        const authRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+          method: 'POST',
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: { source: 'nonlinear-feedback', promo_code: 'NLNR10' }
+          })
+        })
+
+        if (authRes.ok) {
+          accountCreated = true
+        } else {
+          const authErr = await authRes.json()
+          accountCreated = authErr.code === 'email_exists' ? 'exists' : false
         }
-        accountCreated = authErr.code === 'email_exists' ? 'exists' : false
       }
     }
 
