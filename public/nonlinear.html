@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nonlinear — How Was It?</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: #080808;
+      color: #f0ece4;
+      font-family: system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100dvh;
+    }
+
+    .page {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 4rem;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .event-name {
+      font-size: 0.7rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #d2691e;
+      margin-bottom: 0.75rem;
+    }
+
+    .headline {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #f0ece4;
+      line-height: 1.1;
+      margin-bottom: 0.75rem;
+    }
+
+    .divider {
+      width: 40px;
+      height: 2px;
+      background: #d2691e;
+      margin: 1.5rem auto;
+    }
+
+    .subhead {
+      font-size: 0.9rem;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    .section {
+      margin-bottom: 2.5rem;
+    }
+
+    .section-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 1rem;
+    }
+
+    /* Chili rating */
+    .chili-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .chili {
+      font-size: 2rem;
+      cursor: pointer;
+      transition: transform 0.1s, filter 0.1s;
+      filter: grayscale(1) opacity(0.25);
+      user-select: none;
+      line-height: 1;
+    }
+
+    .chili.active {
+      filter: none;
+    }
+
+    .chili:hover {
+      transform: scale(1.15);
+    }
+
+    /* Select + textarea */
+    select, textarea, input[type="email"] {
+      width: 100%;
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 10px;
+      color: #f0ece4;
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.85rem 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+      appearance: none;
+    }
+
+    select:focus, textarea:focus, input[type="email"]:focus {
+      border-color: #d2691e;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+      line-height: 1.5;
+    }
+
+    /* Pills */
+    .pill-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      padding: 0.5rem 1.1rem;
+      border-radius: 20px;
+      border: 1px solid #222;
+      background: transparent;
+      color: #666;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .pill.active {
+      border-color: #d2691e;
+      color: #d2691e;
+      background: rgba(210,105,30,0.1);
+    }
+
+    /* Anonymous toggle */
+    .anon-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 1.25rem;
+      background: #111;
+      border: 1px solid #1e1e1e;
+      border-radius: 12px;
+      cursor: pointer;
+      margin-bottom: 2.5rem;
+      transition: border-color 0.15s;
+      user-select: none;
+    }
+
+    .anon-toggle:hover {
+      border-color: #333;
+    }
+
+    .toggle-track {
+      width: 36px;
+      height: 20px;
+      border-radius: 10px;
+      background: #222;
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+
+    .toggle-track.on {
+      background: #d2691e;
+    }
+
+    .toggle-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      transition: left 0.2s;
+    }
+
+    .toggle-track.on .toggle-thumb {
+      left: 19px;
+    }
+
+    .toggle-label {
+      font-size: 0.85rem;
+      color: #888;
+    }
+
+    .toggle-label strong {
+      color: #f0ece4;
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 0.1rem;
+    }
+
+    /* Email section */
+    .email-section {
+      margin-bottom: 2.5rem;
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.3s ease;
+      max-height: 200px;
+      opacity: 1;
+    }
+
+    .email-section.hidden {
+      max-height: 0;
+      opacity: 0;
+      margin-bottom: 0;
+    }
+
+    .grail-offer {
+      margin-top: 0.75rem;
+      padding: 0.85rem 1rem;
+      background: rgba(210,105,30,0.08);
+      border: 1px solid rgba(210,105,30,0.2);
+      border-radius: 10px;
+      font-size: 0.8rem;
+      color: #cd853f;
+      line-height: 1.5;
+    }
+
+    /* Submit */
+    .submit-btn {
+      width: 100%;
+      padding: 1.1rem;
+      background: linear-gradient(45deg, #d2691e, #cd853f);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s;
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Success */
+    .success {
+      text-align: center;
+      padding: 3rem 1rem;
+    }
+
+    .success .dawn {
+      font-size: 3.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .success h2 {
+      font-size: 1.5rem;
+      color: #f0ece4;
+      margin-bottom: 0.5rem;
+    }
+
+    .success .sub {
+      color: #555;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+
+    .reward-box {
+      padding: 1.5rem;
+      background: rgba(210,105,30,0.08);
+      border: 1px solid rgba(210,105,30,0.3);
+      border-radius: 16px;
+      margin-bottom: 1rem;
+    }
+
+    .reward-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #cd853f;
+      margin-bottom: 0.5rem;
+    }
+
+    .reward-code {
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      color: #fff;
+      margin-bottom: 0.4rem;
+    }
+
+    .reward-note {
+      font-size: 0.8rem;
+      color: #555;
+    }
+
+    .grail-cta {
+      display: block;
+      width: 100%;
+      padding: 0.9rem;
+      margin-top: 1rem;
+      background: linear-gradient(45deg, #d2691e, #cd853f);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+      text-align: center;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 3rem;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #1e1e1e;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <div class="header">
+      <div class="event-name">Nonlinear — April 11, 2026</div>
+      <div class="headline">How was the sunrise?</div>
+      <div class="divider"></div>
+      <div class="subhead">Honest feedback helps us make the next one better.</div>
+    </div>
+
+    <div id="form-wrap">
+
+      <!-- Vibe -->
+      <div class="section">
+        <div class="section-label">Overall vibe</div>
+        <div class="chili-row" id="vibe-row">
+          <span class="chili" data-val="1">🌶️</span>
+          <span class="chili" data-val="2">🌶️</span>
+          <span class="chili" data-val="3">🌶️</span>
+          <span class="chili" data-val="4">🌶️</span>
+          <span class="chili" data-val="5">🌶️</span>
+        </div>
+      </div>
+
+      <!-- Sound -->
+      <div class="section">
+        <div class="section-label">Sound quality</div>
+        <div class="chili-row" id="sound-row">
+          <span class="chili" data-val="1">🌶️</span>
+          <span class="chili" data-val="2">🌶️</span>
+          <span class="chili" data-val="3">🌶️</span>
+          <span class="chili" data-val="4">🌶️</span>
+          <span class="chili" data-val="5">🌶️</span>
+        </div>
+      </div>
+
+      <!-- Heard from -->
+      <div class="section">
+        <div class="section-label">How'd you hear about it?</div>
+        <select id="heard-from">
+          <option value="" disabled selected>Choose one</option>
+          <option value="friend">A friend told me</option>
+          <option value="instagram">Instagram</option>
+          <option value="whatsapp">WhatsApp / group chat</option>
+          <option value="flyer">Saw a flyer</option>
+          <option value="scene">I was already in the scene</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <!-- What worked -->
+      <div class="section">
+        <div class="section-label">What worked?</div>
+        <textarea id="what-worked" placeholder="The sound, the crowd, the vibe at 4am..."></textarea>
+      </div>
+
+      <!-- What didn't -->
+      <div class="section">
+        <div class="section-label">What didn't?</div>
+        <textarea id="what-didnt" placeholder="Be honest. We can take it."></textarea>
+      </div>
+
+      <!-- Come back -->
+      <div class="section">
+        <div class="section-label">Would you come back?</div>
+        <div class="pill-row" id="come-back-row">
+          <button class="pill" data-val="yes">Yes</button>
+          <button class="pill" data-val="bring_friends">Yes — and bringing people</button>
+          <button class="pill" data-val="maybe">Maybe</button>
+          <button class="pill" data-val="no">No</button>
+        </div>
+      </div>
+
+      <!-- Anything else -->
+      <div class="section">
+        <div class="section-label">Anything else?</div>
+        <textarea id="anything-else" placeholder="Say whatever you want."></textarea>
+      </div>
+
+      <!-- Anonymous toggle -->
+      <div class="anon-toggle" id="anon-toggle" onclick="toggleAnon()">
+        <div class="toggle-track" id="toggle-track">
+          <div class="toggle-thumb"></div>
+        </div>
+        <div class="toggle-label">
+          <strong>Make it anonymous</strong>
+          Leave your email off — your feedback still counts.
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div class="email-section" id="email-section">
+        <div class="section-label">Your email</div>
+        <input type="email" id="email" placeholder="you@email.com" autocomplete="email" />
+        <div class="grail-offer">
+          🕊️ Leave your email and get <strong>$100 MXN off</strong> your next ticket — plus early access to future shows via grail.mx
+        </div>
+      </div>
+
+      <button class="submit-btn" id="submit-btn" onclick="submitFeedback()">
+        Send it
+      </button>
+
+    </div>
+
+    <!-- Success -->
+    <div id="success" style="display:none;" class="success">
+      <div class="dawn">🌅</div>
+      <h2>Thank you</h2>
+      <p class="sub">See you at the next sunrise.</p>
+
+      <div id="reward-wrap"></div>
+    </div>
+
+    <div class="footer">grail.mx</div>
+  </div>
+
+  <script>
+    let vibeRating = 0;
+    let soundRating = 0;
+    let comeBack = '';
+    let anonymous = false;
+
+    function setupChili(rowId, setter) {
+      const chilies = document.querySelectorAll(`#${rowId} .chili`);
+      chilies.forEach(chili => {
+        chili.addEventListener('click', () => {
+          const val = parseInt(chili.dataset.val);
+          setter(val);
+          chilies.forEach(c => c.classList.toggle('active', parseInt(c.dataset.val) <= val));
+        });
+      });
+    }
+
+    setupChili('vibe-row', v => vibeRating = v);
+    setupChili('sound-row', v => soundRating = v);
+
+    document.querySelectorAll('#come-back-row .pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('#come-back-row .pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        comeBack = pill.dataset.val;
+      });
+    });
+
+    function toggleAnon() {
+      anonymous = !anonymous;
+      document.getElementById('toggle-track').classList.toggle('on', anonymous);
+      document.getElementById('email-section').classList.toggle('hidden', anonymous);
+    }
+
+    async function submitFeedback() {
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+
+      const email = anonymous ? null : (document.getElementById('email').value.trim() || null);
+
+      const body = {
+        vibe_rating: vibeRating || null,
+        sound_rating: soundRating || null,
+        heard_from: document.getElementById('heard-from').value || null,
+        what_worked: document.getElementById('what-worked').value.trim() || null,
+        what_didnt: document.getElementById('what-didnt').value.trim() || null,
+        come_back: comeBack || null,
+        anything_else: document.getElementById('anything-else').value.trim() || null,
+        email,
+      };
+
+      try {
+        const res = await fetch('/.netlify/functions/submit-feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (res.ok) {
+          document.getElementById('form-wrap').style.display = 'none';
+          document.getElementById('success').style.display = 'block';
+
+          const rewardWrap = document.getElementById('reward-wrap');
+          if (email) {
+            rewardWrap.innerHTML = `
+              <div class="reward-box">
+                <div class="reward-label">You were there. Next one's on us.</div>
+                <div class="reward-code">NLNR10</div>
+                <div class="reward-note">$100 MXN off your next ticket at grail.mx</div>
+              </div>
+              <a href="https://grail.mx" class="grail-cta">Create your Grail account →</a>
+            `;
+          } else {
+            rewardWrap.innerHTML = `
+              <p style="color:#333; font-size:0.85rem;">Your feedback was received.</p>
+            `;
+          }
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Send it';
+          alert('Something went wrong. Try again.');
+        }
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Send it';
+        alert('Something went wrong. Try again.');
+      }
+    }
+  </script>
+</body>
+</html>
