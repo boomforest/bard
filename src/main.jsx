@@ -7,18 +7,50 @@ import TicketView from './TicketView'
 import AdminPage from './AdminPage'
 import ScanPage from './ScanPage'
 import ProfilePage from './ProfilePage'
+import GrailTable from './GrailTable'
+import GrailBar from './GrailBar'
+import GrailAdmin from './GrailAdmin'
+import GrailDoor from './GrailDoor'
+import GrailDoves from './GrailDoves'
+import AlleycatDemo from './AlleycatDemo'
+import GrailDemo from './GrailDemo'
+import SimpleBar from './SimpleBar'
+import EventBar from './EventBar'
+import GrailHome from './GrailHome'
+import GrailSetup from './GrailSetup'
+import PromoterDashboard from './PromoterDashboard'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<TicketPage />} />
+        <Route path="/" element={<GrailHome />} />
         <Route path="/ticket" element={<TicketPage />} />
         <Route path="/t/:ticketId" element={<TicketView />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/scan" element={<ScanPage />} />
         <Route path="/me" element={<ProfilePage />} />
+        {/* GRAIL — promoter setup */}
+        <Route path="/setup" element={<GrailSetup />} />
+        {/* Promoter dashboard — auth gated */}
+        <Route path="/promoter" element={<PromoterDashboard />} />
+        {/* GRAIL — customer-facing */}
+        <Route path="/grail/bar"   element={<GrailBar />} />
+        <Route path="/grail/doves" element={<GrailDoves />} />
+        {/* GRAIL — admin */}
+        <Route path="/grail/table" element={<GrailTable />} />
+        <Route path="/grail/door"  element={<GrailDoor />} />
+        <Route path="/grail/admin" element={<GrailAdmin />} />
+        {/* Generic demo */}
+        <Route path="/demo" element={<GrailDemo />} />
+        {/* Partner demos */}
+        <Route path="/alleycat" element={<AlleycatDemo />} />
+        {/* Simple bar demo */}
+        <Route path="/bar" element={<SimpleBar />} />
+        {/* Multi-tenant event bar */}
+        <Route path="/:slug/bar"       element={<EventBar staffMode={false} />} />
+        <Route path="/:slug/bar/staff" element={<EventBar staffMode={true}  />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
