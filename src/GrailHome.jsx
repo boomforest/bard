@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { QRCode } from 'react-qrcode-logo'
+import { supabase } from './supabase'
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 const C = {
@@ -540,6 +541,54 @@ function RoleCard({ label, desc, cta, onClick, accent }) {
   )
 }
 
+// ─── HOME LOGIN ───────────────────────────────────────────────────────────────
+function HomeLogin() {
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
+  const navigate = useNavigate()
+
+  const inp = {
+    flex: 1, background: '#0d0d0d', border: `1px solid ${C.border}`,
+    borderRadius: '6px', padding: '0.6rem 0.75rem', color: C.text,
+    fontSize: '0.82rem', outline: 'none', minWidth: 0,
+  }
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) { setError(error.message); setLoading(false); return }
+    const { data: profile } = await supabase.from('users').select('user_type').eq('id', data.user.id).single()
+    setLoading(false)
+    if (profile?.user_type === 'promoter') navigate('/promoter')
+    else navigate('/join')
+  }
+
+  return (
+    <div style={{ width: '100%', marginTop: '2rem', paddingTop: '2rem', borderTop: `1px solid ${C.border}` }}>
+      <div style={{ color: C.textMid, fontSize: '0.72rem', textAlign: 'center', marginBottom: '1rem', letterSpacing: '0.05em' }}>
+        Already have an account?
+      </div>
+      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <input style={inp} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+          <input style={inp} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
+        </div>
+        {error && <div style={{ color: '#ef4444', fontSize: '0.75rem' }}>{error}</div>}
+        <button type="submit" disabled={loading} style={{
+          background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
+          borderRadius: '6px', padding: '0.6rem', cursor: 'pointer', fontSize: '0.82rem',
+        }}>
+          {loading ? '…' : 'Sign In'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 // ─── SIGNUP FORM ──────────────────────────────────────────────────────────────
 function SignupForm({ role, onBack }) {
   const [email, setEmail] = useState('')
@@ -645,29 +694,38 @@ export default function GrailHome() {
       </div>
 
       {view === 'home' && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <RoleCard
-            label="I'm a Promoter"
-            desc="Build your event contract, sell tickets, manage the bar, and settle with your partners — all in one place."
-            cta="Set up a show"
-            accent={C.goldLight}
-            onClick={() => navigate('/join')}
-          />
-          <RoleCard
-            label="I'm a Fan"
-            desc="See your ticket, order drinks from your phone, and pay after the show. No app download required."
-            cta="Get started"
-            accent="#b57bff"
-            onClick={() => navigate('/join')}
-          />
-          <RoleCard
-            label="Show me a demo"
-            desc="Walk through a full event — contract, bar, door, and settlement."
-            cta="Open the demo"
-            accent="#5b9bff"
-            onClick={() => navigate('/demo')}
-          />
-        </div>
+        <>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <RoleCard
+              label="I'm a Promoter"
+              desc="Build your event contract, sell tickets, manage the bar, and settle with your partners — all in one place."
+              cta="Join the waitlist"
+              accent={C.goldLight}
+              onClick={() => setView('promoter-signup')}
+            />
+            <RoleCard
+              label="I'm a Fan"
+              desc="See your ticket, order drinks from your phone, and pay after the show. No app download required."
+              cta="See how it works"
+              accent="#b57bff"
+              onClick={() => setView('fan')}
+            />
+            <RoleCard
+              label="Show me a demo"
+              desc="Walk through a full event — contract, bar, door, and settlement."
+              cta="Open the demo"
+              accent="#5b9bff"
+              onClick={() => navigate('/demo')}
+            />
+          </div>
+
+          {/* Login */}
+          <HomeLogin />
+
+          <div style={{ marginTop: '1.5rem', color: C.textDim, fontSize: '0.72rem', textAlign: 'center' }}>
+            A musician-run nonprofit · 2% on tickets and bar
+          </div>
+        </>
       )}
 
       {view === 'promoter-signup' && (
@@ -679,13 +737,6 @@ export default function GrailHome() {
       {view === 'fan-signup' && (
         <div style={{ width: '100%' }}>
           <SignupForm role="Fan" onBack={() => setView('home')} />
-        </div>
-      )}
-
-      {/* Footer */}
-      {view === 'home' && (
-        <div style={{ marginTop: '2.5rem', color: C.textDim, fontSize: '0.72rem', textAlign: 'center' }}>
-          A musician-run nonprofit · 2% on tickets and bar
         </div>
       )}
     </div>
