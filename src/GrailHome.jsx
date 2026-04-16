@@ -649,16 +649,16 @@ export default function GrailHome() {
           <RoleCard
             label="I'm a Promoter"
             desc="Build your event contract, sell tickets, manage the bar, and settle with your partners — all in one place."
-            cta="Join the waitlist"
+            cta="Set up a show"
             accent={C.goldLight}
-            onClick={() => setView('promoter-signup')}
+            onClick={() => navigate('/join')}
           />
           <RoleCard
             label="I'm a Fan"
             desc="See your ticket, order drinks from your phone, and pay after the show. No app download required."
-            cta="See how it works"
+            cta="Get started"
             accent="#b57bff"
-            onClick={() => setView('fan')}
+            onClick={() => navigate('/join')}
           />
           <RoleCard
             label="Show me a demo"

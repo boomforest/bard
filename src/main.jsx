@@ -19,6 +19,7 @@ import EventBar from './EventBar'
 import GrailHome from './GrailHome'
 import GrailSetup from './GrailSetup'
 import PromoterDashboard from './PromoterDashboard'
+import JoinPage from './JoinPage'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -35,6 +36,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/setup" element={<GrailSetup />} />
         {/* Promoter dashboard — auth gated */}
         <Route path="/promoter" element={<PromoterDashboard />} />
+        {/* Unified join / onboarding flow */}
+        <Route path="/join" element={<JoinPage />} />
         {/* GRAIL — customer-facing */}
         <Route path="/grail/bar"   element={<GrailBar />} />
         <Route path="/grail/doves" element={<GrailDoves />} />
