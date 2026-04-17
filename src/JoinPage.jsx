@@ -1,26 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from './supabase'
-
-const C = {
-  bg:       '#080808',
-  surface:  '#0f0f0f',
-  card:     '#131313',
-  border:   '#1e1e1e',
-  gold:     '#c8922a',
-  goldLight:'#e8b84b',
-  text:     '#f0ece4',
-  textMid:  '#7a7060',
-  textDim:  '#3a3028',
-  red:      '#ef4444',
-  purple:   '#b57bff',
-}
-
-const inp = {
-  width: '100%', background: '#0d0d0d', border: `1px solid ${C.border}`,
-  borderRadius: '8px', padding: '0.75rem 1rem', color: C.text,
-  fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
-}
+import { BRAND, C, FONT, INPUT, PRIMARY_BTN, PAGE, eyebrowStyle, LogoMark } from './theme'
 
 const RADII = ['10', '25', '50', '100']
 
@@ -34,6 +15,7 @@ export default function JoinPage() {
   const [session, setSession]   = useState(null)
   const [zip, setZip]           = useState('')
   const [radius, setRadius]     = useState('25')
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -102,10 +84,16 @@ export default function JoinPage() {
   }
 
   const wrap = (children) => (
-    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-      <div style={{ width: '100%', maxWidth: '360px' }}>
-        <div style={{ color: C.goldLight, fontWeight: '900', fontSize: '1rem', letterSpacing: '-0.02em', marginBottom: '2rem', textAlign: 'center' }}>
-          GRAIL
+    <div style={{ ...PAGE, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', position: 'relative', overflow: 'hidden' }}>
+      {/* Ambient glow */}
+      <div style={{
+        position: 'absolute', top: '30%', left: '50%', transform: 'translateX(-50%)',
+        width: '500px', height: '500px', pointerEvents: 'none',
+        background: 'radial-gradient(ellipse, rgba(204,68,238,0.08) 0%, transparent 65%)',
+      }} />
+      <div style={{ width: '100%', maxWidth: '380px', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+          <div style={LogoMark({ size: 56 })}>GRAIL</div>
         </div>
         {children}
       </div>
@@ -114,29 +102,50 @@ export default function JoinPage() {
 
   if (step === 'auth') return wrap(
     <div>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '0.25rem' }}>
         {['login', 'signup'].map(m => (
           <button key={m} onClick={() => setAuthMode(m)} style={{
-            flex: 1, padding: '0.6rem', borderRadius: '6px', border: `1px solid ${authMode === m ? C.goldLight : C.border}`,
-            background: authMode === m ? 'rgba(232,184,75,0.08)' : 'transparent',
-            color: authMode === m ? C.goldLight : C.textMid, cursor: 'pointer', fontSize: '0.85rem',
+            flex: 1, padding: '0.55rem', borderRadius: '7px', border: 'none',
+            background: authMode === m ? BRAND.gradient : 'transparent',
+            color: authMode === m ? '#000' : C.textMid,
+            cursor: 'pointer', fontSize: '0.82rem', fontWeight: '700',
+            fontFamily: FONT, transition: 'all 0.2s',
           }}>
             {m === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         ))}
       </div>
-      <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-        <input style={inp} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
-        <input style={inp} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
+      <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+        <input style={INPUT} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+        <input style={INPUT} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
         {error && <div style={{ color: C.red, fontSize: '0.82rem' }}>{error}</div>}
-        <button type="submit" disabled={loading} style={{
-          background: C.goldLight, color: '#000', border: 'none', borderRadius: '8px',
-          padding: '0.85rem', fontWeight: '800', fontSize: '0.95rem', cursor: 'pointer', marginTop: '0.25rem',
+        {authMode === 'signup' && (
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', cursor: 'pointer', marginTop: '0.25rem' }}>
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={e => setTermsAccepted(e.target.checked)}
+              style={{ marginTop: '2px', accentColor: BRAND.pink, flexShrink: 0 }}
+            />
+            <span style={{ color: C.textMid, fontSize: '0.78rem', lineHeight: '1.5' }}>
+              I have read and agree to the{' '}
+              <Link to="/terms" target="_blank" style={{ color: BRAND.pink, textDecoration: 'underline' }}>
+                Terms of Service
+              </Link>
+              . I understand that Grail is a software tool and I am solely responsible for my event's compliance, refunds, and regulatory requirements.
+            </span>
+          </label>
+        )}
+        <button type="submit" disabled={loading || (authMode === 'signup' && !termsAccepted)} style={{
+          ...PRIMARY_BTN,
+          marginTop: '0.25rem',
+          opacity: (authMode === 'signup' && !termsAccepted) ? 0.4 : 1,
+          cursor: (loading || (authMode === 'signup' && !termsAccepted)) ? 'not-allowed' : 'pointer',
         }}>
           {loading ? '…' : authMode === 'login' ? 'Sign In' : 'Create Account'}
         </button>
       </form>
-      <button onClick={() => navigate('/')} style={{ display: 'block', margin: '1.5rem auto 0', background: 'transparent', border: 'none', color: C.textMid, cursor: 'pointer', fontSize: '0.82rem' }}>
+      <button onClick={() => navigate('/')} style={{ display: 'block', margin: '1.5rem auto 0', background: 'transparent', border: 'none', color: C.textMid, cursor: 'pointer', fontSize: '0.82rem', fontFamily: FONT }}>
         ← Back
       </button>
     </div>
@@ -144,28 +153,39 @@ export default function JoinPage() {
 
   if (step === 'role') return wrap(
     <div>
-      <div style={{ color: C.text, fontWeight: '800', fontSize: '1.2rem', marginBottom: '0.4rem', textAlign: 'center' }}>Who are you?</div>
-      <div style={{ color: C.textMid, fontSize: '0.85rem', textAlign: 'center', marginBottom: '2rem' }}>Choose your role</div>
+      <button onClick={() => navigate('/')} style={{
+        background: 'transparent', border: 'none', color: C.textMid, cursor: 'pointer',
+        fontSize: '0.82rem', marginBottom: '1rem', padding: 0, fontFamily: FONT,
+      }}>
+        ← Back
+      </button>
+      <div style={eyebrowStyle()}>Welcome to GRAIL</div>
+      <div style={{ color: C.text, fontWeight: '800', fontSize: '1.5rem', marginBottom: '0.3rem', letterSpacing: '-0.02em' }}>Who are you?</div>
+      <div style={{ color: C.textMid, fontSize: '0.88rem', marginBottom: '2rem' }}>Choose your role</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <button onClick={() => selectRole('promoter')} style={{
-          background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px',
-          padding: '1.25rem 1.5rem', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.15s',
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px',
+          padding: '1.4rem 1.5rem', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+          fontFamily: FONT,
         }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = C.goldLight}
-          onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = BRAND.orange; e.currentTarget.style.background = C.cardHov }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.card }}
         >
-          <div style={{ color: C.goldLight, fontWeight: '800', fontSize: '1rem', marginBottom: '0.25rem' }}>I'm a Promoter</div>
-          <div style={{ color: C.textMid, fontSize: '0.82rem' }}>Build your event, sell tickets, manage the bar</div>
+          <div style={{ fontSize: '0.68rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: '700', marginBottom: '0.4rem' }}>Promoter</div>
+          <div style={{ color: C.text, fontWeight: '800', fontSize: '1.05rem', marginBottom: '0.3rem' }}>I'm throwing an event</div>
+          <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.5 }}>Build your event, sell tickets, manage the bar</div>
         </button>
         <button onClick={() => selectRole('fan')} style={{
-          background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px',
-          padding: '1.25rem 1.5rem', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.15s',
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px',
+          padding: '1.4rem 1.5rem', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+          fontFamily: FONT,
         }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = C.purple}
-          onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = BRAND.purple; e.currentTarget.style.background = C.cardHov }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.card }}
         >
-          <div style={{ color: C.purple, fontWeight: '800', fontSize: '1rem', marginBottom: '0.25rem' }}>I'm a Fan</div>
-          <div style={{ color: C.textMid, fontSize: '0.82rem' }}>See your tickets, order drinks, find shows near you</div>
+          <div style={{ fontSize: '0.68rem', color: BRAND.purple, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: '700', marginBottom: '0.4rem' }}>Fan</div>
+          <div style={{ color: C.text, fontWeight: '800', fontSize: '1.05rem', marginBottom: '0.3rem' }}>I'm going to shows</div>
+          <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.5 }}>See your tickets, order drinks, find shows near you</div>
         </button>
       </div>
     </div>
@@ -173,20 +193,28 @@ export default function JoinPage() {
 
   if (step === 'fan-setup') return wrap(
     <div>
-      <div style={{ color: C.text, fontWeight: '800', fontSize: '1.2rem', marginBottom: '0.4rem', textAlign: 'center' }}>Where do you go to shows?</div>
-      <div style={{ color: C.textMid, fontSize: '0.85rem', textAlign: 'center', marginBottom: '2rem' }}>We'll use this to surface shows near you</div>
-      <form onSubmit={handleFanSetup} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-        <input style={inp} type="text" placeholder="Zip code" value={zip} onChange={e => setZip(e.target.value)} required inputMode="numeric" />
+      <button onClick={() => setStep('role')} style={{
+        background: 'transparent', border: 'none', color: C.textMid, cursor: 'pointer',
+        fontSize: '0.82rem', marginBottom: '1rem', padding: 0, fontFamily: FONT,
+      }}>
+        ← Back
+      </button>
+      <div style={eyebrowStyle(BRAND.purple)}>Fan Setup</div>
+      <div style={{ color: C.text, fontWeight: '800', fontSize: '1.4rem', marginBottom: '0.3rem', letterSpacing: '-0.02em' }}>Where do you go to shows?</div>
+      <div style={{ color: C.textMid, fontSize: '0.88rem', marginBottom: '2rem' }}>We'll use this to surface shows near you</div>
+      <form onSubmit={handleFanSetup} style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+        <input style={INPUT} type="text" placeholder="Zip code" value={zip} onChange={e => setZip(e.target.value)} required inputMode="numeric" />
         <div>
-          <div style={{ color: C.textMid, fontSize: '0.78rem', marginBottom: '0.5rem' }}>How far will you travel?</div>
+          <div style={{ color: C.textMid, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700', marginBottom: '0.5rem' }}>How far will you travel?</div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {RADII.map(r => (
               <button key={r} type="button" onClick={() => setRadius(r)} style={{
-                flex: 1, padding: '0.6rem 0', borderRadius: '6px',
-                border: `1px solid ${radius === r ? C.purple : C.border}`,
+                flex: 1, padding: '0.65rem 0', borderRadius: '8px',
+                border: `1px solid ${radius === r ? BRAND.purple : C.border}`,
                 background: radius === r ? 'rgba(181,123,255,0.1)' : 'transparent',
-                color: radius === r ? C.purple : C.textMid,
-                cursor: 'pointer', fontSize: '0.82rem',
+                color: radius === r ? BRAND.purple : C.textMid,
+                cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700',
+                fontFamily: FONT,
               }}>
                 {r}mi
               </button>
@@ -194,11 +222,12 @@ export default function JoinPage() {
           </div>
         </div>
         <button type="submit" disabled={loading || !zip} style={{
-          background: C.purple, color: '#000', border: 'none', borderRadius: '8px',
-          padding: '0.85rem', fontWeight: '800', fontSize: '0.95rem', cursor: 'pointer', marginTop: '0.5rem',
-          opacity: !zip ? 0.5 : 1,
+          background: `linear-gradient(135deg, ${BRAND.purple}, #7a4dd8)`,
+          color: '#fff', border: 'none', borderRadius: '10px',
+          padding: '0.95rem', fontWeight: '800', fontSize: '0.95rem', cursor: 'pointer', marginTop: '0.5rem',
+          opacity: !zip ? 0.5 : 1, fontFamily: FONT,
         }}>
-          {loading ? '…' : 'Enter Grail'}
+          {loading ? '…' : 'Enter GRAIL'}
         </button>
       </form>
     </div>
