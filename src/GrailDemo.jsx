@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 
 // ─── BRAND ────────────────────────────────────────────────────────────────────
 const BRAND = {
@@ -847,6 +848,13 @@ export default function GrailDemo() {
         backdropFilter: scrolled ? 'blur(12px)' : 'none',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+          <Link to="/" style={{
+            background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
+            borderRadius: '8px', padding: '0.35rem 0.7rem', fontSize: '0.78rem',
+            textDecoration: 'none', fontWeight: '600',
+          }}>
+            ← Back
+          </Link>
           <AlleycatLogo size={30} />
           <span style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem' }}>GRAIL</span>
         </div>
