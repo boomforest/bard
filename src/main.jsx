@@ -21,6 +21,7 @@ import GrailSetup from './GrailSetup'
 import PromoterDashboard from './PromoterDashboard'
 import JoinPage from './JoinPage'
 import TermsPage from './TermsPage'
+import EventPage from './EventPage'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -40,6 +41,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         {/* Unified join / onboarding flow */}
         <Route path="/join" element={<JoinPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        {/* Public event page */}
+        <Route path="/e/:slug" element={<EventPage />} />
         {/* GRAIL — customer-facing */}
         <Route path="/grail/bar"   element={<GrailBar />} />
         <Route path="/grail/doves" element={<GrailDoves />} />
