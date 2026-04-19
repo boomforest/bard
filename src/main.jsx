@@ -33,6 +33,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/ticket" element={<TicketPage />} />
         <Route path="/t/:ticketId" element={<TicketView />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/scan/:slug" element={<ScanPage />} />
+        {/* Legacy /scan kept for old Nonlinear staff bookmarks */}
         <Route path="/scan" element={<ScanPage />} />
         <Route path="/me" element={<ProfilePage />} />
         {/* GRAIL — promoter setup */}

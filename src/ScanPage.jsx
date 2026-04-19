@@ -1,19 +1,50 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import jsQR from 'jsqr'
 import { supabase } from './supabase'
+import { BRAND, C, FONT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
 
+// UUID v4 sanity check (loose) — used to detect when the QR encodes a ticket id
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default function ScanPage() {
-  const [scanning, setScanning] = useState(false)
-  const [result, setResult] = useState(null)
+  const { slug } = useParams()
+  const navigate = useNavigate()
+
+  const [event, setEvent]         = useState(null)
+  const [eventErr, setEventErr]   = useState('')
+  const [scanning, setScanning]   = useState(false)
+  const [result, setResult]       = useState(null)
   const [admitting, setAdmitting] = useState(false)
   const [manualInput, setManualInput] = useState('')
-  const videoRef = useRef(null)
-  const canvasRef = useRef(null)
-  const streamRef = useRef(null)
-  const rafRef = useRef(null)
-  const handledRef = useRef(false)
 
+  const videoRef    = useRef(null)
+  const canvasRef   = useRef(null)
+  const streamRef   = useRef(null)
+  const rafRef      = useRef(null)
+  const handledRef  = useRef(false)
+  const eventIdRef  = useRef(null)
+
+  // ─── Load event by slug ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!slug) { setEventErr('No event specified.'); return }
+    let cancelled = false
+    async function load() {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, slug, name, artist_name, capacity, tickets_sold')
+        .eq('slug', slug)
+        .maybeSingle()
+      if (cancelled) return
+      if (error || !data) { setEventErr('Event not found.'); return }
+      setEvent(data)
+      eventIdRef.current = data.id
+    }
+    load()
+    return () => { cancelled = true }
+  }, [slug])
+
+  // ─── Camera + scan loop ─────────────────────────────────────────────────
   const startScanner = async () => {
     setResult(null)
     handledRef.current = false
@@ -26,20 +57,20 @@ export default function ScanPage() {
       await videoRef.current.play()
       setScanning(true)
       tick()
-    } catch (err) {
+    } catch {
       setResult({ status: 'error', message: 'Camera access denied. Check browser permissions.' })
     }
   }
 
   const tick = () => {
-    const video = videoRef.current
+    const video  = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas) return
     if (video.readyState < 2) {
       rafRef.current = requestAnimationFrame(tick)
       return
     }
-    canvas.width = video.videoWidth
+    canvas.width  = video.videoWidth
     canvas.height = video.videoHeight
     const ctx = canvas.getContext('2d')
     ctx.drawImage(video, 0, 0)
@@ -47,7 +78,7 @@ export default function ScanPage() {
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
       inversionAttempts: 'attemptBoth',
     })
-    if (code && !handledRef.current && !isNaN(parseInt(code.data.trim(), 10))) {
+    if (code && !handledRef.current) {
       handledRef.current = true
       stopScanner()
       handleScan(code.data)
@@ -65,20 +96,42 @@ export default function ScanPage() {
     setScanning(false)
   }
 
-  const handleScan = async (text) => {
-    const ticketNumber = parseInt(text.trim(), 10)
-    if (isNaN(ticketNumber)) {
-      setResult({ status: 'error', message: `Unrecognized QR: "${text}"` })
+  // ─── Lookup logic ──────────────────────────────────────────────────────
+  const handleScan = async (raw) => {
+    if (!eventIdRef.current) {
+      setResult({ status: 'error', message: 'Event not loaded yet.' })
       return
     }
-    const { data, error } = await supabase
-      .from('tickets')
-      .select('*')
-      .eq('ticket_number', ticketNumber)
-      .single()
+    const text = (raw || '').trim()
+    if (!text) {
+      setResult({ status: 'error', message: 'Empty scan.' })
+      return
+    }
 
-    if (error || !data) {
-      setResult({ status: 'not_found', ticketNumber })
+    let q = supabase
+      .from('tickets')
+      .select('id, ticket_number, name, email, torn, torn_at, tier_name, event_id')
+      .eq('event_id', eventIdRef.current)
+
+    if (UUID_RE.test(text)) {
+      q = q.eq('id', text)
+    } else {
+      const num = parseInt(text, 10)
+      if (isNaN(num)) {
+        setResult({ status: 'error', message: `Unrecognized QR: "${text.slice(0, 40)}"` })
+        return
+      }
+      q = q.eq('ticket_number', num)
+    }
+
+    const { data, error } = await q.maybeSingle()
+
+    if (error) {
+      setResult({ status: 'error', message: error.message })
+      return
+    }
+    if (!data) {
+      setResult({ status: 'not_found', token: text })
       return
     }
     setResult({ status: data.torn ? 'already_torn' : 'valid', ticket: data })
@@ -93,41 +146,75 @@ export default function ScanPage() {
       .eq('id', result.ticket.id)
     if (!error) {
       setResult(prev => ({ ...prev, status: 'admitted' }))
-      setTimeout(() => setResult(null), 3000)
+      setTimeout(() => setResult(null), 2500)
     }
     setAdmitting(false)
   }
 
   useEffect(() => () => stopScanner(), [])
 
-  return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#0d0d0d',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      padding: '2rem 1rem',
-      color: '#fff',
-    }}>
-      <div style={{ width: '100%', maxWidth: '400px' }}>
+  // ─── Error / loading guards ────────────────────────────────────────────
+  if (eventErr) {
+    return (
+      <div style={{ ...PAGE, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div style={{ textAlign: 'center', maxWidth: '380px' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕊</div>
+          <div style={{ color: C.text, fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem', letterSpacing: '-0.02em' }}>
+            {eventErr}
+          </div>
+          <div style={{ color: C.textMid, fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+            Door scanner needs an event slug. Try /scan/your-event
+          </div>
+          <button onClick={() => navigate('/')} style={{
+            background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
+            padding: '0.85rem 1.5rem', fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer', fontFamily: FONT,
+          }}>
+            Home →
+          </button>
+        </div>
+      </div>
+    )
+  }
 
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <img
-            src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nonlinear%20outline.svg"
-            alt="Nonlinear"
-            style={{ width: '160px', filter: 'brightness(0) invert(1)', marginBottom: '0.5rem' }}
-          />
-          <div style={{ color: '#cd853f', fontSize: '0.75rem', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-            Door Scanner
+  if (!event) {
+    return (
+      <div style={{ ...PAGE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: '2rem', opacity: 0.4 }}>🕊</div>
+      </div>
+    )
+  }
+
+  const eventName = event.name || event.artist_name
+  const admittedSoFar = result?.status === 'admitted' ? 1 : 0  // hint only
+
+  return (
+    <div style={{ ...PAGE, padding: '2rem 1rem 3rem' }}>
+      <div style={{ width: '100%', maxWidth: '420px', margin: '0 auto' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <button onClick={() => navigate('/promoter')} style={{
+            background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
+            borderRadius: '8px', padding: '0.4rem 0.85rem', fontSize: '0.8rem',
+            cursor: 'pointer', fontFamily: FONT, fontWeight: '600',
+          }}>
+            ← Back
+          </button>
+          <div style={LogoMark({ size: 32 })}>GRAIL</div>
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={eyebrowStyle()}>Door Scanner</div>
+          <div style={{ color: C.text, fontSize: '1.4rem', fontWeight: '900', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            {eventName}
+          </div>
+          <div style={{ color: C.textMid, fontSize: '0.8rem', marginTop: '0.25rem' }}>
+            {event.tickets_sold || 0} tickets sold · capacity {event.capacity}
           </div>
         </div>
 
-        {/* Hidden canvas for frame processing */}
         <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-        {/* Live camera feed */}
         <video
           ref={videoRef}
           playsInline
@@ -137,7 +224,8 @@ export default function ScanPage() {
             width: '100%',
             borderRadius: '16px',
             marginBottom: '1rem',
-            background: '#111',
+            background: C.card,
+            border: `1px solid ${C.border}`,
           }}
         />
 
@@ -145,53 +233,68 @@ export default function ScanPage() {
         {result && (
           <div style={{
             borderRadius: '16px',
-            padding: '1.75rem',
-            marginBottom: '1.5rem',
+            padding: '1.75rem 1.5rem',
+            marginBottom: '1.25rem',
             textAlign: 'center',
             background:
-              result.status === 'valid' ? 'rgba(76,175,80,0.1)' :
-              result.status === 'admitted' ? 'rgba(76,175,80,0.2)' :
-              result.status === 'already_torn' ? 'rgba(204,34,0,0.15)' :
-              'rgba(255,100,50,0.1)',
-            border: `2px solid ${
-              result.status === 'valid' || result.status === 'admitted' ? '#4caf50' :
-              result.status === 'already_torn' ? '#cc2200' : '#ff6432'
+              result.status === 'valid'         ? 'rgba(34,197,94,0.08)' :
+              result.status === 'admitted'      ? 'rgba(170,255,0,0.10)' :
+              result.status === 'already_torn'  ? 'rgba(239,68,68,0.10)' :
+                                                  'rgba(240,112,32,0.08)',
+            border: `1.5px solid ${
+              result.status === 'valid' || result.status === 'admitted'
+                ? BRAND.neon
+                : result.status === 'already_torn'
+                  ? C.red
+                  : BRAND.orange
             }`,
           }}>
             {result.status === 'valid' && (
               <>
                 <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>✓</div>
-                <div style={{ color: '#4caf50', fontSize: '0.8rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Valid Ticket</div>
-                <div style={{ fontSize: '2rem', fontWeight: '900', color: '#d2691e', marginBottom: '0.25rem' }}>#{result.ticket.ticket_number}</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: '600', color: '#fff', marginBottom: '1.5rem' }}>{result.ticket.name}</div>
+                <div style={{ ...eyebrowStyle(BRAND.neon) }}>Valid Ticket</div>
+                <div style={{ fontSize: '2.2rem', fontWeight: '900', color: C.text, marginBottom: '0.25rem', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                  #{result.ticket.ticket_number}
+                </div>
+                <div style={{ fontSize: '1rem', fontWeight: '700', color: C.text, marginBottom: '0.4rem' }}>{result.ticket.name || 'Guest'}</div>
+                {result.ticket.tier_name && (
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <span style={badgeStyle('live')}>{result.ticket.tier_name}</span>
+                  </div>
+                )}
                 <button
                   onClick={handleAdmit}
                   disabled={admitting}
                   style={{
                     width: '100%', padding: '1rem',
-                    background: admitting ? '#333' : '#4caf50',
-                    color: 'white', border: 'none', borderRadius: '12px',
-                    fontSize: '1.1rem', fontWeight: '800', cursor: admitting ? 'not-allowed' : 'pointer',
+                    background: admitting ? '#1a1a24' : BRAND.gradient,
+                    color: admitting ? C.textMid : '#000',
+                    border: 'none', borderRadius: '12px',
+                    fontSize: '1.05rem', fontWeight: '900',
+                    cursor: admitting ? 'not-allowed' : 'pointer', fontFamily: FONT,
+                    letterSpacing: '0.02em',
                   }}
                 >
-                  {admitting ? 'Admitting...' : 'ADMIT'}
+                  {admitting ? 'Admitting…' : 'ADMIT'}
                 </button>
               </>
             )}
             {result.status === 'admitted' && (
               <>
                 <div style={{ fontSize: '3.5rem', marginBottom: '0.5rem' }}>🎉</div>
-                <div style={{ color: '#4caf50', fontSize: '1.2rem', fontWeight: '800' }}>ADMITTED</div>
-                <div style={{ color: '#888', fontSize: '0.9rem', marginTop: '0.5rem' }}>{result.ticket?.name}</div>
+                <div style={{ color: BRAND.neon, fontSize: '1.2rem', fontWeight: '900', letterSpacing: '0.05em' }}>ADMITTED</div>
+                <div style={{ color: C.textMid, fontSize: '0.9rem', marginTop: '0.4rem' }}>{result.ticket?.name}</div>
               </>
             )}
             {result.status === 'already_torn' && (
               <>
                 <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>⛔</div>
-                <div style={{ color: '#cc2200', fontSize: '1rem', fontWeight: '800', marginBottom: '0.5rem' }}>ALREADY ADMITTED</div>
-                <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.25rem' }}>#{result.ticket.ticket_number} — {result.ticket.name}</div>
+                <div style={{ color: C.red, fontSize: '1rem', fontWeight: '900', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>ALREADY ADMITTED</div>
+                <div style={{ color: C.text, fontSize: '1.05rem', fontWeight: '700' }}>
+                  #{result.ticket.ticket_number} — {result.ticket.name}
+                </div>
                 {result.ticket.torn_at && (
-                  <div style={{ color: '#888', fontSize: '0.8rem' }}>
+                  <div style={{ color: C.textMid, fontSize: '0.78rem', marginTop: '0.4rem' }}>
                     at {new Date(result.ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit' })}
                   </div>
                 )}
@@ -200,14 +303,16 @@ export default function ScanPage() {
             {result.status === 'not_found' && (
               <>
                 <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>❓</div>
-                <div style={{ color: '#ff6432', fontSize: '1rem', fontWeight: '800', marginBottom: '0.5rem' }}>TICKET NOT FOUND</div>
-                <div style={{ color: '#888', fontSize: '0.85rem' }}>#{result.ticketNumber} not found.</div>
+                <div style={{ color: BRAND.orange, fontSize: '1rem', fontWeight: '900', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>NOT FOUND IN THIS EVENT</div>
+                <div style={{ color: C.textMid, fontSize: '0.85rem' }}>
+                  Token "{(result.token || '').slice(0, 24)}{(result.token || '').length > 24 ? '…' : ''}" doesn't match a ticket for {eventName}.
+                </div>
               </>
             )}
             {result.status === 'error' && (
               <>
                 <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>⚠️</div>
-                <div style={{ color: '#ff6432', fontSize: '0.95rem', marginTop: '0.5rem' }}>{result.message}</div>
+                <div style={{ color: BRAND.orange, fontSize: '0.9rem', marginTop: '0.5rem' }}>{result.message}</div>
               </>
             )}
           </div>
@@ -217,12 +322,11 @@ export default function ScanPage() {
           <button
             onClick={startScanner}
             style={{
-              width: '100%', padding: '1.1rem',
-              background: 'linear-gradient(45deg, #d2691e, #cd853f)',
-              color: 'white', border: 'none', borderRadius: '14px',
-              fontSize: '1.1rem', fontWeight: '800', letterSpacing: '0.05em',
-              cursor: 'pointer',
-              boxShadow: '0 4px 20px rgba(210,105,30,0.4)',
+              width: '100%', padding: '1.05rem',
+              background: BRAND.gradient,
+              color: '#000', border: 'none', borderRadius: '14px',
+              fontSize: '1.05rem', fontWeight: '900', letterSpacing: '0.02em',
+              cursor: 'pointer', fontFamily: FONT,
             }}
           >
             {result ? 'Scan Next' : 'Start Scanning'}
@@ -234,9 +338,9 @@ export default function ScanPage() {
             onClick={() => { stopScanner(); setResult(null) }}
             style={{
               width: '100%', padding: '1rem',
-              background: 'transparent', color: '#888',
-              border: '1px solid #333', borderRadius: '14px',
-              fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem',
+              background: 'transparent', color: C.textMid,
+              border: `1px solid ${C.border}`, borderRadius: '14px',
+              fontSize: '1rem', cursor: 'pointer', fontFamily: FONT,
             }}
           >
             Cancel
@@ -244,41 +348,44 @@ export default function ScanPage() {
         )}
 
         {/* Manual entry */}
-        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem' }}>
-          <input
-            type="number"
-            value={manualInput}
-            onChange={e => setManualInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && manualInput.trim()) {
-                handleScan(manualInput.trim())
-                setManualInput('')
-              }
-            }}
-            placeholder="Ticket #"
-            style={{
-              flex: 1, padding: '0.85rem 1rem',
-              background: '#1a1a1a', border: '1px solid #333',
-              borderRadius: '10px', color: '#fff', fontSize: '1rem',
-              outline: 'none',
-            }}
-          />
-          <button
-            onClick={() => {
-              if (manualInput.trim()) {
-                handleScan(manualInput.trim())
-                setManualInput('')
-              }
-            }}
-            style={{
-              padding: '0.85rem 1.25rem',
-              background: 'linear-gradient(45deg, #d2691e, #cd853f)',
-              color: 'white', border: 'none', borderRadius: '10px',
-              fontWeight: '700', fontSize: '1rem', cursor: 'pointer',
-            }}
-          >
-            Go
-          </button>
+        <div style={{ marginTop: '1.5rem' }}>
+          <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.65rem', marginBottom: '0.5rem' }}>Manual entry</div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              type="text"
+              value={manualInput}
+              onChange={e => setManualInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && manualInput.trim()) {
+                  handleScan(manualInput.trim())
+                  setManualInput('')
+                }
+              }}
+              placeholder="Ticket # or ID"
+              style={{
+                flex: 1, padding: '0.85rem 1rem',
+                background: '#0d0d14', border: `1px solid ${C.border}`,
+                borderRadius: '10px', color: C.text, fontSize: '0.95rem',
+                outline: 'none', fontFamily: FONT,
+              }}
+            />
+            <button
+              onClick={() => {
+                if (manualInput.trim()) {
+                  handleScan(manualInput.trim())
+                  setManualInput('')
+                }
+              }}
+              style={{
+                padding: '0.85rem 1.25rem',
+                background: BRAND.gradient,
+                color: '#000', border: 'none', borderRadius: '10px',
+                fontWeight: '800', fontSize: '0.95rem', cursor: 'pointer', fontFamily: FONT,
+              }}
+            >
+              Go
+            </button>
+          </div>
         </div>
 
       </div>
