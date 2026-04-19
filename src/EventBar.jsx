@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
+  : null
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 const C = {
@@ -56,6 +62,9 @@ function CustomerView({ event, menu, onOrderPlaced }) {
   const [name,      setName]      = useState('')
   const [showName,  setShowName]  = useState(false)
   const [placing,   setPlacing]   = useState(false)
+  const [payOpen,   setPayOpen]   = useState(false)
+  const [clientSecret, setClientSecret] = useState(null)
+  const [payErr,    setPayErr]    = useState('')
 
   const visible   = cat === 'all' ? menu : menu.filter(m => m.category === cat)
   const cartTotal = cart.reduce((s, c) => s + c.item.price * c.qty, 0)
@@ -79,9 +88,33 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     })
   }
 
+  // Step 1: collect name → request server-side payment intent → open Stripe modal
   const submitOrder = async () => {
     if (!name.trim()) { setShowName(true); return }
     setPlacing(true)
+    setPayErr('')
+    try {
+      const res = await fetch('/.netlify/functions/create-bar-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id:      event.id,
+          customer_name: name.trim(),
+          items:         cart.map(c => ({ menu_item_id: c.item.id, qty: c.qty })),
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.clientSecret) throw new Error(json.error || 'Could not start checkout')
+      setClientSecret(json.clientSecret)
+      setPayOpen(true)
+    } catch (err) {
+      setPayErr(err.message)
+    }
+    setPlacing(false)
+  }
+
+  // Step 2: Stripe confirms → write the order → confirmation screen
+  const onPaymentSuccess = async (paymentIntent) => {
     const orderId = genOrderId()
     const order = {
       id:            orderId,
@@ -89,17 +122,25 @@ function CustomerView({ event, menu, onOrderPlaced }) {
       customer_name: name.trim(),
       items:         cart.map(c => ({ id: c.item.id, name: c.item.name, emoji: c.item.emoji, price: c.item.price, qty: c.qty })),
       total:         cartTotal,
+      subtotal_cents:        Math.round(cartTotal * 100),
+      stripe_payment_intent_id: paymentIntent.id,
+      paid_at:               new Date().toISOString(),
       status:        'pending',
     }
     const { error } = await supabase.from('bar_orders').insert(order)
-    setPlacing(false)
-    if (error) { alert('Could not place order. Try again.'); return }
+    if (error) {
+      // Payment went through; surface what's needed for manual reconciliation
+      alert(`Payment succeeded (${paymentIntent.id}) but order failed to save: ${error.message}. Show this screen to the bartender.`)
+      return
+    }
     onOrderPlaced(order)
     setConfirmed(orderId)
     setCart([])
     setCartOpen(false)
     setName('')
     setShowName(false)
+    setPayOpen(false)
+    setClientSecret(null)
   }
 
   if (confirmed) return (
@@ -239,18 +280,111 @@ function CustomerView({ event, menu, onOrderPlaced }) {
                 </div>
               )}
 
+              {payErr && (
+                <div style={{ marginTop: '0.6rem', color: C.red, fontSize: '0.82rem' }}>{payErr}</div>
+              )}
+
               <button
                 onClick={submitOrder}
                 disabled={placing}
                 style={{ width: '100%', background: placing ? C.goldDim : C.gold, color: '#000', border: 'none', borderRadius: '10px', padding: '0.9rem', fontSize: '1rem', fontWeight: '800', cursor: placing ? 'wait' : 'pointer', marginTop: '0.8rem' }}
               >
-                {placing ? 'Placing…' : showName ? 'Place Order →' : 'Order Now →'}
+                {placing ? 'Loading payment…' : showName ? `Pay ${fmt(cartTotal, event.currency)} →` : `Continue — ${fmt(cartTotal, event.currency)}`}
               </button>
             </div>
           )}
         </div>
       )}
+
+      {payOpen && clientSecret && stripePromise && (
+        <BarCheckoutModal
+          clientSecret={clientSecret}
+          total={cartTotal}
+          currency={event.currency}
+          onClose={() => { setPayOpen(false); setClientSecret(null) }}
+          onSuccess={onPaymentSuccess}
+        />
+      )}
+
+      {payOpen && !stripePromise && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '2rem' }}>
+          <div style={{ background: C.card, borderRadius: '14px', padding: '2rem', maxWidth: '360px', textAlign: 'center', color: C.red }}>
+            Stripe not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.
+            <button onClick={() => { setPayOpen(false); setClientSecret(null) }} style={{ display: 'block', margin: '1rem auto 0', background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid, borderRadius: '8px', padding: '0.5rem 1rem', cursor: 'pointer' }}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+// ─── BAR CHECKOUT MODAL ───────────────────────────────────────────────────────
+function BarCheckoutModal({ clientSecret, total, currency, onClose, onSuccess }) {
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 60,
+      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#0f0f0f', width: '100%', maxWidth: '480px',
+        borderRadius: '22px 22px 0 0', borderTop: `1px solid ${C.border}`,
+        maxHeight: '90vh', overflow: 'auto', padding: '1.5rem 1.5rem 2rem',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <div>
+            <div style={{ fontSize: '0.65rem', color: C.goldLight, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700' }}>Pay</div>
+            <div style={{ color: C.text, fontSize: '1.4rem', fontWeight: '900', letterSpacing: '-0.02em' }}>
+              {fmt(total, currency)}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: C.textMid, fontSize: '1.6rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+        <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
+          <BarPaymentStep onSuccess={onSuccess} />
+        </Elements>
+      </div>
+    </div>
+  )
+}
+
+function BarPaymentStep({ onSuccess }) {
+  const stripe   = useStripe()
+  const elements = useElements()
+  const [submitting, setSubmitting] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!stripe || !elements) return
+    setSubmitting(true)
+    setErr('')
+    const { error, paymentIntent } = await stripe.confirmPayment({ elements, redirect: 'if_required' })
+    if (error) {
+      setErr(error.message || 'Payment failed')
+      setSubmitting(false)
+      return
+    }
+    if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
+      await onSuccess(paymentIntent)
+    } else {
+      setErr(`Unexpected payment status: ${paymentIntent?.status || 'unknown'}`)
+    }
+    setSubmitting(false)
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <PaymentElement options={{ layout: 'tabs', wallets: { link: 'never' } }} />
+      {err && <div style={{ color: C.red, fontSize: '0.85rem' }}>{err}</div>}
+      <button type="submit" disabled={!stripe || submitting} style={{
+        background: submitting ? '#1a1a1a' : C.gold, color: '#000', border: 'none', borderRadius: '10px',
+        padding: '0.95rem', fontSize: '0.95rem', fontWeight: '800', cursor: submitting ? 'wait' : 'pointer',
+        fontFamily: 'system-ui, sans-serif', opacity: submitting ? 0.6 : 1,
+      }}>
+        {submitting ? 'Processing…' : 'Pay now'}
+      </button>
+    </form>
   )
 }
 
