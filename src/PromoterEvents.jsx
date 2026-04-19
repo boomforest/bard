@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, PAGE, eyebrowStyle, badgeStyle } from './theme'
 
@@ -8,6 +9,7 @@ const fmtDate = (iso) => {
 }
 
 export default function PromoterEvents({ promoterId, onNew, onCheckStripe, stripeReady }) {
+  const navigate = useNavigate()
   const [events,  setEvents]  = useState([])
   const [loading, setLoading] = useState(true)
   const [copied,  setCopied]  = useState('')
@@ -117,7 +119,14 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
                   background: C.card, border: `1px solid ${C.border}`,
                   borderRadius: '14px', overflow: 'hidden',
                 }}>
-                  <div style={{ display: 'flex', gap: '1rem', padding: '1rem 1.25rem' }}>
+                  <button
+                    onClick={() => navigate(`/promoter/event/${ev.slug}`)}
+                    style={{
+                      display: 'flex', gap: '1rem', padding: '1rem 1.25rem', width: '100%',
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      textAlign: 'left', fontFamily: FONT,
+                    }}
+                  >
                     {ev.flyer_url ? (
                       <img src={ev.flyer_url} alt={ev.name} style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
                     ) : (
@@ -134,7 +143,8 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
                         {fmtDate(date)} · {sold}/{cap} tickets sold
                       </div>
                     </div>
-                  </div>
+                    <div style={{ alignSelf: 'center', color: C.textMid, fontSize: '1.1rem', flexShrink: 0 }}>›</div>
+                  </button>
 
                   <div style={{ display: 'flex', borderTop: `1px solid ${C.border}` }}>
                     <a

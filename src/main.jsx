@@ -25,6 +25,7 @@ import EventPage from './EventPage'
 import StripeReturn from './StripeReturn'
 import PromoterRequestPage from './PromoterRequestPage'
 import PlatformAdmin from './PlatformAdmin'
+import PromoterEventDetail from './PromoterEventDetail'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -47,6 +48,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/setup" element={<GrailSetup />} />
         {/* Promoter dashboard — auth gated */}
         <Route path="/promoter" element={<PromoterDashboard />} />
+        {/* Promoter per-event detail — auth gated */}
+        <Route path="/promoter/event/:slug" element={<PromoterEventDetail />} />
         {/* Unified join / onboarding flow */}
         <Route path="/join" element={<JoinPage />} />
         <Route path="/terms" element={<TermsPage />} />
