@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PRIMARY_BTN, PAGE, eyebrowStyle, LogoMark } from './theme'
 
 const RADII = ['10', '25', '50', '100']
 
 export default function JoinPage() {
+  const [searchParams] = useSearchParams()
+  const inviteToken = searchParams.get('invite')
+
   const [step, setStep]         = useState('auth') // auth | role | fan-setup
-  const [authMode, setAuthMode] = useState('login')
+  const [authMode, setAuthMode] = useState(inviteToken ? 'signup' : 'login')
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
@@ -16,7 +19,39 @@ export default function JoinPage() {
   const [zip, setZip]           = useState('')
   const [radius, setRadius]     = useState('25')
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [invite, setInvite]     = useState(null)   // resolved invite row, or null
+  const [inviteErr, setInviteErr] = useState('')
   const navigate = useNavigate()
+
+  // Resolve the invite token (if any) and pre-fill email
+  useEffect(() => {
+    if (!inviteToken) return
+    let cancelled = false
+    async function load() {
+      const { data, error } = await supabase
+        .from('promoter_invites')
+        .select('*')
+        .eq('token', inviteToken)
+        .maybeSingle()
+      if (cancelled) return
+      if (error || !data) {
+        setInviteErr('Invite link is invalid.')
+        return
+      }
+      if (data.redeemed_by) {
+        setInviteErr('This invite has already been used.')
+        return
+      }
+      if (data.expires_at && new Date(data.expires_at) < new Date()) {
+        setInviteErr('This invite has expired.')
+        return
+      }
+      setInvite(data)
+      if (data.email && !email) setEmail(data.email)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [inviteToken])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -25,6 +60,27 @@ export default function JoinPage() {
   }, [])
 
   const checkProfile = async (s) => {
+    // Invite path: skip the role picker, mark user as promoter, redeem invite
+    if (invite) {
+      await supabase.from('users').upsert({
+        id:        s.user.id,
+        email:     s.user.email,
+        username:  s.user.email.split('@')[0].toUpperCase(),
+        user_type: 'promoter',
+      })
+      await supabase
+        .from('promoter_invites')
+        .update({ redeemed_by: s.user.id, redeemed_at: new Date().toISOString() })
+        .eq('id', invite.id)
+      if (invite.request_id) {
+        await supabase
+          .from('promoter_requests')
+          .update({ status: 'redeemed' })
+          .eq('id', invite.request_id)
+      }
+      navigate('/promoter')
+      return
+    }
     const { data } = await supabase.from('users').select('user_type').eq('id', s.user.id).single()
     if (data?.user_type === 'promoter') navigate('/promoter')
     else if (data?.user_type === 'fan')  navigate('/me')
@@ -102,6 +158,21 @@ export default function JoinPage() {
 
   if (step === 'auth') return wrap(
     <div>
+      {inviteErr && (
+        <div style={{ background: 'rgba(240,112,32,0.08)', border: `1px solid ${BRAND.orange}55`, borderRadius: '10px', padding: '0.7rem 1rem', marginBottom: '1rem', color: BRAND.orange, fontSize: '0.85rem', textAlign: 'center' }}>
+          {inviteErr}
+        </div>
+      )}
+      {invite && !inviteErr && (
+        <div style={{ background: 'rgba(170,255,0,0.06)', border: `1px solid ${BRAND.neon}44`, borderRadius: '10px', padding: '0.7rem 1rem', marginBottom: '1rem', textAlign: 'center' }}>
+          <div style={{ fontSize: '0.7rem', color: BRAND.neon, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: '700', marginBottom: '0.2rem' }}>
+            Promoter invite accepted
+          </div>
+          <div style={{ color: C.text, fontSize: '0.85rem' }}>
+            Create your account to access the promoter portal.
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '0.25rem' }}>
         {['login', 'signup'].map(m => (
           <button key={m} onClick={() => setAuthMode(m)} style={{

@@ -659,9 +659,9 @@ export default function GrailHome() {
                 eyebrow="Promoter"
                 label="I'm throwing an event"
                 desc="Build your event contract, sell tickets, manage the bar, and settle with your partners — all in one place."
-                cta="Join the waitlist"
+                cta="Request access"
                 accent={BRAND.orange}
-                onClick={() => setView('promoter-signup')}
+                onClick={() => navigate('/request-access')}
               />
               <RoleCard
                 eyebrow="Fan"

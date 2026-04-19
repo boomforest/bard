@@ -23,6 +23,8 @@ import JoinPage from './JoinPage'
 import TermsPage from './TermsPage'
 import EventPage from './EventPage'
 import StripeReturn from './StripeReturn'
+import PromoterRequestPage from './PromoterRequestPage'
+import PlatformAdmin from './PlatformAdmin'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -32,7 +34,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/" element={<GrailHome />} />
         <Route path="/ticket" element={<TicketPage />} />
         <Route path="/t/:ticketId" element={<TicketView />} />
-        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin" element={<PlatformAdmin />} />
+        {/* Legacy Nonlinear-specific admin */}
+        <Route path="/admin/nonlinear" element={<AdminPage />} />
+        {/* Public promoter access request form */}
+        <Route path="/request-access" element={<PromoterRequestPage />} />
         <Route path="/scan/:slug" element={<ScanPage />} />
         {/* Legacy /scan kept for old Nonlinear staff bookmarks */}
         <Route path="/scan" element={<ScanPage />} />
