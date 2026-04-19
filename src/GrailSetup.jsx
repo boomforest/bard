@@ -1,5 +1,7 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from './supabase'
+import { createEventFromSetup } from './eventService'
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 const C = {
@@ -657,14 +659,13 @@ function StepPayout({ data, setData, onBack, onNext }) {
 }
 
 // ─── STEP 6: REVIEW & LAUNCH ──────────────────────────────────────────────────
-function StepReview({ data, onBack, onLaunch }) {
-  const [launched, setLaunched] = useState(false)
-
+function StepReview({ data, onBack, onLaunch, launching, launchError, launchedSlug }) {
   const tiers    = data.tiers    || []
   const barItems = data.barItems || []
   const producers = data.producers || []
 
-  if (launched) {
+  if (launchedSlug) {
+    const link = `${window.location.origin}/e/${launchedSlug}`
     return (
       <div style={{ textAlign: 'center', padding: '2rem 0' }}>
         <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🕊</div>
@@ -684,13 +685,16 @@ function StepReview({ data, onBack, onLaunch }) {
           padding: '0.9rem 1.2rem', display: 'flex', alignItems: 'center', gap: '0.75rem',
           marginBottom: '1.5rem', textAlign: 'left',
         }}>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
             <div style={{ fontSize: '0.65rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>Your event link</div>
-            <div style={{ color: C.goldLight, fontWeight: '700', fontSize: '0.9rem' }}>
-              grail.mx/{data.name?.toLowerCase().replace(/\s+/g, '-') || 'your-event'}
+            <div style={{ color: C.goldLight, fontWeight: '700', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {link}
             </div>
           </div>
-          <button style={{ background: C.gold, color: '#000', border: 'none', borderRadius: '8px', padding: '0.5rem 0.9rem', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer' }}>
+          <button
+            onClick={() => navigator.clipboard?.writeText(link)}
+            style={{ background: C.gold, color: '#000', border: 'none', borderRadius: '8px', padding: '0.5rem 0.9rem', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer' }}
+          >
             Copy
           </button>
         </div>
@@ -743,20 +747,27 @@ function StepReview({ data, onBack, onLaunch }) {
         <ReviewRow label="GRAIL fee" value="2% of all revenue" />
       </ReviewCard>
 
+      {launchError && (
+        <div style={{ background: '#1a0808', border: `1px solid ${C.red}55`, borderRadius: '10px', padding: '0.75rem 1rem', color: C.red, fontSize: '0.82rem', marginTop: '1rem' }}>
+          {launchError}
+        </div>
+      )}
+
       <button
-        onClick={() => { setLaunched(true); onLaunch && onLaunch() }}
+        onClick={onLaunch}
+        disabled={launching}
         style={{
           width: '100%', marginTop: '1rem',
-          background: `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
-          color: '#000', border: 'none', borderRadius: '12px',
+          background: launching ? '#1a1a1a' : `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
+          color: launching ? C.textMid : '#000', border: 'none', borderRadius: '12px',
           padding: '1.1rem', fontSize: '1.05rem', fontWeight: '900',
-          cursor: 'pointer', letterSpacing: '-0.01em',
+          cursor: launching ? 'not-allowed' : 'pointer', letterSpacing: '-0.01em',
         }}
       >
-        Go Live
+        {launching ? 'Launching…' : 'Go Live'}
       </button>
 
-      <button onClick={onBack} style={{ width: '100%', marginTop: '0.6rem', background: 'transparent', border: 'none', color: C.textMid, fontSize: '0.85rem', cursor: 'pointer', padding: '0.5rem' }}>
+      <button onClick={onBack} disabled={launching} style={{ width: '100%', marginTop: '0.6rem', background: 'transparent', border: 'none', color: C.textMid, fontSize: '0.85rem', cursor: launching ? 'not-allowed' : 'pointer', padding: '0.5rem' }}>
         ← Back
       </button>
     </div>
@@ -838,8 +849,26 @@ export default function GrailSetup() {
     stripeConnected: false,
   })
 
+  const [launching,    setLaunching]    = useState(false)
+  const [launchError,  setLaunchError]  = useState('')
+  const [launchedSlug, setLaunchedSlug] = useState(null)
+
   const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1))
   const back = () => setStep(s => Math.max(s - 1, 0))
+
+  const handleLaunch = async () => {
+    setLaunching(true)
+    setLaunchError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user?.id) throw new Error('Sign in to launch an event.')
+      const event = await createEventFromSetup(data, session.user.id)
+      setLaunchedSlug(event.slug)
+    } catch (err) {
+      setLaunchError(err.message || 'Could not launch the event.')
+    }
+    setLaunching(false)
+  }
 
   return (
     <div style={{
@@ -881,7 +910,14 @@ export default function GrailSetup() {
         {step === 2 && <StepTickets data={data} setData={setData} onBack={back} onNext={next} />}
         {step === 3 && <StepBar     data={data} setData={setData} onBack={back} onNext={next} />}
         {step === 4 && <StepPayout  data={data} setData={setData} onBack={back} onNext={next} />}
-        {step === 5 && <StepReview  data={data} onBack={back} />}
+        {step === 5 && <StepReview
+          data={data}
+          onBack={back}
+          onLaunch={handleLaunch}
+          launching={launching}
+          launchError={launchError}
+          launchedSlug={launchedSlug}
+        />}
       </div>
     </div>
   )
