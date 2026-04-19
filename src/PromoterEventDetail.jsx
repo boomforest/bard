@@ -132,7 +132,16 @@ export default function PromoterEventDetail() {
           }}>
             ← My Events
           </button>
-          <div style={LogoMark({ size: 32 })}>GRAIL</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <button onClick={() => navigate(`/promoter/event/${slug}/edit`)} style={{
+              background: 'transparent', border: `1px solid ${BRAND.pink}55`, color: BRAND.pink,
+              borderRadius: '8px', padding: '0.4rem 0.85rem', fontSize: '0.82rem',
+              cursor: 'pointer', fontFamily: FONT, fontWeight: '700',
+            }}>
+              Edit
+            </button>
+            <div style={LogoMark({ size: 32 })}>GRAIL</div>
+          </div>
         </div>
 
         {/* Event header */}

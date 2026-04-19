@@ -26,6 +26,7 @@ import StripeReturn from './StripeReturn'
 import PromoterRequestPage from './PromoterRequestPage'
 import PlatformAdmin from './PlatformAdmin'
 import PromoterEventDetail from './PromoterEventDetail'
+import PromoterEventEdit from './PromoterEventEdit'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -50,6 +51,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/promoter" element={<PromoterDashboard />} />
         {/* Promoter per-event detail — auth gated */}
         <Route path="/promoter/event/:slug" element={<PromoterEventDetail />} />
+        <Route path="/promoter/event/:slug/edit" element={<PromoterEventEdit />} />
         {/* Unified join / onboarding flow */}
         <Route path="/join" element={<JoinPage />} />
         <Route path="/terms" element={<TermsPage />} />
