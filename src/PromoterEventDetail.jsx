@@ -191,6 +191,25 @@ export default function PromoterEventDetail() {
           <ActionBtn label={copied === 'scan' ? '✓ Copied' : 'Copy scanner link'} onClick={() => copy(scanLink, 'scan')} accent={copied === 'scan' ? BRAND.neon : null} />
         </div>
 
+        {/* Bar links — only show when bar is enabled */}
+        {event.bar_enabled !== false && (
+          <div style={{
+            background: C.card, border: `1px solid ${C.border}`,
+            borderRadius: '14px', overflow: 'hidden', marginBottom: '1.5rem',
+            display: 'flex', flexWrap: 'wrap',
+          }}>
+            <ActionBtn label="🥂 Bar menu (customer)" onClick={() => window.open(`/${event.slug}/bar`, '_blank')} />
+            <Divider />
+            <ActionBtn label="📋 Bar queue (staff)" onClick={() => window.open(`/${event.slug}/bar/staff`, '_blank')} />
+            <Divider />
+            <ActionBtn
+              label={copied === 'barstaff' ? '✓ Copied' : 'Copy staff link'}
+              onClick={() => copy(`${window.location.origin}/${event.slug}/bar/staff`, 'barstaff')}
+              accent={copied === 'barstaff' ? BRAND.neon : null}
+            />
+          </div>
+        )}
+
         {/* Tier breakdown */}
         {tiers.length > 0 && (
           <div style={{ marginBottom: '1.75rem' }}>

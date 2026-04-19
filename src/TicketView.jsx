@@ -188,6 +188,22 @@ export default function TicketView() {
         {ticket?.torn ? 'This ticket has already been used.' : 'Show this screen at the door.'}
       </div>
 
+      {/* Bar entry — only show when the event has bar enabled and a slug */}
+      {event?.bar_enabled !== false && event?.slug && (
+        <a
+          href={`/${event.slug}/bar`}
+          style={{
+            display: 'block', marginTop: '1.25rem', width: '100%', maxWidth: '360px',
+            background: BRAND.gradient, color: '#000', textAlign: 'center',
+            borderRadius: '14px', padding: '0.95rem',
+            fontSize: '0.95rem', fontWeight: '800', textDecoration: 'none',
+            position: 'relative', zIndex: 1, fontFamily: FONT,
+          }}
+        >
+          🥂 Order from the bar →
+        </a>
+      )}
+
       {ticket?.torn && ticket?.torn_at && (
         <div style={{ color: C.textDim, fontSize: '0.72rem', marginTop: '0.4rem', position: 'relative', zIndex: 1 }}>
           Admitted {new Date(ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}

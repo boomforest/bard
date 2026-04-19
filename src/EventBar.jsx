@@ -426,7 +426,14 @@ export default function EventBar({ staffMode = false }) {
         .eq('active', true)
         .order('sort_order')
 
-      setMenu(items || [])
+      // Normalize price_cents (new schema) → price (display dollars).
+      // Falls back to legacy `price` column if present.
+      setMenu((items || []).map(it => ({
+        ...it,
+        price:    it.price != null ? it.price : (it.price_cents || 0) / 100,
+        emoji:    it.emoji || '🥂',
+        category: it.category || 'all',
+      })))
 
       // Load existing orders for staff view
       if (staffMode) {
