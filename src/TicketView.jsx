@@ -1,437 +1,198 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { supabase } from './supabase'
 import { QRCode } from 'react-qrcode-logo'
-import { t } from './translations'
+import { BRAND, C, FONT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
 
-// Mexico City timezone: UTC-6 (no DST)
-// Reveal time: midnight April 11 2026 CDMX = 2026-04-11T06:00:00Z
-const REVEAL_UTC = new Date('2026-04-11T06:00:00Z');
-const REAL_ADDRESS = 'Studio Olbrera — Álvarez de Icaza 13';
-const HINT_ADDRESS = 'Less than 10 minutes from Condesa/Roma';
+const fmtDate = (iso) => {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    timeZone: 'America/Mexico_City',
+  })
+}
 
-function isAddressRevealed() {
-  return new Date() >= REVEAL_UTC;
+const fmtTime = (timeStr, iso) => {
+  if (timeStr) {
+    const [h, m] = timeStr.split(':')
+    const hour = parseInt(h, 10)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const h12  = hour % 12 || 12
+    return `${h12}:${m} ${ampm}`
+  }
+  if (iso) {
+    return new Date(iso).toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', timeZone: 'America/Mexico_City',
+    })
+  }
+  return ''
 }
 
 export default function TicketView() {
-  const { ticketId } = useParams();
-  const [searchParams] = useSearchParams();
-  const lang = searchParams.get('lang') === 'es' ? 'es' : 'en';
-  const T = t[lang];
-  const [ticket, setTicket] = useState(null);
-  const [event, setEvent] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [revealed, setRevealed] = useState(isAddressRevealed());
-  const [tearing, setTearing] = useState(false);
-  const [tornCount, setTornCount] = useState(null);
-  const [whiteNlnrLogo, setWhiteNlnrLogo] = useState(null);
+  const { ticketId } = useParams()
+  const [ticket, setTicket] = useState(null)
+  const [event, setEvent]   = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    fetch('https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg')
-      .then(r => r.text())
-      .then(svg => {
-        const white = svg
-          .replace(/fill="#000000"/gi, 'fill="#ffffff"')
-          .replace(/fill="black"/gi, 'fill="#ffffff"')
-          // Remove fixed dimensions so it scales to the container
-          .replace(/width="2048px"/, 'width="100%"')
-          .replace(/height="1335px"/, 'height="100%"')
-          // Crop viewBox tight to just the letters (x:610-1420, y:490-820)
-          .replace('<svg ', '<svg viewBox="610 490 810 340" ');
-        setWhiteNlnrLogo('data:image/svg+xml;base64,' + btoa(white));
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (ticketId) fetchTicket();
-  }, [ticketId]);
-
-  // Poll for reveal time if not yet revealed
-  useEffect(() => {
-    if (revealed) return;
-    const checkReveal = setInterval(() => {
-      if (isAddressRevealed()) {
-        setRevealed(true);
-        clearInterval(checkReveal);
-      }
-    }, 30000);
-    return () => clearInterval(checkReveal);
-  }, [revealed]);
-
-  const fetchTicket = async () => {
-    setLoading(true);
-    const { data: ticketData, error: ticketError } = await supabase
-      .from('tickets')
-      .select('*, events(*)')
-      .eq('id', ticketId)
-      .single();
-
-    if (ticketError || !ticketData) {
-      setError('Ticket not found. Check your link and try again.');
-      setLoading(false);
-      return;
-    }
-
-    setTicket(ticketData);
-    setEvent(ticketData.events);
-    setLoading(false);
-  };
-
-  const handleTear = async () => {
-    if (!ticket || ticket.torn || tearing) return;
-
-    setTearing(true);
-    const { error } = await supabase
-      .from('tickets')
-      .update({ torn: true, torn_at: new Date().toISOString() })
-      .eq('id', ticket.id);
-
-    if (!error) {
-      setTicket(prev => ({ ...prev, torn: true, torn_at: new Date().toISOString() }));
-      // Fetch live torn count for this event
-      const { count } = await supabase
+    if (!ticketId) return
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      const { data, error: err } = await supabase
         .from('tickets')
-        .select('*', { count: 'exact', head: true })
-        .eq('event_id', ticket.event_id)
-        .eq('torn', true);
-      setTornCount(count);
+        .select('*, events(*)')
+        .eq('id', ticketId)
+        .maybeSingle()
+      if (cancelled) return
+      if (err || !data) {
+        setError('Ticket not found.')
+        setLoading(false)
+        return
+      }
+      setTicket(data)
+      setEvent(data.events)
+      setLoading(false)
     }
-    setTearing(false);
-  };
-
-  const capacity = event?.capacity || 250;
+    load()
+    return () => { cancelled = true }
+  }, [ticketId])
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#0d0d0d',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#555',
-        fontFamily: 'system-ui, sans-serif',
-      }}>
-        Loading ticket...
+      <div style={{ ...PAGE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: '2rem', opacity: 0.4 }}>🕊</div>
       </div>
-    );
+    )
   }
 
   if (error) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#0d0d0d',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem',
-        fontFamily: 'system-ui, sans-serif',
-      }}>
-        <div style={{
-          background: '#1a1a1a',
-          border: '1px solid #333',
-          borderRadius: '16px',
-          padding: '2rem',
-          textAlign: 'center',
-          maxWidth: '360px',
-        }}>
-          <div style={{ color: '#ff6b6b', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Ticket Not Found</div>
-          <div style={{ color: '#666', fontSize: '0.9rem' }}>{error}</div>
+      <div style={{ ...PAGE, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div style={{ textAlign: 'center', maxWidth: '380px' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕊</div>
+          <div style={{ color: C.text, fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>{error}</div>
+          <div style={{ color: C.textMid, fontSize: '0.85rem' }}>Check your link and try again.</div>
         </div>
       </div>
-    );
+    )
   }
+
+  const eventName = event?.name || event?.artist_name || 'Event'
+  const dateStr   = fmtDate(event?.show_date || event?.event_date)
+  const timeStr   = fmtTime(event?.doors_time, event?.show_date || event?.event_date)
+  const venue     = event?.venue_hint || event?.venue_address || event?.address || ''
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(160deg, #0d0d0d 0%, #1a0800 60%, #0d0d0d 100%)',
+      ...PAGE,
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '2rem 1rem',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
-
-      {/* Ticket card */}
+      {/* Ambient glow */}
       <div style={{
-        width: '100%',
-        maxWidth: '360px',
-        position: 'relative',
-      }}>
+        position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
+        width: '500px', height: '500px', pointerEvents: 'none',
+        background: 'radial-gradient(ellipse, rgba(204,68,238,0.08) 0%, transparent 65%)',
+      }} />
 
-        {/* Torn state — full replacement view */}
-        {ticket?.torn && (
-          <div style={{
-            borderRadius: '20px',
-            overflow: 'hidden',
-            position: 'relative',
-          }}>
-            <img
-              src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/ticket-1757348111626.jpg"
-              alt="Nonlinear"
-              style={{ width: '100%', display: 'block' }}
-            />
-            {/* Big number overlay */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(0,0,0,0.55)',
-            }}>
-              {tornCount !== null && (
-                <div style={{
-                  fontSize: '8rem',
-                  fontWeight: '900',
-                  color: '#fff',
-                  lineHeight: 1,
-                  textShadow: '0 0 40px rgba(210,105,30,0.9)',
-                }}>
-                  {tornCount}
-                </div>
-              )}
-              <div style={{
-                color: '#d2691e',
-                fontSize: '1rem',
-                fontWeight: '700',
-                letterSpacing: '0.2em',
-                textTransform: 'uppercase',
-                marginTop: '0.5rem',
-              }}>
-                {T.admittedTonight}
-              </div>
-              <div style={{
-                border: '3px solid #cc2200',
-                borderRadius: '6px',
-                padding: '0.3rem 1.2rem',
-                color: '#cc2200',
-                fontSize: '1.4rem',
-                fontWeight: '900',
-                letterSpacing: '0.15em',
-                marginTop: '1.5rem',
-                textShadow: '0 0 10px rgba(204,34,0,0.6)',
-              }}>
-                {T.admitted}
-              </div>
+      <div style={{ marginBottom: '1.25rem', position: 'relative', zIndex: 1 }}>
+        <div style={LogoMark({ size: 56 })}>GRAIL</div>
+      </div>
+
+      <div style={{
+        width: '100%', maxWidth: '360px', position: 'relative', zIndex: 1,
+        background: C.card, border: `1px solid ${C.border}`,
+        borderRadius: '20px', overflow: 'hidden',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+      }}>
+        {/* Flyer header */}
+        <div style={{ position: 'relative', height: '160px', overflow: 'hidden' }}>
+          {event?.flyer_url ? (
+            <img src={event.flyer_url} alt={eventName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          ) : (
+            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #2a0a2e 0%, #1a0d2e 40%, #2e0a1a 100%)' }} />
+          )}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 30%, rgba(18,18,26,0.95) 100%)' }} />
+          <div style={{ position: 'absolute', bottom: '0.85rem', left: '1.2rem', right: '1.2rem' }}>
+            <div style={{ ...eyebrowStyle(BRAND.pink), fontSize: '0.62rem', marginBottom: '0.3rem' }}>
+              {ticket?.torn ? 'Already Admitted' : 'Active Ticket'}
             </div>
+            <div style={{ color: C.text, fontWeight: '900', fontSize: '1.3rem', lineHeight: 1.15, letterSpacing: '-0.02em' }}>
+              {eventName}
+            </div>
+            <div style={{ color: C.textMid, fontSize: '0.78rem', marginTop: '0.25rem' }}>
+              {dateStr}{timeStr && ` · ${timeStr}`}
+            </div>
+          </div>
+        </div>
+
+        {/* Venue */}
+        {venue && (
+          <div style={{ padding: '1rem 1.2rem 0' }}>
+            <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.2rem' }}>Venue</div>
+            <div style={{ color: C.text, fontWeight: '700', fontSize: '0.92rem' }}>{venue}</div>
           </div>
         )}
 
-        {/* Main ticket */}
-        <div style={{
-          background: 'linear-gradient(180deg, #1a0800 0%, #200e00 100%)',
-          border: '1px solid #4a2800',
-          borderRadius: '20px 20px 0 0',
-          padding: '2rem 1.75rem 1.5rem',
-          textAlign: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          {/* Background texture lines */}
-          <div style={{
-            position: 'absolute', inset: 0, opacity: 0.04,
-            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 20px, #fff 20px, #fff 21px)',
-            pointerEvents: 'none',
-          }} />
+        {/* Perforated divider */}
+        <div style={{ display: 'flex', alignItems: 'center', margin: '1.2rem 0', padding: '0 1.2rem', gap: '0.3rem' }}>
+          <div style={{ flex: 1, borderTop: `1.5px dashed ${C.border}` }} />
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: C.bg, border: `1px solid ${C.border}`, flexShrink: 0 }} />
+          <div style={{ flex: 1, borderTop: `1.5px dashed ${C.border}` }} />
+        </div>
 
-          <div style={{
-            fontSize: '0.65rem',
-            letterSpacing: '0.3em',
-            color: '#cd853f',
-            textTransform: 'uppercase',
-            marginBottom: '1rem',
-          }}>
-            {T.secretShowCDMX}
+        {/* QR + holder info */}
+        <div style={{ padding: '0 1.2rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ flexShrink: 0, opacity: ticket?.torn ? 0.35 : 1 }}>
+            <QRCode
+              value={ticket?.id || ''}
+              size={120}
+              bgColor="#0a0a14"
+              fgColor={ticket?.torn ? C.textMid : BRAND.pink}
+              qrStyle="squares"
+              eyeRadius={6}
+              level="L"
+              style={{ display: 'block' }}
+            />
           </div>
-
-          <img
-            src="https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nonlinear%20outline.svg"
-            alt="Nonlinear"
-            style={{ width: '100%', display: 'block', margin: '0 auto 1rem auto', filter: 'brightness(0) invert(1)' }}
-          />
-
-          <h1 style={{
-            fontSize: '1rem',
-            fontWeight: '700',
-            color: '#cd853f',
-            margin: '0 0 0.5rem 0',
-            letterSpacing: '0.3em',
-            lineHeight: 1,
-            textTransform: 'uppercase',
-          }}>
-            NONLINEAR
-          </h1>
-
-          <div style={{ width: '40px', height: '2px', background: '#d2691e', margin: '1rem auto' }} />
-
-          <div style={{ color: '#e8d5b0', fontSize: '1rem', fontWeight: '600', marginBottom: '0.25rem' }}>
-            {T.dateLong}
-          </div>
-          <div style={{ color: '#cd853f', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-            {T.timeLong}
-          </div>
-
-          {/* Address reveal */}
-          <div style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '12px',
-            padding: '1rem',
-            marginBottom: '1rem',
-          }}>
-            {revealed ? (
-              <>
-                <div style={{ color: '#4caf50', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.4rem' }}>
-                  {T.addressRevealed}
-                </div>
-                <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: '700' }}>
-                  {REAL_ADDRESS}
-                </div>
-                <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                  {T.mexicoCity}
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ color: '#cd853f', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.4rem' }}>
-                  {T.locationLabel}
-                </div>
-                <div style={{ color: '#e8d5b0', fontSize: '0.95rem' }}>
-                  {T.hint}
-                </div>
-                <div style={{ color: '#555', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-                  {T.locationHidden}
-                </div>
-              </>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.3rem' }}>Ticket holder</div>
+            <div style={{ color: C.text, fontWeight: '700', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {ticket?.name || 'Guest'}
+            </div>
+            <div style={{ color: BRAND.pink, fontWeight: '800', fontSize: '0.85rem', marginTop: '0.3rem' }}>
+              #{ticket?.ticket_number}
+            </div>
+            {ticket?.tier_name && (
+              <div style={{ marginTop: '0.5rem' }}>
+                <span style={badgeStyle('live')}>{ticket.tier_name}</span>
+              </div>
+            )}
+            {ticket?.torn && (
+              <div style={{ marginTop: '0.5rem' }}>
+                <span style={badgeStyle('neutral')}>USED</span>
+              </div>
             )}
           </div>
         </div>
-
-        {/* Perforated tear line */}
-        <div style={{
-          background: '#0d0d0d',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 12px',
-          height: '24px',
-          position: 'relative',
-        }}>
-          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#0d0d0d', marginLeft: '-24px', flexShrink: 0 }} />
-          <div style={{
-            flex: 1,
-            borderTop: '2px dashed #2a1500',
-          }} />
-          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#0d0d0d', marginRight: '-24px', flexShrink: 0 }} />
-        </div>
-
-        {/* Ticket stub */}
-        <div style={{
-          background: 'linear-gradient(180deg, #1a0a00 0%, #130800 100%)',
-          border: '1px solid #4a2800',
-          borderTop: 'none',
-          borderRadius: '0 0 20px 20px',
-          padding: '1.25rem 1.75rem',
-          textAlign: 'center',
-          position: 'relative',
-        }}>
-          {/* Ticket number */}
-          <div style={{ marginBottom: '0.75rem' }}>
-            <div style={{
-              fontSize: '1.4rem',
-              fontWeight: '900',
-              color: '#d2691e',
-              letterSpacing: '0.05em',
-            }}>
-              {T.ticketLabel} #{ticket?.ticket_number} <span style={{ color: '#444', fontWeight: '400', fontSize: '0.9rem' }}>{T.of} {capacity}</span>
-            </div>
-          </div>
-
-          {/* QR Code */}
-          <QRCode
-            value={`${ticket?.ticket_number}`}
-            size={160}
-            bgColor="#130800"
-            fgColor="#d2691e"
-            qrStyle="squares"
-            eyeRadius={6}
-            logoImage={whiteNlnrLogo || 'https://elkfhmyhiyyubtqzqlpq.supabase.co/storage/v1/object/public/ticket-images/nlnr%20outline.svg'}
-            logoWidth={42}
-            logoHeight={18}
-            logoOpacity={0.75}
-            removeQrCodeBehindLogo={true}
-            level="L"
-            style={{ display: 'block', margin: '0 auto 1rem auto' }}
-          />
-
-          {/* Name */}
-          <div style={{ color: '#888', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
-            Holder
-          </div>
-          <div style={{ color: '#e8d5b0', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>
-            {ticket?.name}
-          </div>
-
-          {/* UUID (shortened) */}
-          <div style={{ color: '#333', fontSize: '0.6rem', letterSpacing: '0.05em', marginBottom: '0.5rem', wordBreak: 'break-all' }}>
-            {ticket?.id}
-          </div>
-
-          {/* Invisible tear button — see spec: no label, no styling, 60x30px */}
-          {!ticket?.torn && (
-            <button
-              onClick={handleTear}
-              disabled={tearing}
-              aria-label="Tear ticket"
-              style={{
-                position: 'absolute',
-                bottom: '0',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '60px',
-                height: '30px',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                outline: 'none',
-                padding: 0,
-              }}
-            />
-          )}
-        </div>
-
-        {/* Torn-at timestamp */}
-        {ticket?.torn && ticket?.torn_at && (
-          <div style={{
-            textAlign: 'center',
-            color: '#cc2200',
-            fontSize: '0.75rem',
-            marginTop: '0.75rem',
-            opacity: 0.7,
-          }}>
-            Torn at {new Date(ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City' })}
-          </div>
-        )}
-
-        {/* Instructions */}
-        {!ticket?.torn && (
-          <div style={{
-            textAlign: 'center',
-            color: '#2a1500',
-            fontSize: '0.7rem',
-            marginTop: '0.75rem',
-          }}>
-            Show this screen at the door
-          </div>
-        )}
       </div>
+
+      <div style={{ color: C.textMid, fontSize: '0.78rem', marginTop: '1rem', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        {ticket?.torn ? 'This ticket has already been used.' : 'Show this screen at the door.'}
+      </div>
+
+      {ticket?.torn && ticket?.torn_at && (
+        <div style={{ color: C.textDim, fontSize: '0.72rem', marginTop: '0.4rem', position: 'relative', zIndex: 1 }}>
+          Admitted {new Date(ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+        </div>
+      )}
     </div>
-  );
+  )
 }

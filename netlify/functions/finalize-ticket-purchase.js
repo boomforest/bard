@@ -104,6 +104,28 @@ exports.handler = async (event) => {
       .update({ tickets_sold: runningTicketsSold })
       .eq('id', event_id)
 
+    // Fire confirmation email — best-effort, never blocks success
+    if (email && inserted.length > 0) {
+      const host = event?.headers?.host || 'grail.mx'
+      const proto = (event?.headers?.['x-forwarded-proto'] || 'https')
+      const origin = `${proto}://${host}`
+      try {
+        await fetch(`${origin}/.netlify/functions/send-event-confirmation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_id,
+            ticket_ids:  inserted.map(t => t.id),
+            buyer_email: email,
+            buyer_name:  name,
+            origin,
+          }),
+        })
+      } catch (mailErr) {
+        console.warn('confirmation email failed (non-fatal):', mailErr.message)
+      }
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({ tickets: inserted, event_slug: ev.slug }),
