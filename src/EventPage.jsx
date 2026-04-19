@@ -508,7 +508,10 @@ function PaymentStep({ onBack, onSuccess }) {
 
 // ─── PURCHASE CONFIRMATION ────────────────────────────────────────────────────
 function PurchaseConfirmation({ purchase, eventName, onClose }) {
-  const ticketCount = purchase.tickets?.length || 0
+  const tickets = purchase.tickets || []
+  const ticketCount = tickets.length
+  const firstTicketUrl = tickets[0] ? `${window.location.origin}/t/${tickets[0].id}` : null
+
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1100,
@@ -517,22 +520,61 @@ function PurchaseConfirmation({ purchase, eventName, onClose }) {
     }}>
       <div onClick={e => e.stopPropagation()} style={{
         background: C.surface, border: `1px solid ${BRAND.neon}55`,
-        borderRadius: '20px', padding: '2.5rem 2rem', textAlign: 'center',
-        maxWidth: '380px', width: '100%',
+        borderRadius: '20px', padding: '2rem', textAlign: 'center',
+        maxWidth: '400px', width: '100%',
       }}>
-        <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🕊</div>
+        <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🕊</div>
         <div style={{ ...eyebrowStyle(BRAND.neon) }}>Confirmed</div>
         <div style={{ color: C.text, fontWeight: '900', fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.4rem' }}>
           You're going to {eventName}.
         </div>
-        <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-          {ticketCount} ticket{ticketCount !== 1 ? 's' : ''} secured. A confirmation will land in your inbox shortly.
+        <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+          {ticketCount} ticket{ticketCount !== 1 ? 's' : ''} secured. Confirmation email is on its way.
         </div>
+
+        {tickets.length > 0 && (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '0.85rem 1rem', marginBottom: '1.25rem', textAlign: 'left' }}>
+            <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.5rem' }}>
+              Your ticket{tickets.length > 1 ? 's' : ''}
+            </div>
+            {tickets.map((t, i) => (
+              <a
+                key={t.id}
+                href={`${window.location.origin}/t/${t.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.5rem 0',
+                  borderTop: i === 0 ? 'none' : `1px solid ${C.border}`,
+                  color: BRAND.pink, textDecoration: 'none', fontSize: '0.88rem', fontWeight: '700',
+                }}
+              >
+                <span>🎟  Ticket #{t.ticket_number}</span>
+                <span style={{ color: C.textMid, fontSize: '0.85rem' }}>View →</span>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {firstTicketUrl && (
+          <a
+            href={firstTicketUrl}
+            style={{
+              display: 'block',
+              background: BRAND.gradient, color: '#000', borderRadius: '10px',
+              padding: '0.85rem', fontSize: '0.92rem', fontWeight: '800',
+              textDecoration: 'none', marginBottom: '0.5rem', fontFamily: FONT,
+            }}
+          >
+            Open ticket
+          </a>
+        )}
         <button onClick={onClose} style={{
-          background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
-          padding: '0.85rem 2rem', fontSize: '0.95rem', fontWeight: '800', cursor: 'pointer', fontFamily: FONT,
+          background: 'transparent', color: C.textMid, border: 'none',
+          padding: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', fontFamily: FONT,
         }}>
-          Done
+          Close
         </button>
       </div>
     </div>

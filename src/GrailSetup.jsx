@@ -728,7 +728,7 @@ function StepReview({ data, onBack, onLaunch, launching, launchError, launchedSl
         <div style={{
           background: '#111', border: `1px solid ${C.border}`, borderRadius: '12px',
           padding: '0.9rem 1.2rem', display: 'flex', alignItems: 'center', gap: '0.75rem',
-          marginBottom: '1.5rem', textAlign: 'left',
+          marginBottom: '1rem', textAlign: 'left',
         }}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <div style={{ fontSize: '0.65rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>Your event link</div>
@@ -743,6 +743,29 @@ function StepReview({ data, onBack, onLaunch, launching, launchError, launchedSl
             Copy
           </button>
         </div>
+        <a
+          href={`/promoter/event/${launchedSlug}`}
+          style={{
+            display: 'block', textAlign: 'center',
+            background: `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
+            color: '#000', borderRadius: '12px', padding: '0.95rem',
+            fontSize: '0.95rem', fontWeight: '800', textDecoration: 'none',
+            marginBottom: '0.5rem',
+          }}
+        >
+          Open event dashboard →
+        </a>
+        <a
+          href="/promoter"
+          style={{
+            display: 'block', textAlign: 'center',
+            background: 'transparent', color: C.textMid, border: `1px solid ${C.border}`,
+            borderRadius: '10px', padding: '0.7rem',
+            fontSize: '0.85rem', textDecoration: 'none',
+          }}
+        >
+          Back to all events
+        </a>
       </div>
     )
   }
