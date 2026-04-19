@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
-import { BRAND, C, FONT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
+
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
+  : null
 
 const fmtDate = (iso) => {
   if (!iso) return ''
@@ -28,6 +34,8 @@ export default function EventPage() {
   const [qty, setQty]         = useState({})       // { tierId: count }
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [purchase, setPurchase] = useState(null) // { tickets, event_slug } when complete
 
   useEffect(() => {
     let cancelled = false
@@ -280,16 +288,15 @@ export default function EventPage() {
                   </div>
                 </div>
                 <button
-                  disabled
-                  title="Checkout coming next"
+                  onClick={() => setCheckoutOpen(true)}
                   style={{
-                    background: '#2a2a3a', color: C.textMid, border: 'none',
+                    background: BRAND.gradient, color: '#000', border: 'none',
                     borderRadius: '10px', padding: '0.85rem 1.5rem',
-                    fontWeight: '800', fontSize: '0.95rem', cursor: 'not-allowed',
+                    fontWeight: '800', fontSize: '0.95rem', cursor: 'pointer',
                     fontFamily: FONT,
                   }}
                 >
-                  Checkout — coming soon
+                  Checkout →
                 </button>
               </div>
             )}
@@ -299,6 +306,234 @@ export default function EventPage() {
         <div style={{ textAlign: 'center', color: C.textDim, fontSize: '0.72rem', marginTop: '2rem', letterSpacing: '0.05em' }}>
           Powered by GRAIL
         </div>
+      </div>
+
+      {checkoutOpen && (
+        <CheckoutModal
+          event={event}
+          tiers={tiers}
+          qty={qty}
+          totalCents={totalCents}
+          onClose={() => setCheckoutOpen(false)}
+          onSuccess={(result) => { setPurchase(result); setCheckoutOpen(false); setQty({}) }}
+        />
+      )}
+
+      {purchase && (
+        <PurchaseConfirmation
+          purchase={purchase}
+          eventName={event.name || event.artist_name}
+          onClose={() => setPurchase(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── CHECKOUT MODAL ───────────────────────────────────────────────────────────
+function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
+  const [stage, setStage] = useState('details')   // details | pay
+  const [name,  setName]  = useState('')
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [clientSecret, setClientSecret] = useState(null)
+
+  const items = tiers
+    .filter(t => qty[t.id] > 0)
+    .map(t => ({ tier_id: t.id, qty: qty[t.id], name: t.name, price_cents: t.price_cents }))
+
+  const handleProceed = async (e) => {
+    e?.preventDefault()
+    setError('')
+    if (!name.trim() || !email.trim()) { setError('Name and email required.'); return }
+    if (!/^\S+@\S+\.\S+$/.test(email))  { setError('Enter a valid email.');     return }
+    setLoading(true)
+    try {
+      const res = await fetch('/.netlify/functions/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id:    event.id,
+          items:       items.map(i => ({ tier_id: i.tier_id, qty: i.qty })),
+          buyer_email: email,
+          buyer_name:  name,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.clientSecret) throw new Error(json.error || 'Could not start checkout')
+      setClientSecret(json.clientSecret)
+      setStage('pay')
+    } catch (err) {
+      setError(err.message)
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      padding: '0',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: C.surface, width: '100%', maxWidth: '480px',
+        borderRadius: '22px 22px 0 0', border: `1px solid ${C.border}`, borderBottom: 'none',
+        maxHeight: '90vh', overflow: 'auto', padding: '1.5rem 1.5rem 2rem',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <div>
+            <div style={eyebrowStyle()}>Checkout</div>
+            <div style={{ color: C.text, fontSize: '1.1rem', fontWeight: '800', letterSpacing: '-0.01em' }}>
+              {event.name || event.artist_name}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: C.textMid, fontSize: '1.6rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Order summary */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '0.85rem 1rem', marginBottom: '1.25rem' }}>
+          {items.map(i => (
+            <div key={i.tier_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: C.text, marginBottom: '0.3rem' }}>
+              <span>{i.qty}× {i.name}</span>
+              <span style={{ color: BRAND.pink, fontWeight: '700' }}>${((i.qty * i.price_cents) / 100).toLocaleString()}</span>
+            </div>
+          ))}
+          <div style={{ borderTop: `1px solid ${C.border}`, marginTop: '0.5rem', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: C.text, fontWeight: '800' }}>
+            <span>Total</span>
+            <span style={{ color: BRAND.neon }}>${(totalCents / 100).toLocaleString()}</span>
+          </div>
+        </div>
+
+        {stage === 'details' && (
+          <form onSubmit={handleProceed} style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+            <input style={INPUT} type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
+            <input style={INPUT} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+            {error && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{error}</div>}
+            <button type="submit" disabled={loading} style={{
+              background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
+              padding: '0.95rem', fontSize: '0.95rem', fontWeight: '800', cursor: loading ? 'wait' : 'pointer',
+              fontFamily: FONT, marginTop: '0.5rem', opacity: loading ? 0.6 : 1,
+            }}>
+              {loading ? 'Preparing…' : 'Continue to payment'}
+            </button>
+            <div style={{ textAlign: 'center', color: C.textDim, fontSize: '0.7rem', marginTop: '0.25rem' }}>
+              Payments processed securely by Stripe.
+            </div>
+          </form>
+        )}
+
+        {stage === 'pay' && clientSecret && stripePromise && (
+          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
+            <PaymentStep
+              email={email}
+              name={name}
+              eventId={event.id}
+              onBack={() => setStage('details')}
+              onSuccess={onSuccess}
+            />
+          </Elements>
+        )}
+
+        {stage === 'pay' && !stripePromise && (
+          <div style={{ color: BRAND.orange, fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+            Stripe not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PaymentStep({ onBack, onSuccess }) {
+  const stripe   = useStripe()
+  const elements = useElements()
+  const [submitting, setSubmitting] = useState(false)
+  const [err, setErr] = useState('')
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!stripe || !elements) return
+    setSubmitting(true)
+    setErr('')
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      redirect: 'if_required',
+    })
+    if (error) {
+      setErr(error.message || 'Payment failed')
+      setSubmitting(false)
+      return
+    }
+    if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
+      try {
+        const res = await fetch('/.netlify/functions/finalize-ticket-purchase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payment_intent_id: paymentIntent.id }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || 'Could not finalize ticket')
+        onSuccess(json)
+      } catch (writeErr) {
+        setErr(`Payment went through but tickets failed to save: ${writeErr.message}. Save your confirmation: ${paymentIntent.id}`)
+      }
+    } else {
+      setErr(`Unexpected payment status: ${paymentIntent?.status || 'unknown'}`)
+    }
+    setSubmitting(false)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <PaymentElement options={{ layout: 'tabs', wallets: { link: 'never' } }} />
+      {err && <div style={{ color: BRAND.orange, fontSize: '0.85rem' }}>{err}</div>}
+      <button type="submit" disabled={!stripe || submitting} style={{
+        background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
+        padding: '0.95rem', fontSize: '0.95rem', fontWeight: '800', cursor: submitting ? 'wait' : 'pointer',
+        fontFamily: FONT, opacity: submitting ? 0.6 : 1,
+      }}>
+        {submitting ? 'Processing…' : 'Pay now'}
+      </button>
+      <button type="button" onClick={onBack} disabled={submitting} style={{
+        background: 'transparent', color: C.textMid, border: 'none', cursor: 'pointer',
+        fontSize: '0.82rem', padding: '0.25rem', fontFamily: FONT,
+      }}>
+        ← Back
+      </button>
+    </form>
+  )
+}
+
+// ─── PURCHASE CONFIRMATION ────────────────────────────────────────────────────
+function PurchaseConfirmation({ purchase, eventName, onClose }) {
+  const ticketCount = purchase.tickets?.length || 0
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 1100,
+      background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: C.surface, border: `1px solid ${BRAND.neon}55`,
+        borderRadius: '20px', padding: '2.5rem 2rem', textAlign: 'center',
+        maxWidth: '380px', width: '100%',
+      }}>
+        <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🕊</div>
+        <div style={{ ...eyebrowStyle(BRAND.neon) }}>Confirmed</div>
+        <div style={{ color: C.text, fontWeight: '900', fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.4rem' }}>
+          You're going to {eventName}.
+        </div>
+        <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+          {ticketCount} ticket{ticketCount !== 1 ? 's' : ''} secured. A confirmation will land in your inbox shortly.
+        </div>
+        <button onClick={onClose} style={{
+          background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
+          padding: '0.85rem 2rem', fontSize: '0.95rem', fontWeight: '800', cursor: 'pointer', fontFamily: FONT,
+        }}>
+          Done
+        </button>
       </div>
     </div>
   )

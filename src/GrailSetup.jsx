@@ -579,14 +579,54 @@ function StepBar({ data, setData, onBack, onNext }) {
 function StepPayout({ data, setData, onBack, onNext }) {
   const [connecting, setConnecting] = useState(false)
   const [done,       setDone]       = useState(data.stripeConnected || false)
+  const [errMsg,     setErrMsg]     = useState('')
 
-  const connect = () => {
+  // On mount, check whether the current user already has a connected,
+  // charges-enabled Stripe account from a previous session.
+  useEffect(() => {
+    let cancelled = false
+    async function check() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user?.id) return
+      try {
+        const res = await fetch('/.netlify/functions/stripe-connect-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: session.user.id }),
+        })
+        const json = await res.json()
+        if (!cancelled && json.charges_enabled && json.details_submitted) {
+          setDone(true)
+          setData(d => ({ ...d, stripeConnected: true }))
+        }
+      } catch {/* ignore */}
+    }
+    check()
+    return () => { cancelled = true }
+  }, [setData])
+
+  const connect = async () => {
     setConnecting(true)
-    setTimeout(() => {
-      setDone(true)
+    setErrMsg('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user?.id) throw new Error('Sign in first')
+      const res = await fetch('/.netlify/functions/stripe-connect-onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: session.user.id,
+          email:   session.user.email,
+          origin:  window.location.origin,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.url) throw new Error(json.error || 'Could not start Stripe onboarding')
+      window.location.href = json.url
+    } catch (err) {
+      setErrMsg(err.message)
       setConnecting(false)
-      setData(d => ({ ...d, stripeConnected: true }))
-    }, 1800)
+    }
   }
 
   return (
@@ -616,18 +656,23 @@ function StepPayout({ data, setData, onBack, onNext }) {
           </div>
 
           {!done && (
-            <button
-              onClick={connect}
-              disabled={connecting}
-              style={{
-                width: '100%', background: connecting ? '#1a1a1a' : '#635bff',
-                color: '#fff', border: 'none', borderRadius: '10px',
-                padding: '0.8rem', fontSize: '0.9rem', fontWeight: '700',
-                cursor: connecting ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {connecting ? 'Connecting…' : 'Connect with Stripe'}
-            </button>
+            <>
+              <button
+                onClick={connect}
+                disabled={connecting}
+                style={{
+                  width: '100%', background: connecting ? '#1a1a1a' : '#635bff',
+                  color: '#fff', border: 'none', borderRadius: '10px',
+                  padding: '0.8rem', fontSize: '0.9rem', fontWeight: '700',
+                  cursor: connecting ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {connecting ? 'Redirecting to Stripe…' : 'Connect with Stripe'}
+              </button>
+              {errMsg && (
+                <div style={{ color: C.red, fontSize: '0.78rem', marginTop: '0.5rem' }}>{errMsg}</div>
+              )}
+            </>
           )}
         </div>
       </div>
