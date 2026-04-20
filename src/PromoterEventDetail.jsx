@@ -26,11 +26,14 @@ export default function PromoterEventDetail() {
   const [event, setEvent]     = useState(null)
   const [tiers, setTiers]     = useState([])
   const [tickets, setTickets] = useState([])
+  const [doveBalances, setDoveBalances] = useState([])
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(true)
   const [copied, setCopied]   = useState('')
   const [refunding, setRefunding] = useState(null)   // ticket_id being refunded
   const [refundErr, setRefundErr] = useState('')
+  const [closingOut, setClosingOut] = useState(false)
+  const [closeOutResult, setCloseOutResult] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
@@ -57,14 +60,16 @@ export default function PromoterEventDetail() {
       }
       setEvent(ev)
 
-      const [{ data: tierRows }, { data: ticketRows }] = await Promise.all([
+      const [{ data: tierRows }, { data: ticketRows }, { data: balanceRows }] = await Promise.all([
         supabase.from('ticket_tiers').select('*').eq('event_id', ev.id).order('sort_order'),
         supabase.from('tickets').select('id, ticket_number, name, email, tier_id, tier_name, torn, torn_at, refunded, created_at, stripe_payment_intent_id').eq('event_id', ev.id).order('created_at', { ascending: false }),
+        supabase.from('dove_balances').select('*').eq('event_id', ev.id).order('created_at', { ascending: false }),
       ])
 
       if (cancelled) return
       setTiers(tierRows || [])
       setTickets(ticketRows || [])
+      setDoveBalances(balanceRows || [])
       setLoading(false)
     }
     load()
@@ -75,6 +80,41 @@ export default function PromoterEventDetail() {
     navigator.clipboard?.writeText(text)
     setCopied(key)
     setTimeout(() => setCopied(''), 1500)
+  }
+
+  const handleCloseOut = async () => {
+    const activeBalances = doveBalances.filter(b => b.status === 'active')
+    const unspentTotal = activeBalances.reduce((s, b) => s + (b.loaded_cents - b.spent_cents), 0)
+    if (!confirm(
+      `Close out the bar?\n\n` +
+      `${activeBalances.length} active balance${activeBalances.length === 1 ? '' : 's'}\n` +
+      `$${(unspentTotal / 100).toFixed(2)} in unspent Doves will be refunded to buyers.\n\n` +
+      `The 2% Grail fee on the original load is non-refundable.`
+    )) return
+
+    setClosingOut(true)
+    setCloseOutResult(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Sign in expired — please reload.')
+      const res = await fetch('/.netlify/functions/close-out-bar', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ event_id: event.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Close-out failed')
+      setCloseOutResult(json)
+      // Refresh balances
+      const { data: refreshed } = await supabase.from('dove_balances').select('*').eq('event_id', event.id).order('created_at', { ascending: false })
+      setDoveBalances(refreshed || [])
+    } catch (err) {
+      setCloseOutResult({ error: err.message })
+    }
+    setClosingOut(false)
   }
 
   const handleRefund = async (ticket) => {
@@ -237,6 +277,63 @@ export default function PromoterEventDetail() {
           </div>
         )}
 
+        {/* Doves summary + close-out */}
+        {event.bar_enabled !== false && doveBalances.length > 0 && (() => {
+          const active = doveBalances.filter(b => b.status === 'active')
+          const refunded = doveBalances.filter(b => b.status === 'refunded' || b.status === 'depleted')
+          const totalLoaded = doveBalances.reduce((s, b) => s + b.loaded_cents, 0)
+          const totalSpent  = doveBalances.reduce((s, b) => s + b.spent_cents, 0)
+          const totalUnspent = active.reduce((s, b) => s + (b.loaded_cents - b.spent_cents), 0)
+          const totalRefunded = refunded.reduce((s, b) => s + (b.refunded_amount_cents || 0), 0)
+          return (
+            <div style={{ marginBottom: '1.75rem' }}>
+              <div style={eyebrowStyle()}>Doves balances</div>
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '1.1rem 1.3rem', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem', marginBottom: active.length > 0 ? '1rem' : '0' }}>
+                  <MiniStat label="Loaded"   value={dollars(totalLoaded)}   accent={C.text} />
+                  <MiniStat label="Spent"    value={dollars(totalSpent)}    accent={BRAND.neon} />
+                  <MiniStat label="Active"   value={`${active.length}`}     accent={C.text} />
+                  <MiniStat label="Unspent"  value={dollars(totalUnspent)}  accent={BRAND.orange} />
+                  <MiniStat label="Refunded" value={dollars(totalRefunded)} accent={C.textMid} />
+                </div>
+                {active.length > 0 && (
+                  <button
+                    onClick={handleCloseOut}
+                    disabled={closingOut}
+                    style={{
+                      width: '100%',
+                      background: closingOut ? '#1a1a1a' : `linear-gradient(135deg, ${BRAND.pink}, ${BRAND.orange})`,
+                      color: closingOut ? C.textMid : '#000', border: 'none', borderRadius: '10px',
+                      padding: '0.85rem', fontSize: '0.92rem', fontWeight: '800',
+                      cursor: closingOut ? 'wait' : 'pointer', fontFamily: FONT,
+                    }}
+                  >
+                    {closingOut ? 'Closing out…' : `Close Out Bar — refund ${dollars(totalUnspent)}`}
+                  </button>
+                )}
+                {active.length === 0 && (
+                  <div style={{ color: C.textMid, fontSize: '0.85rem', textAlign: 'center', padding: '0.4rem 0' }}>
+                    All balances closed out.
+                  </div>
+                )}
+              </div>
+              {closeOutResult && !closeOutResult.error && (
+                <div style={{ background: 'rgba(170,255,0,0.06)', border: `1px solid ${BRAND.neon}44`, borderRadius: '10px', padding: '0.75rem 1rem', color: BRAND.neon, fontSize: '0.82rem' }}>
+                  ✓ Closed out {closeOutResult.refunded} balance{closeOutResult.refunded === 1 ? '' : 's'} — refunded {dollars(closeOutResult.total_refunded_cents || 0)}
+                  {closeOutResult.errors?.length > 0 && (
+                    <div style={{ color: BRAND.orange, marginTop: '0.4rem' }}>{closeOutResult.errors.length} balance(s) had errors — check logs.</div>
+                  )}
+                </div>
+              )}
+              {closeOutResult?.error && (
+                <div style={{ background: 'rgba(240,112,32,0.08)', border: `1px solid ${BRAND.orange}55`, borderRadius: '10px', padding: '0.75rem 1rem', color: BRAND.orange, fontSize: '0.82rem' }}>
+                  {closeOutResult.error}
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         {/* Tier breakdown */}
         {tiers.length > 0 && (
           <div style={{ marginBottom: '1.75rem' }}>
@@ -348,6 +445,15 @@ function Stat({ label, value, accent }) {
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '0.85rem 1rem' }}>
       <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.35rem' }}>{label}</div>
       <div style={{ color: accent, fontSize: '1.25rem', fontWeight: '900', letterSpacing: '-0.02em', lineHeight: 1 }}>{value}</div>
+    </div>
+  )
+}
+
+function MiniStat({ label, value, accent }) {
+  return (
+    <div>
+      <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.6rem', marginBottom: '0.25rem' }}>{label}</div>
+      <div style={{ color: accent, fontSize: '1.05rem', fontWeight: '800', letterSpacing: '-0.01em', lineHeight: 1 }}>{value}</div>
     </div>
   )
 }

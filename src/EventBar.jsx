@@ -66,6 +66,36 @@ function CustomerView({ event, menu, onOrderPlaced }) {
   const [clientSecret, setClientSecret] = useState(null)
   const [payErr,    setPayErr]    = useState('')
 
+  // ── Doves balance (optional pre-load) ───────────────────────────────────────
+  const tokenKey = `dove-token-${event.id}`
+  const [balance, setBalance] = useState(null)        // dove_balances row or null
+  const [loadOpen, setLoadOpen] = useState(false)     // Load Doves sheet open?
+
+  useEffect(() => {
+    let cancelled = false
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(tokenKey) : null
+    if (!stored) return
+    async function check() {
+      const { data } = await supabase
+        .from('dove_balances')
+        .select('*')
+        .eq('token', stored)
+        .maybeSingle()
+      if (cancelled) return
+      if (data && data.event_id === event.id && data.status === 'active') {
+        setBalance(data)
+        if (data.customer_name) setName(data.customer_name)
+      } else {
+        // stale or refunded — drop the local token
+        localStorage.removeItem(tokenKey)
+      }
+    }
+    check()
+    return () => { cancelled = true }
+  }, [event.id, tokenKey])
+
+  const balanceRemaining = balance ? balance.loaded_cents - balance.spent_cents : 0
+
   const visible   = cat === 'all' ? menu : menu.filter(m => m.category === cat)
   const cartTotal = cart.reduce((s, c) => s + c.item.price * c.qty, 0)
   const cartCount = cart.reduce((s, c) => s + c.qty, 0)
@@ -88,11 +118,42 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     })
   }
 
-  // Step 1: collect name → request server-side payment intent → open Stripe modal
+  // Step 1: if Doves balance is loaded, debit it; otherwise open card checkout.
   const submitOrder = async () => {
     if (!name.trim()) { setShowName(true); return }
     setPlacing(true)
     setPayErr('')
+
+    // Doves path
+    if (balance && balance.status === 'active') {
+      try {
+        const cartCents = Math.round(cartTotal * 100)
+        if (cartCents > balanceRemaining) {
+          throw new Error(`Need $${(cartCents / 100).toFixed(2)}, balance has $${(balanceRemaining / 100).toFixed(2)}. Tap "Top up" or remove items.`)
+        }
+        const res = await fetch('/.netlify/functions/spend-doves', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token:         balance.token,
+            customer_name: name.trim(),
+            items:         cart.map(c => ({ menu_item_id: c.item.id, qty: c.qty })),
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || 'Order failed')
+        setBalance(json.balance)
+        onOrderPlaced(json.order)
+        setConfirmed(json.order.id)
+        setCart([]); setCartOpen(false); setName(''); setShowName(false)
+      } catch (err) {
+        setPayErr(err.message)
+      }
+      setPlacing(false)
+      return
+    }
+
+    // Fallback: per-order card payment
     try {
       const res = await fetch('/.netlify/functions/create-bar-payment-intent', {
         method: 'POST',
@@ -173,9 +234,25 @@ function CustomerView({ event, menu, onOrderPlaced }) {
       <div style={{ padding: '1rem 1.2rem 0.5rem', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ color: C.goldLight, fontWeight: '800', fontSize: '1.05rem' }}>{event.name}</div>
-          <div style={{ color: C.textMid, fontSize: '0.75rem' }}>Order now · pay on pickup</div>
+          <div style={{ color: C.textMid, fontSize: '0.75rem' }}>
+            {balance ? `Spending Doves · faster ordering` : 'Card per order · or load Doves to skip card prompts'}
+          </div>
         </div>
-        <div style={{ color: C.textDim, fontSize: '0.75rem' }}>🕊 Doves</div>
+        {balance ? (
+          <button onClick={() => setLoadOpen(true)} style={{
+            background: '#0d0800', border: `1px solid ${C.goldDim}`, borderRadius: '999px',
+            padding: '0.4rem 0.8rem', color: C.goldLight, fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer',
+          }}>
+            🕊 ${(balanceRemaining / 100).toFixed(2)}
+          </button>
+        ) : (
+          <button onClick={() => setLoadOpen(true)} style={{
+            background: 'transparent', border: `1px solid ${C.gold}`, borderRadius: '999px',
+            padding: '0.4rem 0.8rem', color: C.gold, fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer',
+          }}>
+            + Load Doves
+          </button>
+        )}
       </div>
 
       {/* Category tabs */}
@@ -306,6 +383,19 @@ function CustomerView({ event, menu, onOrderPlaced }) {
         />
       )}
 
+      {loadOpen && (
+        <LoadDovesModal
+          event={event}
+          onClose={() => setLoadOpen(false)}
+          onLoaded={(b) => {
+            setBalance(b)
+            if (b?.token) localStorage.setItem(tokenKey, b.token)
+            if (b?.customer_name && !name) setName(b.customer_name)
+            setLoadOpen(false)
+          }}
+        />
+      )}
+
       {payOpen && !stripePromise && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '2rem' }}>
           <div style={{ background: C.card, borderRadius: '14px', padding: '2rem', maxWidth: '360px', textAlign: 'center', color: C.red }}>
@@ -385,6 +475,178 @@ function BarPaymentStep({ onSuccess }) {
         {submitting ? 'Processing…' : 'Pay now'}
       </button>
     </form>
+  )
+}
+
+// ─── LOAD DOVES MODAL ─────────────────────────────────────────────────────────
+const LOAD_PRESETS = [25, 50, 100, 200]
+
+function LoadDovesModal({ event, onClose, onLoaded }) {
+  const [stage, setStage] = useState('amount')   // amount | pay
+  const [amount, setAmount] = useState(50)        // dollars
+  const [name, setName]     = useState('')
+  const [email, setEmail]   = useState('')
+  const [loading, setLoading] = useState(false)
+  const [err, setErr]       = useState('')
+  const [clientSecret, setClientSecret] = useState(null)
+
+  const proceed = async (e) => {
+    e?.preventDefault()
+    setErr('')
+    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) { setErr('Valid email required.'); return }
+    if (!amount || amount < 5) { setErr('Minimum load is $5.'); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/.netlify/functions/create-dove-load-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id:      event.id,
+          amount_cents:  Math.round(amount * 100),
+          email,
+          customer_name: name,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.clientSecret) throw new Error(json.error || 'Could not start load')
+      setClientSecret(json.clientSecret)
+      setStage('pay')
+    } catch (e) {
+      setErr(e.message)
+    }
+    setLoading(false)
+  }
+
+  const onPaid = async (paymentIntent) => {
+    try {
+      const res = await fetch('/.netlify/functions/finalize-dove-load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_intent_id: paymentIntent.id,
+          customer_name:     name,
+          email,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.balance) throw new Error(json.error || 'Could not save balance')
+      onLoaded(json.balance)
+    } catch (e) {
+      setErr(`Charge succeeded but balance failed to save: ${e.message}. Save this PI: ${paymentIntent.id}`)
+    }
+  }
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 60,
+      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#0f0f0f', width: '100%', maxWidth: '480px',
+        borderRadius: '22px 22px 0 0', borderTop: `1px solid ${C.border}`,
+        maxHeight: '90vh', overflow: 'auto', padding: '1.5rem 1.5rem 2rem',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div>
+            <div style={{ fontSize: '0.65rem', color: C.goldLight, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700' }}>
+              {stage === 'amount' ? 'Load Doves' : 'Pay'}
+            </div>
+            <div style={{ color: C.text, fontSize: '1.4rem', fontWeight: '900', letterSpacing: '-0.02em' }}>
+              ${amount}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: C.textMid, fontSize: '1.6rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+
+        {stage === 'amount' && (
+          <>
+            <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.55, marginBottom: '1rem' }}>
+              Card is charged once now. Whatever you don't spend gets refunded after the show closes — no card prompt per drink.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '0.85rem' }}>
+              {LOAD_PRESETS.map(p => (
+                <button
+                  key={p}
+                  onClick={() => setAmount(p)}
+                  style={{
+                    padding: '0.7rem 0.4rem', borderRadius: '10px',
+                    border: `1px solid ${amount === p ? C.gold : C.border}`,
+                    background: amount === p ? '#1a1000' : C.card,
+                    color: amount === p ? C.goldLight : C.textMid,
+                    fontWeight: '800', fontSize: '0.92rem', cursor: 'pointer',
+                  }}
+                >
+                  ${p}
+                </button>
+              ))}
+            </div>
+            <input
+              type="number"
+              min="5"
+              max="1000"
+              value={amount}
+              onChange={e => setAmount(Number(e.target.value) || 0)}
+              placeholder="Custom amount"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: '#1a1a1a', border: `1px solid ${C.border}`,
+                borderRadius: '10px', color: C.text, padding: '0.8rem 1rem',
+                fontSize: '0.95rem', outline: 'none', marginBottom: '0.7rem',
+              }}
+            />
+            <form onSubmit={proceed} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <input
+                value={name} onChange={e => setName(e.target.value)}
+                placeholder="Your name (so the bartender can call you)"
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: '#1a1a1a', border: `1px solid ${C.border}`,
+                  borderRadius: '10px', color: C.text, padding: '0.8rem 1rem',
+                  fontSize: '0.95rem', outline: 'none',
+                }}
+              />
+              <input
+                type="email" required
+                value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="Email — for refund receipt"
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: '#1a1a1a', border: `1px solid ${C.border}`,
+                  borderRadius: '10px', color: C.text, padding: '0.8rem 1rem',
+                  fontSize: '0.95rem', outline: 'none',
+                }}
+              />
+              {err && <div style={{ color: C.red, fontSize: '0.82rem' }}>{err}</div>}
+              <button type="submit" disabled={loading} style={{
+                background: loading ? '#1a1a1a' : C.gold, color: '#000', border: 'none', borderRadius: '10px',
+                padding: '0.95rem', fontSize: '0.95rem', fontWeight: '800', cursor: loading ? 'wait' : 'pointer',
+                marginTop: '0.4rem', opacity: loading ? 0.6 : 1,
+              }}>
+                {loading ? 'Loading…' : `Continue — load $${amount}`}
+              </button>
+              <div style={{ textAlign: 'center', color: C.textDim, fontSize: '0.7rem', marginTop: '0.25rem' }}>
+                Unspent Doves auto-refunded after the show closes.
+              </div>
+            </form>
+          </>
+        )}
+
+        {stage === 'pay' && clientSecret && stripePromise && (
+          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
+            <BarPaymentStep onSuccess={onPaid} />
+          </Elements>
+        )}
+        {stage === 'pay' && !stripePromise && (
+          <div style={{ color: C.red, fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+            Stripe not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.
+          </div>
+        )}
+        {err && stage === 'pay' && (
+          <div style={{ color: C.red, fontSize: '0.85rem', marginTop: '0.5rem' }}>{err}</div>
+        )}
+      </div>
+    </div>
   )
 }
 
