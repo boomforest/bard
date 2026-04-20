@@ -110,7 +110,7 @@ export default function ScanPage() {
 
     let q = supabase
       .from('tickets')
-      .select('id, ticket_number, name, email, torn, torn_at, tier_name, event_id')
+      .select('id, ticket_number, name, email, torn, torn_at, tier_name, event_id, refunded')
       .eq('event_id', eventIdRef.current)
 
     if (UUID_RE.test(text)) {
@@ -132,6 +132,10 @@ export default function ScanPage() {
     }
     if (!data) {
       setResult({ status: 'not_found', token: text })
+      return
+    }
+    if (data.refunded) {
+      setResult({ status: 'refunded', ticket: data })
       return
     }
     setResult({ status: data.torn ? 'already_torn' : 'valid', ticket: data })
@@ -298,6 +302,18 @@ export default function ScanPage() {
                     at {new Date(result.ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit' })}
                   </div>
                 )}
+              </>
+            )}
+            {result.status === 'refunded' && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: '0.25rem' }}>↩</div>
+                <div style={{ color: C.red, fontSize: '1rem', fontWeight: '900', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>REFUNDED — DO NOT ADMIT</div>
+                <div style={{ color: C.text, fontSize: '1.05rem', fontWeight: '700' }}>
+                  #{result.ticket.ticket_number} — {result.ticket.name}
+                </div>
+                <div style={{ color: C.textMid, fontSize: '0.78rem', marginTop: '0.4rem' }}>
+                  This ticket has been refunded by the promoter.
+                </div>
               </>
             )}
             {result.status === 'not_found' && (

@@ -29,6 +29,8 @@ export default function PromoterEventDetail() {
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(true)
   const [copied, setCopied]   = useState('')
+  const [refunding, setRefunding] = useState(null)   // ticket_id being refunded
+  const [refundErr, setRefundErr] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
@@ -57,7 +59,7 @@ export default function PromoterEventDetail() {
 
       const [{ data: tierRows }, { data: ticketRows }] = await Promise.all([
         supabase.from('ticket_tiers').select('*').eq('event_id', ev.id).order('sort_order'),
-        supabase.from('tickets').select('id, ticket_number, name, email, tier_id, tier_name, torn, torn_at, created_at, stripe_payment_intent_id').eq('event_id', ev.id).order('created_at', { ascending: false }),
+        supabase.from('tickets').select('id, ticket_number, name, email, tier_id, tier_name, torn, torn_at, refunded, created_at, stripe_payment_intent_id').eq('event_id', ev.id).order('created_at', { ascending: false }),
       ])
 
       if (cancelled) return
@@ -73,6 +75,30 @@ export default function PromoterEventDetail() {
     navigator.clipboard?.writeText(text)
     setCopied(key)
     setTimeout(() => setCopied(''), 1500)
+  }
+
+  const handleRefund = async (ticket) => {
+    if (!confirm(`Refund ticket #${ticket.ticket_number} for ${ticket.name || ticket.email}? The 2% Grail fee is non-refundable.`)) return
+    setRefunding(ticket.id)
+    setRefundErr('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Sign in expired — please reload.')
+      const res = await fetch('/.netlify/functions/refund-ticket', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ ticket_id: ticket.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Refund failed')
+      setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, refunded: true, torn: true } : t))
+    } catch (err) {
+      setRefundErr(err.message)
+    }
+    setRefunding(null)
   }
 
   if (loading) {
@@ -109,12 +135,13 @@ export default function PromoterEventDetail() {
   const cap  = event.capacity || 0
 
   const grossCents = tickets.reduce((sum, t) => {
+    if (t.refunded) return sum
     const tier = tiers.find(x => x.id === t.tier_id)
     return sum + (tier?.price_cents || 0)
   }, 0)
   const platformFeeCents = Math.round(grossCents * 0.02)
   const netCents = grossCents - platformFeeCents
-  const admittedCount = tickets.filter(t => t.torn).length
+  const admittedCount = tickets.filter(t => t.torn && !t.refunded).length
 
   const eventLink = `${window.location.origin}/e/${event.slug}`
   const scanLink  = `${window.location.origin}/scan/${event.slug}`
@@ -246,41 +273,67 @@ export default function PromoterEventDetail() {
             <div style={eyebrowStyle()}>Attendees ({tickets.length})</div>
           </div>
 
+          {refundErr && (
+            <div style={{ background: 'rgba(240,112,32,0.08)', border: `1px solid ${BRAND.orange}55`, borderRadius: '10px', padding: '0.7rem 1rem', color: BRAND.orange, fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+              {refundErr}
+            </div>
+          )}
+
           {tickets.length === 0 ? (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '2.5rem 1.5rem', textAlign: 'center' }}>
               <div style={{ color: C.textMid, fontSize: '0.88rem' }}>No tickets sold yet.</div>
             </div>
           ) : (
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', overflow: 'hidden' }}>
-              {tickets.map((t, i) => (
-                <div key={t.id} style={{
-                  display: 'flex', alignItems: 'center', gap: '0.85rem',
-                  padding: '0.8rem 1.2rem',
-                  borderTop: i === 0 ? 'none' : `1px solid ${C.border}`,
-                }}>
-                  <div style={{ width: '36px', textAlign: 'center', color: C.textMid, fontSize: '0.85rem', fontFamily: 'monospace', flexShrink: 0 }}>
-                    #{t.ticket_number}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {t.name || '—'}
+              {tickets.map((t, i) => {
+                const isRefunding = refunding === t.id
+                return (
+                  <div key={t.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '0.85rem',
+                    padding: '0.8rem 1.2rem',
+                    borderTop: i === 0 ? 'none' : `1px solid ${C.border}`,
+                    opacity: t.refunded ? 0.55 : 1,
+                  }}>
+                    <div style={{ width: '36px', textAlign: 'center', color: C.textMid, fontSize: '0.85rem', fontFamily: 'monospace', flexShrink: 0 }}>
+                      #{t.ticket_number}
                     </div>
-                    <div style={{ color: C.textMid, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {t.email}{t.tier_name && ` · ${t.tier_name}`}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: t.refunded ? 'line-through' : 'none' }}>
+                        {t.name || '—'}
+                      </div>
+                      <div style={{ color: C.textMid, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {t.email}{t.tier_name && ` · ${t.tier_name}`}
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                    {t.torn ? (
-                      <span style={badgeStyle('success')}>ADMITTED</span>
-                    ) : (
-                      <span style={badgeStyle('neutral')}>WAITING</span>
+                    <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                      {t.refunded ? (
+                        <span style={badgeStyle('neutral')}>REFUNDED</span>
+                      ) : t.torn ? (
+                        <span style={badgeStyle('success')}>ADMITTED</span>
+                      ) : (
+                        <span style={badgeStyle('neutral')}>WAITING</span>
+                      )}
+                      <div style={{ color: C.textDim, fontSize: '0.7rem', marginTop: '0.25rem' }}>
+                        {fmtWhen(t.created_at)}
+                      </div>
+                    </div>
+                    {!t.refunded && t.stripe_payment_intent_id && (
+                      <button
+                        onClick={() => handleRefund(t)}
+                        disabled={isRefunding}
+                        style={{
+                          background: 'transparent', border: `1px solid ${C.border}`,
+                          color: BRAND.orange, borderRadius: '6px', padding: '0.35rem 0.7rem',
+                          fontSize: '0.72rem', fontWeight: '700', cursor: isRefunding ? 'wait' : 'pointer',
+                          fontFamily: FONT, flexShrink: 0, opacity: isRefunding ? 0.6 : 1,
+                        }}
+                      >
+                        {isRefunding ? '…' : 'Refund'}
+                      </button>
                     )}
-                    <div style={{ color: C.textDim, fontSize: '0.7rem', marginTop: '0.25rem' }}>
-                      {fmtWhen(t.created_at)}
-                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
