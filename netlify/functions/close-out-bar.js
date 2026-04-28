@@ -1,17 +1,21 @@
 const Stripe  = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
 
-// Promoter-triggered: refund (loaded - spent) for every active Dove
-// balance on an event, then mark them refunded.
+// Promoter-triggered: refund (loaded - spent) for every active bar tab
+// on an event, then mark them refunded.
 //
 // POST body:    { event_id }
 // Auth header:  Authorization: Bearer <supabase access token>
 // Response:     { refunded: int, total_refunded_cents: int, errors: [] }
 //
 // Per Grail's Terms, the 2% platform fee on the original load is NOT
-// refunded — promoter eats the fee on whatever portion of Doves the
+// refunded — promoter eats the fee on whatever portion of doves the
 // buyer didn't end up spending. (The promoter still kept ~98% of the
 // loaded amount; the refund pulls back only the unspent share.)
+//
+// SHOW/BAR ECONOMY — Refunds go back to the buyer's original card via
+// Stripe. DO NOT WRITE to profiles.dov_balance from here. That column
+// is the Casa de Copas Palomas wallet, a separate ledger.
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -45,7 +49,7 @@ exports.handler = async (event) => {
     if (ev.promoter_id !== user.id) throw new Error('Not authorized to close out this event')
 
     const { data: balances, error: bErr } = await supabase
-      .from('dove_balances')
+      .from('bar_tabs')
       .select('*')
       .eq('event_id', event_id)
       .eq('status', 'active')
@@ -74,7 +78,7 @@ exports.handler = async (event) => {
           })
         }
         await supabase
-          .from('dove_balances')
+          .from('bar_tabs')
           .update({
             status:                 unspent === 0 ? 'depleted' : 'refunded',
             refund_id:              refundResult?.id || null,

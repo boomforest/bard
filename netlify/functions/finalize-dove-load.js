@@ -1,12 +1,16 @@
 const Stripe  = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
 
-// Verifies a successful PaymentIntent and creates a dove_balances row.
+// Verifies a successful PaymentIntent and creates a bar_tabs row.
 //
 // POST body: { payment_intent_id, customer_name, email }
 // Response:  { balance: { id, token, loaded_cents, ...} }
 //
 // Idempotent on stripe_payment_intent_id.
+//
+// SHOW/BAR ECONOMY — DO NOT WRITE to profiles.dov_balance from here.
+// That column is the Casa de Copas Palomas wallet. Bar tabs are a
+// separate, per-event ledger keyed by token.
 
 function randomToken() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789abcdefghjkmnpqrstuvwxyz'
@@ -34,7 +38,7 @@ exports.handler = async (event) => {
 
     // Idempotency
     const { data: existing } = await supabase
-      .from('dove_balances')
+      .from('bar_tabs')
       .select('*')
       .eq('stripe_payment_intent_id', payment_intent_id)
       .maybeSingle()
@@ -58,7 +62,7 @@ exports.handler = async (event) => {
     const loaded_cents = pi.amount_received || pi.amount
 
     const { data: row, error: insErr } = await supabase
-      .from('dove_balances')
+      .from('bar_tabs')
       .insert({
         event_id,
         token,

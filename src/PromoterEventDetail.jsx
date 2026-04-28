@@ -63,7 +63,7 @@ export default function PromoterEventDetail() {
       const [{ data: tierRows }, { data: ticketRows }, { data: balanceRows }] = await Promise.all([
         supabase.from('ticket_tiers').select('*').eq('event_id', ev.id).order('sort_order'),
         supabase.from('tickets').select('id, ticket_number, name, email, tier_id, tier_name, torn, torn_at, refunded, created_at, stripe_payment_intent_id').eq('event_id', ev.id).order('created_at', { ascending: false }),
-        supabase.from('dove_balances').select('*').eq('event_id', ev.id).order('created_at', { ascending: false }),
+        supabase.from('bar_tabs').select('*').eq('event_id', ev.id).order('created_at', { ascending: false }),
       ])
 
       if (cancelled) return
@@ -109,7 +109,7 @@ export default function PromoterEventDetail() {
       if (!res.ok) throw new Error(json.error || 'Close-out failed')
       setCloseOutResult(json)
       // Refresh balances
-      const { data: refreshed } = await supabase.from('dove_balances').select('*').eq('event_id', event.id).order('created_at', { ascending: false })
+      const { data: refreshed } = await supabase.from('bar_tabs').select('*').eq('event_id', event.id).order('created_at', { ascending: false })
       setDoveBalances(refreshed || [])
     } catch (err) {
       setCloseOutResult({ error: err.message })

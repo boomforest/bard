@@ -2,7 +2,7 @@ const Stripe  = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
 const { applicationFeeFor } = require('./_lib/connect-fees.cjs')
 
-// Creates a Stripe PaymentIntent to load Doves onto a bar balance.
+// Creates a Stripe PaymentIntent to load doves onto a bar tab.
 //
 // POST body: { event_id, amount_cents, email, customer_name }
 // Response:  { clientSecret, total_cents, application_fee_cents }
@@ -10,6 +10,10 @@ const { applicationFeeFor } = require('./_lib/connect-fees.cjs')
 // Same Connect routing pattern as ticket / per-order bar payments —
 // funds flow to the promoter's connected account; platform takes its fee
 // + Stripe's processing fee passed through (see _lib/connect-fees.js).
+//
+// SHOW/BAR ECONOMY — Loads write to bar_tabs (per-event, by token).
+// DO NOT WRITE to profiles.dov_balance from here. That column is the
+// Casa de Copas Palomas wallet, a separate ledger.
 
 const MIN_LOAD_CENTS   = 500       // $5
 const MAX_LOAD_CENTS   = 100000    // $1000

@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 
-// Atomically debit a Dove balance and create a paid bar order.
+// Atomically debit a bar tab and create a paid bar order.
 //
 // POST body: { token, items: [{ menu_item_id, qty }], customer_name, order_id }
 // Response:  { order, balance: { spent_cents, loaded_cents } }
@@ -8,6 +8,9 @@ const { createClient } = require('@supabase/supabase-js')
 // Server re-prices items from bar_menu_items so a buyer can't claim
 // they ordered a $1 drink when it costs $10. If the new total would
 // exceed the balance, the spend is rejected.
+//
+// SHOW/BAR ECONOMY — DO NOT WRITE to profiles.dov_balance from here.
+// That column is the Casa de Copas Palomas wallet, a separate ledger.
 
 function genOrderId() {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -32,7 +35,7 @@ exports.handler = async (event) => {
     )
 
     const { data: balance, error: bErr } = await supabase
-      .from('dove_balances')
+      .from('bar_tabs')
       .select('*')
       .eq('token', token)
       .maybeSingle()
@@ -67,7 +70,7 @@ exports.handler = async (event) => {
 
     // Optimistic concurrency: only update if spent_cents hasn't moved
     const { data: bumped, error: upErr } = await supabase
-      .from('dove_balances')
+      .from('bar_tabs')
       .update({
         spent_cents: balance.spent_cents + totalCents,
         updated_at:  new Date().toISOString(),
@@ -98,7 +101,7 @@ exports.handler = async (event) => {
       .single()
     if (oErr) {
       // Roll back the spend if the order insert failed
-      await supabase.from('dove_balances').update({ spent_cents: balance.spent_cents }).eq('id', balance.id)
+      await supabase.from('bar_tabs').update({ spent_cents: balance.spent_cents }).eq('id', balance.id)
       throw oErr
     }
 

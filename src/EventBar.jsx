@@ -68,7 +68,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
 
   // ── Doves balance (optional pre-load) ───────────────────────────────────────
   const tokenKey = `dove-token-${event.id}`
-  const [balance, setBalance] = useState(null)        // dove_balances row or null
+  const [balance, setBalance] = useState(null)        // bar_tabs row or null
   const [loadOpen, setLoadOpen] = useState(false)     // Load Doves sheet open?
 
   useEffect(() => {
@@ -77,7 +77,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     if (!stored) return
     async function check() {
       const { data } = await supabase
-        .from('dove_balances')
+        .from('bar_tabs')
         .select('*')
         .eq('token', stored)
         .maybeSingle()

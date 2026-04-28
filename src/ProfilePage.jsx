@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PRIMARY_BTN, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
 
-const TABS = ['Tickets', 'Doves', 'History']
+const TABS = ['Tickets', 'History']
 
 export default function ProfilePage() {
   const [session, setSession] = useState(undefined)
@@ -19,11 +19,6 @@ export default function ProfilePage() {
   const [password, setPassword] = useState('')
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
-
-  const [sendTo, setSendTo] = useState('')
-  const [sendAmount, setSendAmount] = useState('')
-  const [sendNote, setSendNote] = useState('')
-  const [sendStatus, setSendStatus] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
@@ -83,48 +78,10 @@ export default function ProfilePage() {
     navigate('/promoter')
   }
 
-  const handleSendDoves = async (e) => {
-    e.preventDefault()
-    setSendStatus('')
-    const amount = parseInt(sendAmount)
-    if (!sendTo || !amount || amount <= 0) {
-      setSendStatus('Enter a recipient and amount.')
-      return
-    }
-    if (!profile || profile.dov_balance < amount) {
-      setSendStatus('Not enough doves.')
-      return
-    }
-
-    const { data: recipient } = await supabase
-      .from('profiles')
-      .select('id, dov_balance, username')
-      .or(`username.eq.${sendTo},email.eq.${sendTo}`)
-      .single()
-
-    if (!recipient) {
-      setSendStatus('Recipient not found.')
-      return
-    }
-
-    const { error: deductErr } = await supabase
-      .from('profiles')
-      .update({ dov_balance: profile.dov_balance - amount })
-      .eq('id', session.user.id)
-
-    if (deductErr) { setSendStatus('Transfer failed.'); return }
-
-    await supabase
-      .from('profiles')
-      .update({ dov_balance: (recipient.dov_balance || 0) + amount })
-      .eq('id', recipient.id)
-
-    setSendStatus(`Sent ${amount} doves to ${recipient.username || sendTo}.`)
-    setSendTo('')
-    setSendAmount('')
-    setSendNote('')
-    fetchData()
-  }
+  // P2P Paloma sending was removed: it touched profiles.dov_balance, the
+  // shared Casa de Copas Palomas economy. Show/bar doves are a separate
+  // ledger (bar_tabs table). Don't reintroduce a profiles.dov_balance write
+  // path from here without coordinating with the Casa de Copas app.
 
   if (session === undefined) {
     return (
@@ -234,15 +191,6 @@ export default function ProfilePage() {
           <div style={{ textAlign: 'center', padding: '5rem 0', fontSize: '2rem', opacity: 0.4 }}>🕊</div>
         ) : tab === 'Tickets' ? (
           <TicketsTab active={activeTickets} torn={tornTickets} />
-        ) : tab === 'Doves' ? (
-          <DovesTab
-            profile={profile}
-            sendTo={sendTo} setSendTo={setSendTo}
-            sendAmount={sendAmount} setSendAmount={setSendAmount}
-            sendNote={sendNote} setSendNote={setSendNote}
-            sendStatus={sendStatus}
-            onSend={handleSendDoves}
-          />
         ) : (
           <HistoryTab attendedEvents={attendedEvents} />
         )}
@@ -323,32 +271,6 @@ function TicketCard({ ticket, active }) {
           View ticket →
         </a>
       )}
-    </div>
-  )
-}
-
-function DovesTab({ profile, sendTo, setSendTo, sendAmount, setSendAmount, sendNote, setSendNote, sendStatus, onSend }) {
-  const balance = profile?.dov_balance ?? 0
-  return (
-    <div>
-      <div style={{ textAlign: 'center', padding: '3rem 0 2.5rem' }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🕊</div>
-        <div style={{ fontSize: '3.5rem', fontWeight: '900', color: balance > 0 ? BRAND.neon : C.textMid, lineHeight: 1, letterSpacing: '-0.03em' }}>
-          {balance}
-        </div>
-        <div style={{ ...eyebrowStyle(C.textMid), marginTop: '0.6rem' }}>Doves</div>
-      </div>
-
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '1.5rem', maxWidth: '420px', margin: '0 auto' }}>
-        <div style={eyebrowStyle()}>Send Doves</div>
-        <form onSubmit={onSend} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-          <input placeholder="Username or email" value={sendTo} onChange={e => setSendTo(e.target.value)} style={INPUT} />
-          <input type="number" placeholder="Amount" value={sendAmount} onChange={e => setSendAmount(e.target.value)} style={INPUT} min="1" />
-          <input placeholder="Note (optional)" value={sendNote} onChange={e => setSendNote(e.target.value)} style={INPUT} />
-          {sendStatus && <p style={{ fontSize: '0.85rem', color: BRAND.pink, margin: '0 0 0.25rem' }}>{sendStatus}</p>}
-          <button type="submit" style={{ ...PRIMARY_BTN, marginTop: '0.25rem' }}>Send</button>
-        </form>
-      </div>
     </div>
   )
 }
