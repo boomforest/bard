@@ -1,5 +1,6 @@
 const Stripe  = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
+const { applicationFeeFor } = require('./_lib/connect-fees.cjs')
 
 // Generic ticket-purchase PaymentIntent creator with Stripe Connect.
 //
@@ -11,15 +12,15 @@ const { createClient } = require('@supabase/supabase-js')
 //   - Looks up the event + its promoter from Supabase
 //   - Re-prices everything server-side from ticket_tiers (never trusts client)
 //   - Charges the buyer; routes funds to the promoter's connected account
-//     minus a 2% Grail platform fee via application_fee_amount
+//     minus the platform fee. Stripe processing fees are passed through to
+//     the promoter (see _lib/connect-fees.js for math).
 //
 // Required env:
 //   STRIPE_SECRET_KEY
 //   SUPABASE_URL
 //   SUPABASE_SERVICE_ROLE_KEY
-//   GRAIL_PLATFORM_FEE_BPS  (optional, defaults to 200 = 2.00%)
-
-const PLATFORM_FEE_BPS = Number(process.env.GRAIL_PLATFORM_FEE_BPS || 200)
+//   GRAIL_PLATFORM_FEE_BPS, STRIPE_FEE_PASSTHROUGH_BPS,
+//   STRIPE_FEE_PASSTHROUGH_FIXED_CENTS  (all optional, see helper for defaults)
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -97,7 +98,7 @@ exports.handler = async (event) => {
     }
     if (totalCents <= 0) throw new Error('Cart total is zero')
 
-    const applicationFeeCents = Math.round((totalCents * PLATFORM_FEE_BPS) / 10000)
+    const applicationFeeCents = applicationFeeFor(totalCents)
     const currency = (ev.currency || 'mxn').toLowerCase()
 
     const paymentIntent = await stripe.paymentIntents.create({

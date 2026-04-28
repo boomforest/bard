@@ -1,5 +1,6 @@
 const Stripe  = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
+const { applicationFeeFor } = require('./_lib/connect-fees.cjs')
 
 // Creates a Stripe PaymentIntent to load Doves onto a bar balance.
 //
@@ -7,9 +8,9 @@ const { createClient } = require('@supabase/supabase-js')
 // Response:  { clientSecret, total_cents, application_fee_cents }
 //
 // Same Connect routing pattern as ticket / per-order bar payments —
-// funds flow to the promoter's connected account, Grail takes 2%.
+// funds flow to the promoter's connected account; platform takes its fee
+// + Stripe's processing fee passed through (see _lib/connect-fees.js).
 
-const PLATFORM_FEE_BPS = Number(process.env.GRAIL_PLATFORM_FEE_BPS || 200)
 const MIN_LOAD_CENTS   = 500       // $5
 const MAX_LOAD_CENTS   = 100000    // $1000
 
@@ -50,7 +51,7 @@ exports.handler = async (event) => {
       throw new Error('This event is not ready to accept bar payments yet.')
     }
 
-    const applicationFeeCents = Math.round((amount * PLATFORM_FEE_BPS) / 10000)
+    const applicationFeeCents = applicationFeeFor(amount)
     const currency = (ev.currency || 'mxn').toLowerCase()
 
     const paymentIntent = await stripe.paymentIntents.create({

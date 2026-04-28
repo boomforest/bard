@@ -1,5 +1,6 @@
 const Stripe  = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
+const { applicationFeeFor } = require('./_lib/connect-fees.cjs')
 
 // Generic bar-tab PaymentIntent creator with Stripe Connect.
 //
@@ -13,11 +14,10 @@ const { createClient } = require('@supabase/supabase-js')
 // Behavior:
 //   - Re-prices server-side from bar_menu_items (never trusts client prices)
 //   - Routes payment to the promoter's Connect account
-//   - Takes 2% (configurable via GRAIL_PLATFORM_FEE_BPS)
+//   - Platform takes its fee + Stripe processing fees passed through
+//     (see _lib/connect-fees.js for math)
 //
 // Required env: STRIPE_SECRET_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-
-const PLATFORM_FEE_BPS = Number(process.env.GRAIL_PLATFORM_FEE_BPS || 200)
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -77,7 +77,7 @@ exports.handler = async (event) => {
     }
     if (totalCents <= 0) throw new Error('Cart total is zero')
 
-    const applicationFeeCents = Math.round((totalCents * PLATFORM_FEE_BPS) / 10000)
+    const applicationFeeCents = applicationFeeFor(totalCents)
     const currency = (ev.currency || 'mxn').toLowerCase()
 
     const paymentIntent = await stripe.paymentIntents.create({
