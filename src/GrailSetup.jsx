@@ -2,6 +2,19 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { createEventFromSetup } from './eventService'
+import { FEATURED_DRINKS } from './featuredDrinks'
+
+// Builds the default barItems[] for a brand-new event — the 4 featured
+// hydration-forward drinks with their default prices. Promoters can edit
+// the price, remove any of them, or add custom items on top.
+const buildFeaturedBarItems = () => FEATURED_DRINKS.map((d, i) => ({
+  id:       `feat-${d.slug}-${Date.now() + i}`,
+  name:     d.name,
+  price:    String(d.defaultPrice),
+  category: d.category,
+  desc:     '',
+  featured: true,
+}))
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 const C = {
@@ -524,39 +537,64 @@ function StepBar({ data, setData, onBack, onNext }) {
         <>
           {items.map((item, i) => (
             <div key={item.id} style={{
-              background: '#111', border: `1px solid ${C.border}`,
+              background: '#111', border: `1px solid ${item.featured ? C.gold + '44' : C.border}`,
               borderRadius: '14px', padding: '0.9rem', marginBottom: '0.65rem',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
-                <div style={{ fontSize: '0.7rem', color: C.textMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Item {i + 1}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ fontSize: '0.7rem', color: C.textMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                    {item.featured ? item.name : `Custom ${i + 1}`}
+                  </div>
+                  {item.featured && (
+                    <span style={{ fontSize: '0.6rem', color: C.gold, background: C.gold + '15', border: `1px solid ${C.gold}55`, borderRadius: '99px', padding: '0.1rem 0.45rem', fontWeight: '700', letterSpacing: '0.08em' }}>
+                      FEATURED
+                    </span>
+                  )}
+                </div>
                 <button onClick={() => removeItem(item.id)} style={{ background: 'transparent', border: 'none', color: C.textDim, cursor: 'pointer', fontSize: '1rem' }}>×</button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
-                <div>
-                  <Label>Item Name</Label>
-                  <Input value={item.name} onChange={e => updateItem(item.id, 'name', e.target.value)} placeholder="Michelada" />
+
+              {item.featured ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.6rem' }}>
+                  <div>
+                    <Label>Item Name</Label>
+                    <Input value={item.name} disabled style={{ opacity: 0.7 }} />
+                  </div>
+                  <div>
+                    <Label>Price (🕊)</Label>
+                    <Input type="number" value={item.price} onChange={e => updateItem(item.id, 'price', e.target.value)} />
+                  </div>
                 </div>
-                <div>
-                  <Label>Price (🕊)</Label>
-                  <Input type="number" value={item.price} onChange={e => updateItem(item.id, 'price', e.target.value)} placeholder="8" />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-                <div>
-                  <Label>Category</Label>
-                  <select
-                    value={item.category}
-                    onChange={e => updateItem(item.id, 'category', e.target.value)}
-                    style={{ width: '100%', background: '#0d0d0d', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, padding: '0.75rem 0.7rem', fontSize: '0.85rem', outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }}
-                  >
-                    {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <Label>Description</Label>
-                  <Input value={item.desc} onChange={e => updateItem(item.id, 'desc', e.target.value)} placeholder="Short tagline" />
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                    <div>
+                      <Label>Item Name</Label>
+                      <Input value={item.name} onChange={e => updateItem(item.id, 'name', e.target.value)} placeholder="Michelada" />
+                    </div>
+                    <div>
+                      <Label>Price (🕊)</Label>
+                      <Input type="number" value={item.price} onChange={e => updateItem(item.id, 'price', e.target.value)} placeholder="8" />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                    <div>
+                      <Label>Category</Label>
+                      <select
+                        value={item.category}
+                        onChange={e => updateItem(item.id, 'category', e.target.value)}
+                        style={{ width: '100%', background: '#0d0d0d', border: `1px solid ${C.border}`, borderRadius: '10px', color: C.text, padding: '0.75rem 0.7rem', fontSize: '0.85rem', outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }}
+                      >
+                        {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Input value={item.desc} onChange={e => updateItem(item.id, 'desc', e.target.value)} placeholder="Short tagline" />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ))}
 
@@ -565,7 +603,7 @@ function StepBar({ data, setData, onBack, onNext }) {
             color: C.textMid, borderRadius: '12px', padding: '0.85rem',
             fontSize: '0.88rem', fontWeight: '600', cursor: 'pointer',
           }}>
-            + Add item
+            + Add custom item
           </button>
         </>
       )}
@@ -912,7 +950,7 @@ export default function GrailSetup() {
     // tickets
     tiers: [],
     // bar
-    barEnabled: true, barItems: [],
+    barEnabled: true, barItems: buildFeaturedBarItems(),
     // payout
     stripeConnected: false,
   })

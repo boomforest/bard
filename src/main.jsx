@@ -75,6 +75,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         {/* Multi-tenant event bar */}
         <Route path="/:slug/bar"       element={<EventBar staffMode={false} />} />
         <Route path="/:slug/bar/staff" element={<EventBar staffMode={true}  />} />
+        <Route path="/:slug/doves"     element={<GrailDoves />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

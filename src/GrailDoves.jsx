@@ -1,36 +1,12 @@
 import React, { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
+import { supabase } from './supabase'
 import { grailStore } from './grailStore'
+import { emojiFor } from './featuredDrinks'
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const DOVE_TO_MXN = 1   // 1 Dove = 1 MXN (simple, intuitive)
-const EVENT_ID    = 'nonlinear-2026'   // TODO: from route params
-
-// ─── MENU (same items as bar, priced in Doves = MXN) ─────────────────────────
-const MENU = [
-  { id: 1,  cat: 'spirits',  name: 'Mezcal',        doves: 90,  emoji: '🥃' },
-  { id: 2,  cat: 'spirits',  name: 'Tequila',        doves: 80,  emoji: '🥃' },
-  { id: 3,  cat: 'spirits',  name: 'Gin',            doves: 80,  emoji: '🫙' },
-  { id: 4,  cat: 'spirits',  name: 'Rum',            doves: 70,  emoji: '🫙' },
-  { id: 5,  cat: 'beer',     name: 'Corona',         doves: 50,  emoji: '🍺' },
-  { id: 6,  cat: 'beer',     name: 'Modelo',         doves: 50,  emoji: '🍺' },
-  { id: 7,  cat: 'beer',     name: 'Craft IPA',      doves: 80,  emoji: '🍻' },
-  { id: 8,  cat: 'cocktail', name: 'Mezcal Sour',    doves: 130, emoji: '🍹' },
-  { id: 9,  cat: 'cocktail', name: 'Paloma',         doves: 120, emoji: '🍹' },
-  { id: 10, cat: 'cocktail', name: 'Negroni',        doves: 140, emoji: '🍸' },
-  { id: 11, cat: 'na',       name: 'Agua Mineral',   doves: 30,  emoji: '💧' },
-  { id: 12, cat: 'na',       name: 'Jugo',           doves: 40,  emoji: '🍊' },
-  { id: 13, cat: 'snacks',   name: 'Cacahuates',     doves: 40,  emoji: '🥜' },
-  { id: 14, cat: 'snacks',   name: 'Papas',          doves: 40,  emoji: '🥔' },
-]
-
-const CATS = [
-  { key: 'all',     label: 'All' },
-  { key: 'spirits', label: 'Spirits' },
-  { key: 'beer',    label: 'Beer' },
-  { key: 'cocktail',label: 'Cocktails' },
-  { key: 'na',      label: 'No Alc' },
-  { key: 'snacks',  label: 'Snacks' },
-]
+const LEGACY_EVENT_SLUG = 'nonlinear-2026'   // Fallback when /grail/doves is hit without a slug
 
 const LOAD_PRESETS = [100, 200, 500, 1000]   // Dove preset amounts
 
@@ -374,9 +350,9 @@ function LoadScreen({ onLoad, onBack }) {
 }
 
 // ─── MENU SCREEN ──────────────────────────────────────────────────────────────
-function MenuScreen({ balance, cart, onAddToCart, onRemoveFromCart, onGoToCart, onBack }) {
+function MenuScreen({ menu, cats, balance, cart, onAddToCart, onRemoveFromCart, onGoToCart, onBack }) {
   const [cat, setCat] = useState('all')
-  const visible   = cat === 'all' ? MENU : MENU.filter(m => m.cat === cat)
+  const visible   = cat === 'all' ? menu : menu.filter(m => m.cat === cat)
   const cartCount = cart.reduce((s, c) => s + c.qty, 0)
   const cartTotal = cart.reduce((s, c) => s + c.item.doves * c.qty, 0)
   const canAfford = (item) => balance >= item.doves
@@ -396,7 +372,7 @@ function MenuScreen({ balance, cart, onAddToCart, onRemoveFromCart, onGoToCart, 
         zIndex: 5,
         borderBottom: `1px solid ${C.border}`,
       }}>
-        {CATS.map(c => (
+        {cats.map(c => (
           <button
             key={c.key}
             onClick={() => setCat(c.key)}
@@ -618,11 +594,63 @@ function CartScreen({ cart, balance, onAddToCart, onRemoveFromCart, onConfirm, o
 
 // ─── MAIN ──────────────────────────────────────────────────────────────────────
 export default function GrailDoves() {
+  const { slug }        = useParams()
+  const eventSlug       = slug || LEGACY_EVENT_SLUG
+  const [event,        setEvent]        = useState(null)       // { id, slug, name }
+  const [menu,         setMenu]         = useState([])         // bar_menu_items mapped to UI shape
+  const [menuLoading,  setMenuLoading]  = useState(true)
   const [screen,       setScreen]       = useState('home')     // home | load | menu | cart | confirm
   const [balance,      setBalance]      = useState(0)          // current dove balance
   const [cart,         setCart]         = useState([])
   const [transactions, setTransactions] = useState([])
   const [lastOrderId,  setLastOrderId]  = useState(null)
+
+  // Fetch the event + bar menu items from Supabase. The promoter sets the
+  // menu in StepBar (GrailSetup); we render their authoritative version.
+  // Featured drinks (matched by name) get an emoji card; custom items
+  // render as plain text.
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setMenuLoading(true)
+      const { data: ev } = await supabase
+        .from('events')
+        .select('id, slug, name')
+        .eq('slug', eventSlug)
+        .maybeSingle()
+      if (cancelled) return
+      if (!ev) { setMenuLoading(false); return }
+      setEvent(ev)
+      const { data: rows } = await supabase
+        .from('bar_menu_items')
+        .select('id, name, price_cents, category, description, sort_order, active')
+        .eq('event_id', ev.id)
+        .eq('active', true)
+        .order('sort_order', { ascending: true })
+      if (cancelled) return
+      const mapped = (rows || []).map(r => ({
+        id:    r.id,
+        name:  r.name,
+        doves: Math.round((r.price_cents || 0) / 100),
+        cat:   (r.category || 'drinks').toLowerCase(),
+        emoji: emojiFor(r.name),
+        desc:  r.description || '',
+      }))
+      setMenu(mapped)
+      setMenuLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [eventSlug])
+
+  // Build category tabs dynamically from the items the promoter actually configured.
+  const cats = [
+    { key: 'all', label: 'All' },
+    ...Array.from(new Set(menu.map(m => m.cat))).map(c => ({
+      key: c,
+      label: c.charAt(0).toUpperCase() + c.slice(1),
+    })),
+  ]
 
   const addToCart = (item) => setCart(prev => {
     const existing = prev.find(c => c.item.id === item.id)
@@ -657,7 +685,7 @@ export default function GrailDoves() {
         doves:     item.doves,
         mxn:       item.doves * DOVE_TO_MXN,
         timestamp: new Date().toISOString(),
-        eventId:   EVENT_ID,
+        eventId:   event?.id || eventSlug,
       }))
     )
 
@@ -777,6 +805,8 @@ export default function GrailDoves() {
       )}
       {screen === 'menu' && (
         <MenuScreen
+          menu={menu}
+          cats={cats}
           balance={balance}
           cart={cart}
           onAddToCart={addToCart}
