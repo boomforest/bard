@@ -75,6 +75,35 @@ function Input({ value, onChange, placeholder, type = 'text', style = {} }) {
   )
 }
 
+// CurrencyPicker — small inline dropdown rendered at the top of any step
+// where prices are entered. Single source of truth: data.currency. Change
+// it once from anywhere, all price inputs update.
+function CurrencyPicker({ value, onChange }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '0.6rem',
+      background: '#0d0d0d', border: `1px solid ${C.border}`,
+      borderRadius: '10px', padding: '0.55rem 0.85rem 0.55rem 1rem',
+      marginBottom: '1rem',
+    }}>
+      <span style={{ fontSize: '0.7rem', color: C.textMid, fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        Pricing in
+      </span>
+      <select
+        value={value || 'mxn'}
+        onChange={onChange}
+        style={{
+          flex: 1, background: 'transparent', border: 'none', outline: 'none',
+          color: C.text, fontSize: '0.85rem', fontFamily: 'inherit', cursor: 'pointer',
+          padding: '0.25rem 0',
+        }}
+      >
+        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+      </select>
+    </div>
+  )
+}
+
 // PriceInput — number input with the event's currency code locked to the
 // right edge so promoters always know what unit they're typing in.
 // Fixes the ambiguity where "50" could be 50 MXN or 50 USD or 50 EUR.
@@ -470,6 +499,7 @@ function StepTickets({ data, setData, onBack, onNext }) {
   return (
     <div>
       <SectionHeader title="Tickets" sub="Set your tiers, prices, and how many of each." />
+      <CurrencyPicker value={data.currency} onChange={e => setData(d => ({ ...d, currency: e.target.value }))} />
 
       {tiers.map((tier, i) => (
         <div key={tier.id} style={{
@@ -557,6 +587,7 @@ function StepBar({ data, setData, onBack, onNext }) {
   return (
     <div>
       <SectionHeader title="Bar Menu" sub="What are you selling? Set items and prices. Fans order from their phone." />
+      {barEnabled && <CurrencyPicker value={data.currency} onChange={e => setData(d => ({ ...d, currency: e.target.value }))} />}
 
       {/* Bar on/off — checkbox so opt-out is unmissable */}
       <button
