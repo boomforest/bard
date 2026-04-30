@@ -1,5 +1,6 @@
 const Stripe  = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
+const { reportServerError } = require('./_lib/server-error-report.cjs')
 
 // Promoter-triggered: refund (loaded - spent) for every active bar tab
 // on an event, then mark them refunded.
@@ -106,6 +107,23 @@ exports.handler = async (event) => {
       } catch (oneErr) {
         console.error(`close-out-bar: balance ${b.id} failed`, oneErr)
         errors.push({ balance_id: b.id, error: oneErr.message })
+        // Surface to the /admin Errors inbox so JP doesn't have to dig
+        // through Netlify logs to see refund failures.
+        await reportServerError({
+          message:    `close-out-bar: ${oneErr.message}`,
+          stack:      oneErr.stack,
+          user_id:    user.id,
+          user_email: user.email,
+          context: {
+            fn:                     'close-out-bar',
+            balance_id:             b.id,
+            event_id,
+            unspent_cents:          unspent,
+            force_platform_balance: !!force_platform_balance,
+            stripe_code:            oneErr.code || null,
+            stripe_type:            oneErr.type || null,
+          },
+        })
       }
     }
 
@@ -120,6 +138,11 @@ exports.handler = async (event) => {
     }
   } catch (err) {
     console.error('close-out-bar error:', err)
+    await reportServerError({
+      message: `close-out-bar (outer): ${err.message}`,
+      stack:   err.stack,
+      context: { fn: 'close-out-bar' },
+    })
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) }
   }
 }

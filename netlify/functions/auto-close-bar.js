@@ -19,6 +19,7 @@
 
 const Stripe = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
+const { reportServerError } = require('./_lib/server-error-report.cjs')
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 const SEVEN_DAYS_MS = 7 * ONE_DAY_MS
@@ -129,6 +130,22 @@ exports.handler = async () => {
     } else {
       console.warn(`auto-close-bar: tab ${tab.id} refund failed`, lastError?.message)
       summary.errors.push({ balance_id: tab.id, error: lastError?.message || 'unknown' })
+      // Surface to /admin Errors inbox. Scheduled fn has no client to
+      // bubble errors back to, so this is the only path.
+      await reportServerError({
+        message: `auto-close-bar: ${lastError?.message || 'unknown error'}`,
+        stack:   lastError?.stack,
+        context: {
+          fn:           'auto-close-bar',
+          balance_id:   tab.id,
+          event_id:     tab.event_id,
+          unspent_cents: unspent,
+          days_since_show: daysSinceShow,
+          allow_platform_fallback: allowPlatformFallback,
+          stripe_code: lastError?.code || null,
+          stripe_type: lastError?.type || null,
+        },
+      })
     }
   }
 
