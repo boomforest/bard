@@ -157,6 +157,24 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     setRefreshing(false)
   }
 
+  // Customer confirms pickup — closes the loop on the staff side. Bartender's
+  // "Mark Ready" is now their last action; this is what flips the row to done
+  // and clears it from the bar queue.
+  const [pickingUp, setPickingUp] = useState(false)
+  const confirmPickup = async () => {
+    if (!currentOrder?.id) return
+    setPickingUp(true)
+    const { error } = await supabase
+      .from('bar_orders')
+      .update({ status: 'done' })
+      .eq('id', currentOrder.id)
+    if (!error) {
+      localStorage.removeItem(orderKey)
+      setCurrentOrder(null)
+    }
+    setPickingUp(false)
+  }
+
   // ── Doves balance (optional pre-load) ───────────────────────────────────────
   const tokenKey = `dove-token-${event.id}`
   const [balance, setBalance] = useState(null)        // bar_tabs row or null
@@ -330,12 +348,26 @@ function CustomerView({ event, menu, onOrderPlaced }) {
         <div style={{ color: C.textMid, fontSize: '0.92rem', marginBottom: '2rem', maxWidth: '320px' }}>
           {subline}
         </div>
+        {ready && (
+          <button
+            style={{
+              background: C.gold, color: '#000', border: 'none', borderRadius: '12px',
+              padding: '1rem 2rem', fontSize: '1rem', fontWeight: '900',
+              cursor: pickingUp ? 'wait' : 'pointer', marginBottom: '0.85rem',
+              boxShadow: '0 4px 24px rgba(232,184,75,0.35)',
+              opacity: pickingUp ? 0.6 : 1, letterSpacing: '0.02em',
+            }}
+            onClick={confirmPickup}
+            disabled={pickingUp}
+          >
+            {pickingUp ? 'Confirming…' : '✓ I picked it up'}
+          </button>
+        )}
         <div style={{ display: 'flex', gap: '0.6rem' }}>
           <button
             style={{
-              background: ready ? C.gold : 'transparent',
-              color: ready ? '#000' : C.text,
-              border: ready ? 'none' : `1px solid ${C.border}`,
+              background: 'transparent', color: C.text,
+              border: `1px solid ${C.border}`,
               borderRadius: '10px', padding: '0.7rem 1.4rem',
               fontSize: '0.85rem', fontWeight: '700',
               cursor: refreshing ? 'wait' : 'pointer',
@@ -813,8 +845,12 @@ function StaffView({ event, orders, onStatusChange }) {
   }
   const totalRevenue = queues.done.reduce((s, o) => s + o.total, 0)
   const statusColors = { pending: C.amber, making: C.blue, ready: C.green, done: C.textDim }
-  const nextStatus   = { pending: 'making', making: 'ready', ready: 'done' }
-  const nextLabel    = { pending: 'Start Making', making: 'Mark Ready', ready: 'Picked Up ✓' }
+  // Staff transitions stop at "ready" — the customer closes the loop by
+  // confirming pickup on their own phone, which flips the order to "done".
+  // Staff keeps a fallback "Mark picked up" button (rendered separately
+  // below) for cases where the customer can't / doesn't tap.
+  const nextStatus   = { pending: 'making', making: 'ready' }
+  const nextLabel    = { pending: 'Start Making', making: 'Mark Ready' }
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: 'system-ui, sans-serif', paddingBottom: '2rem' }}>
