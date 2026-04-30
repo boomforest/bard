@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { imageFor, descFor } from './featuredDrinks'
+import { BRAND } from './theme'
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
@@ -320,45 +321,59 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     const items  = Array.isArray(currentOrder.items) ? currentOrder.items : []
     const itemCount = items.reduce((s, i) => s + (i.qty || 0), 0)
 
-    // ─── READY: receipt-style screen modeled on the demo ─────────────────
-    // Big order number, line items, big "Received" button to confirm pickup.
+    // ─── READY: receipt-style screen modeled on GrailDemo's confirm screen ─
+    // Pink eyebrow, neon big number, orange line-item prices — same palette
+    // used in the pre-signup demo so the live experience matches the pitch.
     if (ready) {
       return (
         <div style={{
-          minHeight: '100vh', background: C.bg, color: C.text,
+          minHeight: '100vh', background: '#0a0a0a', color: '#e8e0d0',
           fontFamily: 'system-ui, sans-serif',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '2.5rem 1.5rem',
+          padding: '2.5rem 2rem',
         }}>
           <div style={{ width: '100%', maxWidth: '420px', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.72rem', color: C.green, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: '800', marginBottom: '0.5rem' }}>
+            <div style={{
+              fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase',
+              letterSpacing: '0.18em', fontWeight: '800', marginBottom: '0.4rem',
+            }}>
               Ready for pickup
             </div>
             <div style={{
-              fontSize: '4rem', fontWeight: '900', color: C.green, lineHeight: 1,
-              letterSpacing: '-0.03em', marginBottom: '0.4rem',
+              fontSize: '4rem', fontWeight: '900', color: BRAND.neon, lineHeight: 1,
+              letterSpacing: '-0.03em', marginBottom: '0.6rem',
             }}>
               #{currentOrder.id}
             </div>
-            <div style={{ color: C.textMid, fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              {currentOrder.customer_name ? `${currentOrder.customer_name} · ` : ''}
-              {itemCount} item{itemCount !== 1 ? 's' : ''} · {fmt(currentOrder.total, event.currency)}
+
+            {/* Customer name — prominent so the bartender can match it
+                when the customer holds up their phone. */}
+            {currentOrder.customer_name && (
+              <div style={{
+                fontSize: '1.4rem', fontWeight: '800', color: '#e8e0d0',
+                letterSpacing: '-0.01em', marginBottom: '0.4rem',
+              }}>
+                {currentOrder.customer_name}
+              </div>
+            )}
+            <div style={{ color: '#8a8098', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              {fmt(currentOrder.total, event.currency)} · {itemCount} item{itemCount !== 1 ? 's' : ''}
             </div>
 
-            {/* Line items */}
+            {/* Line items — demo card aesthetic */}
             <div style={{
-              background: C.card, border: `1px solid ${C.border}`,
-              borderRadius: '12px', padding: '0.9rem 1.1rem', marginBottom: '1.5rem',
+              background: '#111', borderRadius: '12px',
+              padding: '0.9rem 1.1rem', marginBottom: '1.5rem',
               textAlign: 'left',
             }}>
               {items.map((i, idx) => (
                 <div key={idx} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  fontSize: '0.92rem', color: C.text,
-                  marginBottom: idx < items.length - 1 ? '0.5rem' : 0,
+                  fontSize: '0.92rem', color: '#e8e0d0',
+                  marginBottom: idx < items.length - 1 ? '0.45rem' : 0,
                 }}>
                   <span>{i.qty}× {i.name}</span>
-                  <span style={{ color: C.goldLight, fontWeight: '700' }}>
+                  <span style={{ color: BRAND.orange, fontWeight: '700' }}>
                     {fmt((i.price || 0) * (i.qty || 0), event.currency)}
                   </span>
                 </div>
@@ -370,11 +385,11 @@ function CustomerView({ event, menu, onOrderPlaced }) {
               onClick={confirmPickup}
               disabled={pickingUp}
               style={{
-                width: '100%', background: C.gold, color: '#000',
+                width: '100%', background: BRAND.gradient, color: '#000',
                 border: 'none', borderRadius: '12px',
                 padding: '1.1rem', fontSize: '1.05rem', fontWeight: '900',
                 cursor: pickingUp ? 'wait' : 'pointer',
-                boxShadow: '0 4px 24px rgba(232,184,75,0.35)',
+                boxShadow: '0 4px 24px rgba(221,34,170,0.35)',
                 opacity: pickingUp ? 0.6 : 1, letterSpacing: '0.02em',
                 marginBottom: '0.6rem',
               }}
@@ -386,8 +401,8 @@ function CustomerView({ event, menu, onOrderPlaced }) {
               onClick={refreshOrder}
               disabled={refreshing}
               style={{
-                width: '100%', background: 'transparent', color: C.textMid,
-                border: `1px solid ${C.border}`, borderRadius: '10px',
+                width: '100%', background: 'transparent', color: '#8a8098',
+                border: `1px solid #1e1e2a`, borderRadius: '10px',
                 padding: '0.65rem', fontSize: '0.82rem', fontWeight: '600',
                 cursor: refreshing ? 'wait' : 'pointer',
               }}
@@ -952,7 +967,9 @@ function StaffView({ event, orders, onStatusChange }) {
                 <div style={{ background: statusColors[order.status], color: '#000', borderRadius: '6px', padding: '0.15rem 0.55rem', fontWeight: '800', fontSize: '1rem' }}>
                   #{order.id}
                 </div>
-                <span style={{ color: C.text, fontWeight: '600' }}>{order.customer_name}</span>
+                <span style={{ color: C.text, fontWeight: '800', fontSize: '1.05rem', letterSpacing: '-0.01em' }}>
+                  {order.customer_name || 'No name'}
+                </span>
               </div>
               <div style={{ color: C.textMid, fontSize: '0.75rem' }}>{fmtTime(order.created_at)}</div>
             </div>
@@ -984,15 +1001,31 @@ function StaffView({ event, orders, onStatusChange }) {
               Ready — Waiting for pickup
             </div>
             {queues.ready.map(order => (
-              <div key={order.id} style={{ background: '#0d1f0d', border: `1px solid ${C.greenDim}`, borderRadius: '10px', padding: '0.7rem 1rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <div style={{ color: C.green, fontWeight: '800', fontSize: '1rem' }}>#{order.id}</div>
-                  <span style={{ color: C.text }}>{order.customer_name}</span>
-                  <span style={{ color: C.textDim, fontSize: '0.75rem' }}>
-                    {order.items.map(i => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}`).join(', ')}
-                  </span>
+              <div key={order.id} style={{
+                background: '#0d1f0d', border: `1px solid ${C.greenDim}`,
+                borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '0.5rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0, flex: 1 }}>
+                  <div style={{ color: C.green, fontWeight: '900', fontSize: '1.05rem', flexShrink: 0 }}>
+                    #{order.id}
+                  </div>
+                  {/* Customer name — large so the bartender can call it out
+                      across a noisy room and match the right person. */}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ color: C.text, fontSize: '1.15rem', fontWeight: '800', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {order.customer_name || 'No name'}
+                    </div>
+                    <div style={{ color: C.textDim, fontSize: '0.78rem', marginTop: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {order.items.map(i => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}`).join(', ')}
+                    </div>
+                  </div>
                 </div>
-                <button onClick={() => onStatusChange(order.id, 'done')} style={{ background: C.greenDim, border: `1px solid ${C.green}`, color: C.green, borderRadius: '8px', padding: '0.35rem 0.8rem', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem' }}>
+                <button onClick={() => onStatusChange(order.id, 'done')} style={{
+                  background: C.greenDim, border: `1px solid ${C.green}`, color: C.green,
+                  borderRadius: '8px', padding: '0.45rem 0.85rem', cursor: 'pointer',
+                  fontWeight: '700', fontSize: '0.78rem', flexShrink: 0,
+                }}>
                   Picked Up ✓
                 </button>
               </div>
