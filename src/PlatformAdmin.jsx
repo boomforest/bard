@@ -123,19 +123,68 @@ function RequestsTab({ adminId }) {
   const [requests, setRequests] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [busy,     setBusy]     = useState('')
-  const [created,  setCreated]  = useState({}) // { requestId: inviteUrl }
+  const [resent,   setResent]   = useState({}) // { requestId: true } — toast flag
+  const [copied,   setCopied]   = useState({}) // { requestId: true } — toast flag
 
+  // Fetch requests + the latest invite token per already-invited request, so
+  // the link stays visible after a refresh (and admin can resend the email
+  // without regenerating the token).
   const load = async () => {
     setLoading(true)
-    const { data } = await supabase
+    const { data: reqs } = await supabase
       .from('promoter_requests')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100)
-    setRequests(data || [])
+
+    const invitedIds = (reqs || []).filter(r => r.status === 'invited').map(r => r.id)
+    const inviteByRequest = {}
+    if (invitedIds.length > 0) {
+      const { data: invs } = await supabase
+        .from('promoter_invites')
+        .select('request_id, token, created_at')
+        .in('request_id', invitedIds)
+        .order('created_at', { ascending: false })
+      for (const inv of (invs || [])) {
+        if (!inviteByRequest[inv.request_id]) inviteByRequest[inv.request_id] = inv.token
+      }
+    }
+
+    setRequests((reqs || []).map(r => ({
+      ...r,
+      inviteToken: inviteByRequest[r.id] || null,
+    })))
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  const copyLink = (req, url) => {
+    navigator.clipboard?.writeText(url)
+    setCopied(c => ({ ...c, [req.id]: true }))
+    setTimeout(() => setCopied(c => { const n = { ...c }; delete n[req.id]; return n }), 2000)
+  }
+
+  const resendEmail = async (req, url) => {
+    setBusy(req.id)
+    try {
+      const res = await fetch('/.netlify/functions/send-promoter-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email:      req.email,
+          name:       req.name,
+          invite_url: url,
+          origin:     window.location.origin,
+        }),
+      })
+      if (!res.ok) throw new Error(`Email failed: ${res.status}`)
+      setResent(r => ({ ...r, [req.id]: true }))
+      setTimeout(() => setResent(r => { const n = { ...r }; delete n[req.id]; return n }), 2500)
+    } catch (err) {
+      alert(err.message)
+    }
+    setBusy('')
+  }
 
   const generateInvite = async (req) => {
     setBusy(req.id)
@@ -150,7 +199,8 @@ function RequestsTab({ adminId }) {
       if (invErr) throw invErr
       const url = `${window.location.origin}/join?invite=${token}`
       navigator.clipboard?.writeText(url)
-      setCreated(c => ({ ...c, [req.id]: url }))
+      setCopied(c => ({ ...c, [req.id]: true }))
+      setTimeout(() => setCopied(c => { const n = { ...c }; delete n[req.id]; return n }), 2000)
 
       await supabase
         .from('promoter_requests')
@@ -206,7 +256,7 @@ function RequestsTab({ adminId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
       {requests.map(r => {
-        const url = created[r.id]
+        const inviteUrl = r.inviteToken ? `${window.location.origin}/join?invite=${r.inviteToken}` : null
         const status = r.status || 'pending'
         const variant = status === 'invited'  ? 'success'
                       : status === 'declined' ? 'neutral'
@@ -229,9 +279,9 @@ function RequestsTab({ adminId }) {
               </div>
             )}
 
-            {url && (
-              <div style={{ marginTop: '0.85rem', padding: '0.6rem 0.8rem', background: 'rgba(170,255,0,0.06)', border: `1px solid ${BRAND.neon}44`, borderRadius: '8px', fontSize: '0.78rem', color: BRAND.neon, wordBreak: 'break-all' }}>
-                ✓ Copied to clipboard: <span style={{ color: C.text }}>{url}</span>
+            {inviteUrl && (
+              <div style={{ marginTop: '0.85rem', padding: '0.6rem 0.8rem', background: 'rgba(170,255,0,0.06)', border: `1px solid ${BRAND.neon}44`, borderRadius: '8px', fontSize: '0.78rem', color: C.text, wordBreak: 'break-all' }}>
+                {inviteUrl}
               </div>
             )}
 
@@ -246,7 +296,7 @@ function RequestsTab({ adminId }) {
                     cursor: busy === r.id ? 'wait' : 'pointer', fontFamily: FONT,
                   }}
                 >
-                  {busy === r.id ? '…' : 'Generate invite + copy link'}
+                  {busy === r.id ? '…' : 'Generate invite + email link'}
                 </button>
                 <button
                   onClick={() => decline(r)}
@@ -257,6 +307,32 @@ function RequestsTab({ adminId }) {
                   }}
                 >
                   Decline
+                </button>
+              </div>
+            )}
+
+            {status === 'invited' && inviteUrl && (
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.85rem' }}>
+                <button
+                  onClick={() => copyLink(r, inviteUrl)}
+                  style={{
+                    flex: 1, background: 'transparent', color: C.text, border: `1px solid ${C.border}`, borderRadius: '8px',
+                    padding: '0.6rem', fontSize: '0.82rem', fontWeight: '700',
+                    cursor: 'pointer', fontFamily: FONT,
+                  }}
+                >
+                  {copied[r.id] ? '✓ Copied' : 'Copy link'}
+                </button>
+                <button
+                  onClick={() => resendEmail(r, inviteUrl)}
+                  disabled={busy === r.id}
+                  style={{
+                    flex: 1, background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '8px',
+                    padding: '0.6rem', fontSize: '0.82rem', fontWeight: '800',
+                    cursor: busy === r.id ? 'wait' : 'pointer', fontFamily: FONT,
+                  }}
+                >
+                  {busy === r.id ? '…' : resent[r.id] ? '✓ Email sent' : 'Resend email'}
                 </button>
               </div>
             )}
