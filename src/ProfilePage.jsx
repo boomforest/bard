@@ -13,6 +13,7 @@ export default function ProfilePage() {
   const [userRow, setUserRow] = useState(null)   // users table row — for user_type
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState(false)
+  const [deletingTicketId, setDeletingTicketId] = useState(null)
   const navigate = useNavigate()
 
   const [authMode, setAuthMode] = useState('login')
@@ -38,7 +39,7 @@ export default function ProfilePage() {
     const [ticketsRes, profileRes, userRes] = await Promise.all([
       supabase.from('tickets').select('*, events(artist_name, show_date, flyer_url)').eq('email', userEmail),
       supabase.from('profiles').select('*').eq('id', session.user.id).single(),
-      supabase.from('users').select('user_type, handle').eq('id', session.user.id).maybeSingle(),
+      supabase.from('users').select('user_type, handle, is_admin').eq('id', session.user.id).maybeSingle(),
     ])
 
     setTickets(ticketsRes.data || [])
@@ -68,6 +69,33 @@ export default function ProfilePage() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
+  }
+
+  // Delete one of your own tickets (or, if you're an admin, anyone's).
+  // Hits the delete-ticket function which decrements event/tier counters
+  // so capacity is freed back up.
+  const handleDeleteTicket = async (ticket) => {
+    const eventName = ticket.events?.artist_name || 'this event'
+    if (!confirm(`Delete this ticket for ${eventName}?\n\nThis is permanent — capacity will free back up on the event.`)) return
+    setDeletingTicketId(ticket.id)
+    try {
+      const { data: { session: s } } = await supabase.auth.getSession()
+      if (!s?.access_token) throw new Error('Sign in expired — please reload.')
+      const res = await fetch('/.netlify/functions/delete-ticket', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${s.access_token}`,
+        },
+        body: JSON.stringify({ ticket_id: ticket.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Delete failed')
+      setTickets(prev => prev.filter(t => t.id !== ticket.id))
+    } catch (err) {
+      alert(err.message)
+    }
+    setDeletingTicketId(null)
   }
 
   const handleBecomePromoter = async () => {
@@ -193,7 +221,12 @@ export default function ProfilePage() {
         {loading ? (
           <div style={{ textAlign: 'center', padding: '5rem 0', fontSize: '2rem', opacity: 0.4 }}>🕊</div>
         ) : tab === 'Tickets' ? (
-          <TicketsTab active={activeTickets} torn={tornTickets} />
+          <TicketsTab
+            active={activeTickets}
+            torn={tornTickets}
+            onDelete={handleDeleteTicket}
+            deleting={deletingTicketId}
+          />
         ) : (
           <HistoryTab attendedEvents={attendedEvents} />
         )}
@@ -241,14 +274,14 @@ export default function ProfilePage() {
   )
 }
 
-function TicketsTab({ active, torn }) {
+function TicketsTab({ active, torn, onDelete, deleting }) {
   return (
     <div>
       {active.length > 0 && (
         <section style={{ marginBottom: '2.5rem' }}>
           <div style={eyebrowStyle()}>Active</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {active.map(t => <TicketCard key={t.id} ticket={t} active />)}
+            {active.map(t => <TicketCard key={t.id} ticket={t} active onDelete={onDelete} deleting={deleting === t.id} />)}
           </div>
         </section>
       )}
@@ -256,7 +289,7 @@ function TicketsTab({ active, torn }) {
         <section style={{ marginBottom: '2.5rem' }}>
           <div style={{ ...eyebrowStyle(C.textMid), opacity: 0.6 }}>Used</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {torn.map(t => <TicketCard key={t.id} ticket={t} active={false} />)}
+            {torn.map(t => <TicketCard key={t.id} ticket={t} active={false} onDelete={onDelete} deleting={deleting === t.id} />)}
           </div>
         </section>
       )}
@@ -270,7 +303,7 @@ function TicketsTab({ active, torn }) {
   )
 }
 
-function TicketCard({ ticket, active }) {
+function TicketCard({ ticket, active, onDelete, deleting }) {
   const ev = ticket.events || {}
   const eventName = ev.artist_name || 'Event'
   const eventDate = ev.event_date ? new Date(ev.event_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''
@@ -288,11 +321,27 @@ function TicketCard({ ticket, active }) {
       </div>
       <div style={{ fontSize: '0.85rem', color: C.textMid, marginBottom: '0.5rem' }}>{eventDate}</div>
       <div style={{ fontSize: '0.72rem', color: C.textDim, fontFamily: 'monospace' }}>#{ticket.id?.slice(0, 8)}</div>
-      {active && (
-        <a href={`/t/${ticket.id}`} style={{ display: 'inline-block', marginTop: '0.75rem', fontSize: '0.85rem', color: BRAND.pink, textDecoration: 'none', fontWeight: '700' }}>
-          View ticket →
-        </a>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.75rem', gap: '0.5rem' }}>
+        {active ? (
+          <a href={`/t/${ticket.id}`} style={{ fontSize: '0.85rem', color: BRAND.pink, textDecoration: 'none', fontWeight: '700' }}>
+            View ticket →
+          </a>
+        ) : <span />}
+        {onDelete && (
+          <button
+            onClick={() => onDelete(ticket)}
+            disabled={deleting}
+            style={{
+              background: 'transparent', border: 'none', color: C.textDim,
+              fontSize: '0.78rem', cursor: deleting ? 'wait' : 'pointer',
+              padding: '0.25rem 0.4rem', fontFamily: FONT,
+              opacity: deleting ? 0.6 : 1,
+            }}
+          >
+            {deleting ? 'Deleting…' : '× Delete'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
