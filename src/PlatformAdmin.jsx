@@ -92,9 +92,10 @@ export default function PlatformAdmin() {
 
       <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, padding: '0 1.5rem' }}>
         {[
-          ['requests', 'Requests'],
-          ['invite',   'Generate Invite'],
-          ['errors',   'Errors'],
+          ['requests',    'Requests'],
+          ['invite',      'Generate Invite'],
+          ['subscribers', 'Subscribers'],
+          ['errors',      'Errors'],
         ].map(([t, label]) => (
           <button
             key={t}
@@ -115,9 +116,10 @@ export default function PlatformAdmin() {
       </div>
 
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '2rem 1.5rem' }}>
-        {tab === 'requests' && <RequestsTab adminId={session.user.id} />}
-        {tab === 'invite'   && <InviteTab   adminId={session.user.id} />}
-        {tab === 'errors'   && <ErrorsTab   adminId={session.user.id} />}
+        {tab === 'requests'    && <RequestsTab    adminId={session.user.id} />}
+        {tab === 'invite'      && <InviteTab      adminId={session.user.id} />}
+        {tab === 'subscribers' && <SubscribersTab adminId={session.user.id} />}
+        {tab === 'errors'      && <ErrorsTab      adminId={session.user.id} />}
       </div>
     </div>
   )
@@ -431,6 +433,168 @@ function InviteTab({ adminId }) {
 // Shows the auto-reported error inbox. Anything caught by ErrorBoundary or the
 // global window.onerror / unhandledrejection listeners lands here. Filter
 // defaults to unresolved; toggle to see history.
+// ─── SUBSCRIBERS TAB ──────────────────────────────────────────────────────────
+// Grail+ (platform-level) and Casa de Copas (JP's personal parties) lists.
+// Each opt-in writes to both; this tab lets admin view each list, see
+// where subscribers came in from, copy emails, and export CSV.
+function SubscribersTab({ adminId }) {
+  const [list,    setList]    = useState('grail_plus')   // grail_plus | casa_de_copas
+  const [rows,    setRows]    = useState(null)
+  const [copied,  setCopied]  = useState(false)
+  const [filter,  setFilter]  = useState('')             // free-text search
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setRows(null)
+      const { data } = await supabase
+        .from('subscribers')
+        .select('id, email, name, zip, radius_miles, lang, source, opted_in_at, unsubscribed_at, created_at')
+        .eq('list', list)
+        .order('created_at', { ascending: false })
+      if (!cancelled) setRows(data || [])
+    }
+    load()
+    return () => { cancelled = true }
+  }, [list])
+
+  const visible = (rows || []).filter(r => {
+    if (!filter.trim()) return true
+    const q = filter.toLowerCase()
+    return (r.email || '').toLowerCase().includes(q)
+        || (r.name  || '').toLowerCase().includes(q)
+        || (r.zip   || '').toLowerCase().includes(q)
+        || (r.source|| '').toLowerCase().includes(q)
+  })
+
+  const active = visible.filter(r => !r.unsubscribed_at)
+
+  const copyEmails = () => {
+    const list = [...new Set(active.map(r => r.email).filter(Boolean))]
+    if (list.length === 0) return
+    navigator.clipboard?.writeText(list.join(', '))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  const downloadCsv = () => {
+    const header = ['email', 'name', 'zip', 'radius_miles', 'lang', 'source', 'opted_in_at']
+    const escape = (v) => {
+      if (v == null) return ''
+      const s = String(v)
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    }
+    const lines = [
+      header.join(','),
+      ...active.map(r => header.map(h => escape(r[h])).join(',')),
+    ]
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${list}-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '0.25rem' }}>
+        {[
+          ['grail_plus',    'Grail+'],
+          ['casa_de_copas', 'Casa de Copas'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setList(key)}
+            style={{
+              flex: 1, padding: '0.55rem', borderRadius: '7px', border: 'none',
+              background: list === key ? BRAND.gradient : 'transparent',
+              color: list === key ? '#000' : C.textMid,
+              cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700',
+              fontFamily: FONT,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {rows === null ? (
+        <div style={{ color: C.textMid, fontSize: '0.85rem', padding: '2rem', textAlign: 'center' }}>Loading…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '2.5rem 1.5rem', textAlign: 'center' }}>
+          <div style={{ color: C.textMid, fontSize: '0.88rem' }}>
+            No subscribers on this list yet. Buyers opt in from any event page checkout, waitlist, follow-promoter, or load-doves form.
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+            <input
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              placeholder="Search email / name / zip / source"
+              style={{ ...INPUT, flex: 1, minWidth: '200px', fontSize: '0.85rem', padding: '0.55rem 0.85rem' }}
+            />
+            <button
+              onClick={copyEmails}
+              style={{
+                background: 'transparent', color: copied ? BRAND.neon : C.text,
+                border: `1px solid ${C.border}`, borderRadius: '8px',
+                padding: '0.55rem 0.85rem', fontSize: '0.78rem', fontWeight: '700',
+                cursor: 'pointer', fontFamily: FONT,
+              }}
+            >
+              {copied ? '✓ Copied' : `Copy ${active.length} emails`}
+            </button>
+            <button
+              onClick={downloadCsv}
+              style={{
+                background: 'transparent', color: C.text,
+                border: `1px solid ${C.border}`, borderRadius: '8px',
+                padding: '0.55rem 0.85rem', fontSize: '0.78rem', fontWeight: '700',
+                cursor: 'pointer', fontFamily: FONT,
+              }}
+            >
+              Export CSV
+            </button>
+          </div>
+
+          <div style={{ color: C.textMid, fontSize: '0.78rem', marginBottom: '0.75rem' }}>
+            {active.length} active{rows.length !== active.length ? ` · ${rows.length - active.length} unsubscribed` : ''}
+            {filter && rows.length !== visible.length ? ` · ${visible.length} matching filter` : ''}
+          </div>
+
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', overflow: 'hidden' }}>
+            {visible.map((r, i) => (
+              <div key={r.id} style={{
+                display: 'flex', alignItems: 'center', gap: '0.85rem',
+                padding: '0.7rem 1rem',
+                borderTop: i === 0 ? 'none' : `1px solid ${C.border}`,
+                opacity: r.unsubscribed_at ? 0.45 : 1,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: C.text, fontWeight: '700', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.name || '—'}
+                  </div>
+                  <div style={{ color: C.textMid, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.email}
+                  </div>
+                </div>
+                <div style={{ flexShrink: 0, color: C.textDim, fontSize: '0.72rem', textAlign: 'right' }}>
+                  {r.zip ? `${r.zip} · ${r.radius_miles}mi` : `${r.radius_miles}mi`}<br />
+                  <span style={{ color: C.textMid }}>{r.source || '—'}</span> · {r.lang}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function ErrorsTab({ adminId }) {
   const [errors,   setErrors]   = useState([])
   const [loading,  setLoading]  = useState(true)

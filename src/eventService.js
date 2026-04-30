@@ -62,20 +62,29 @@ export async function uploadBarPhoto(file, slugOrId) {
   return data?.publicUrl || null
 }
 
-// ─── Grail subscribers (platform-level "secret events" list) ─────────────
-// Idempotent on email. Anon RLS allows insert only; on conflict we do
-// nothing (a re-opt-in keeps the original row's lang/source). Quiet on
-// failure — never block the parent form on this side-effect.
-export async function subscribeToGrail({ email, name, lang, source }) {
+// ─── Subscriber lists (Grail+ + Casa de Copas) ───────────────────────────
+// Single opt-in writes a row to each list. Idempotent on (list, email)
+// via on conflict do nothing — re-opting-in keeps the original
+// opted_in_at and zip/radius. Anon RLS allows insert only.
+//
+// Quiet on failure — never block the parent form's primary action.
+export async function subscribeToLists({ email, name, zip, radiusMiles, lang, source }) {
   if (!email) return
   const clean = String(email).trim().toLowerCase()
   if (!/^\S+@\S+\.\S+$/.test(clean)) return
+  const lists = ['grail_plus', 'casa_de_copas']
+  const rows = lists.map(list => ({
+    list,
+    email:        clean,
+    name:         name?.trim() || null,
+    zip:          zip?.trim() || null,
+    radius_miles: radiusMiles || 25,
+    lang:         lang || 'es',
+    source:       source || null,
+  }))
   await supabase
-    .from('grail_subscribers')
-    .upsert(
-      { email: clean, name: name?.trim() || null, lang: lang || 'es', source: source || null },
-      { onConflict: 'email', ignoreDuplicates: true },
-    )
+    .from('subscribers')
+    .upsert(rows, { onConflict: 'list,email', ignoreDuplicates: true })
 }
 
 // ─── Save event from GrailSetup data ──────────────────────────────────────────

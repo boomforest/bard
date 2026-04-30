@@ -338,8 +338,9 @@ export default {
   'signup.done.promoterBody':   "We'll reach out when GRAIL is ready for your first event.",
   'signup.done.fanBody':        "We'll reach out when your first show is live.",
 
-  // ─── Grail subscriber opt-in ─────────────────────────────────────────────
-  'grailOptIn.label':           'Tell me about Grail exclusive and secret events',
+  // ─── Grail+ subscriber opt-in ────────────────────────────────────────────
+  'grailOptIn.label':           'Tell me about Grail+ exclusive and secret events in my area',
+  'grailOptIn.zipPh':           'Your zip / postal code',
 
   // ─── Promoter follower ───────────────────────────────────────────────────
   'follow.cta':                 'Get updates from {promoter}',
