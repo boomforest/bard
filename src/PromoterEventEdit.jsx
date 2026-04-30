@@ -118,7 +118,6 @@ export default function PromoterEventEdit() {
           doors_time:      time || null,
           venue_hint:      venue || null,
           venue_address:   address || null,
-          address:         address || null,
           capacity:        newCapacity,
           age_restriction: age || null,
           description:     description || null,

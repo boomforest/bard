@@ -53,7 +53,7 @@ exports.handler = async (event) => {
 
     const { data: ev, error: evErr } = await supabase
       .from('events')
-      .select('id, slug, name, artist_name, show_date, event_date, doors_time, venue_hint, venue_address, address, flyer_url')
+      .select('id, slug, name, artist_name, show_date, event_date, doors_time, venue_hint, venue_address, flyer_url')
       .eq('id', event_id)
       .maybeSingle()
     if (evErr || !ev) throw new Error('Event not found')
@@ -61,7 +61,7 @@ exports.handler = async (event) => {
     const eventName = ev.name || ev.artist_name || 'Your Event'
     const dateStr   = fmtDate(ev.show_date || ev.event_date)
     const timeStr   = fmtTime(ev.doors_time, ev.show_date || ev.event_date)
-    const venue     = ev.venue_hint || ev.venue_address || ev.address || ''
+    const venue     = ev.venue_hint || ev.venue_address || ''
 
     const baseUrl = origin || 'https://grail.mx'
     const ticketLinks = ticket_ids.map((id, i) => {
