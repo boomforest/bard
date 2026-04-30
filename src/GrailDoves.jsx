@@ -28,7 +28,13 @@ const C = {
   textDim:   '#3a3028',
 }
 
-function fmt(n) { return `$${Math.round(n).toLocaleString()}` }
+// Preserves up to 2 decimal places so 0.10-MXN test prices don't collapse
+// to "$0". Integers still render as integers (no trailing .00 noise).
+function fmt(n) {
+  const num = Number(n) || 0
+  const rounded = Number.isInteger(num) ? num : Math.round(num * 100) / 100
+  return `$${rounded.toLocaleString()}`
+}
 
 // ─── SCREENS ──────────────────────────────────────────────────────────────────
 // 'home'   → balance + load / spend options
