@@ -33,6 +33,10 @@ export default function PromoterEventDetail() {
   const [refundErr, setRefundErr] = useState('')
   const [closingOut, setClosingOut] = useState(false)
   const [closeOutResult, setCloseOutResult] = useState(null)
+  const [pinDraft, setPinDraft] = useState('')
+  const [pinSaving, setPinSaving] = useState(false)
+  const [pinErr, setPinErr] = useState('')
+  const [pinSaved, setPinSaved] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
@@ -114,6 +118,33 @@ export default function PromoterEventDetail() {
       setCloseOutResult({ error: err.message })
     }
     setClosingOut(false)
+  }
+
+  const savePin = async (newPin) => {
+    setPinErr('')
+    if (newPin && !/^\d{4,8}$/.test(newPin)) {
+      setPinErr('PIN must be 4–8 digits.')
+      return
+    }
+    setPinSaving(true)
+    const { error } = await supabase
+      .from('events')
+      .update({ staff_pin: newPin || null })
+      .eq('id', event.id)
+    if (error) {
+      setPinErr(error.message)
+    } else {
+      setEvent(e => ({ ...e, staff_pin: newPin || null }))
+      setPinDraft('')
+      setPinSaved(true)
+      setTimeout(() => setPinSaved(false), 2000)
+    }
+    setPinSaving(false)
+  }
+
+  const generatePin = () => {
+    const fresh = String(Math.floor(1000 + Math.random() * 9000))
+    setPinDraft(fresh)
   }
 
   const handleRefund = async (ticket) => {
@@ -261,7 +292,7 @@ export default function PromoterEventDetail() {
         {event.bar_enabled !== false && (
           <div style={{
             background: C.card, border: `1px solid ${C.border}`,
-            borderRadius: '14px', overflow: 'hidden', marginBottom: '1.5rem',
+            borderRadius: '14px', overflow: 'hidden', marginBottom: '1rem',
             display: 'flex', flexWrap: 'wrap',
           }}>
             <ActionBtn label="🥂 Bar menu (customer)" onClick={() => window.open(`/${event.slug}/bar`, '_blank')} />
@@ -273,6 +304,79 @@ export default function PromoterEventDetail() {
               onClick={() => copy(`${window.location.origin}/${event.slug}/bar/staff`, 'barstaff')}
               accent={copied === 'barstaff' ? BRAND.neon : null}
             />
+          </div>
+        )}
+
+        {/* Bar staff PIN — gates the bar queue */}
+        {event.bar_enabled !== false && (
+          <div style={{
+            background: C.card, border: `1px solid ${C.border}`,
+            borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '1.5rem',
+          }}>
+            <div style={{ ...eyebrowStyle(), marginBottom: '0.4rem' }}>Bar staff PIN</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.7rem' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: C.text, fontWeight: '800', fontSize: '1.4rem', letterSpacing: '0.15em', fontFamily: 'ui-monospace, monospace' }}>
+                  {event.staff_pin || '7777'}
+                </div>
+                <div style={{ color: C.textMid, fontSize: '0.75rem', marginTop: '0.15rem' }}>
+                  {event.staff_pin ? 'Custom PIN — share with your bar staff.' : 'Default PIN. Set a custom one before showtime.'}
+                </div>
+              </div>
+              <button
+                onClick={() => copy(event.staff_pin || '7777', 'pin')}
+                style={{
+                  background: 'transparent', color: copied === 'pin' ? BRAND.neon : C.textMid,
+                  border: `1px solid ${C.border}`, borderRadius: '8px',
+                  padding: '0.5rem 0.85rem', fontSize: '0.78rem', fontWeight: '700',
+                  cursor: 'pointer', fontFamily: FONT, flexShrink: 0,
+                }}
+              >
+                {copied === 'pin' ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={pinDraft}
+                onChange={e => { setPinDraft(e.target.value.replace(/\D/g, '').slice(0, 8)); setPinErr('') }}
+                placeholder="New 4–8 digit PIN"
+                style={{
+                  flex: 1, minWidth: 0, background: '#0d0d0d', border: `1px solid ${C.border}`,
+                  borderRadius: '8px', color: C.text, padding: '0.55rem 0.75rem',
+                  fontSize: '0.88rem', outline: 'none', fontFamily: FONT,
+                }}
+              />
+              <button
+                onClick={generatePin}
+                disabled={pinSaving}
+                style={{
+                  background: 'transparent', color: C.textMid, border: `1px solid ${C.border}`,
+                  borderRadius: '8px', padding: '0.55rem 0.85rem', fontSize: '0.78rem', fontWeight: '700',
+                  cursor: pinSaving ? 'wait' : 'pointer', fontFamily: FONT, flexShrink: 0,
+                }}
+              >
+                Random
+              </button>
+              <button
+                onClick={() => savePin(pinDraft)}
+                disabled={pinSaving || !pinDraft}
+                style={{
+                  background: pinDraft && !pinSaving ? BRAND.gradient : '#1a1a1a',
+                  color: pinDraft && !pinSaving ? '#000' : C.textMid,
+                  border: 'none', borderRadius: '8px', padding: '0.55rem 1rem',
+                  fontSize: '0.82rem', fontWeight: '800',
+                  cursor: pinSaving ? 'wait' : (pinDraft ? 'pointer' : 'not-allowed'),
+                  fontFamily: FONT, flexShrink: 0,
+                }}
+              >
+                {pinSaving ? '…' : pinSaved ? '✓ Saved' : 'Save'}
+              </button>
+            </div>
+            {pinErr && <div style={{ color: BRAND.orange, fontSize: '0.78rem', marginTop: '0.4rem' }}>{pinErr}</div>}
           </div>
         )}
 
