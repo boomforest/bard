@@ -47,10 +47,11 @@ exports.handler = async (event) => {
     }
 
     // ── Multi-event Connect path ───────────────────────────────────────────
-    const { event_id, items, buyer_email, buyer_name } = body
+    const { event_id, items, buyer_email, buyer_name, lang } = body
     if (!event_id || !Array.isArray(items) || items.length === 0) {
       throw new Error('event_id and items[] required')
     }
+    const buyerLang = lang === 'en' ? 'en' : 'es'
 
     const stripe = Stripe(process.env.STRIPE_SECRET_KEY)
     const supabase = createClient(
@@ -113,6 +114,7 @@ exports.handler = async (event) => {
         event_name:  ev.name || '',
         buyer_email: buyer_email || '',
         buyer_name:  buyer_name || '',
+        buyer_lang:  buyerLang,
         items:       JSON.stringify(items),
         summary:     lineSummary.join(', '),
       },

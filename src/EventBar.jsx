@@ -5,7 +5,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { imageFor, descFor } from './featuredDrinks'
 import { BRAND } from './theme'
-import { useT } from './i18n'
+import { useT, useLocale } from './i18n'
 import LocaleToggle from './LocaleToggle'
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
@@ -640,6 +640,7 @@ const LOAD_PRESETS = [25, 50, 100, 200]
 
 function LoadDovesModal({ event, onClose, onLoaded }) {
   const t = useT()
+  const { locale } = useLocale()
   const [stage, setStage] = useState('amount')   // amount | pay
   const [amount, setAmount] = useState(50)        // dollars
   const [name, setName]     = useState('')
@@ -663,6 +664,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
           amount_cents:  Math.round(amount * 100),
           email,
           customer_name: name,
+          lang:          locale,
         }),
       })
       const json = await res.json()

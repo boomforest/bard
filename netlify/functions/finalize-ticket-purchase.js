@@ -48,6 +48,7 @@ exports.handler = async (event) => {
     const items    = JSON.parse(meta.items || '[]')
     const email    = meta.buyer_email || ''
     const name     = meta.buyer_name  || ''
+    const lang     = meta.buyer_lang === 'en' ? 'en' : 'es'
 
     if (!event_id || !items.length) throw new Error('PaymentIntent missing event metadata')
 
@@ -91,6 +92,7 @@ exports.handler = async (event) => {
             stripe_payment_intent_id: payment_intent_id,
             tier_id:                  tier.id,
             tier_name:                tier.name,
+            lang,
           })
           .select('id, ticket_number')
           .single()
@@ -119,6 +121,7 @@ exports.handler = async (event) => {
             buyer_email: email,
             buyer_name:  name,
             origin,
+            lang,
           }),
         })
       } catch (mailErr) {

@@ -144,6 +144,7 @@ exports.handler = async (event) => {
               amount_cents: unspent,
               currency:     ev.currency || 'mxn',
               event_name:   ev.name || ev.artist_name || null,
+              lang:         b.lang || 'es',
             }),
           }).catch(mailErr => console.warn('refund email failed (non-fatal):', mailErr.message))
         }

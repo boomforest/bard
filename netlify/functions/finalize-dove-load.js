@@ -60,6 +60,7 @@ exports.handler = async (event) => {
 
     const token = randomToken()
     const loaded_cents = pi.amount_received || pi.amount
+    const buyerLang = pi.metadata?.buyer_lang === 'en' ? 'en' : 'es'
 
     const { data: row, error: insErr } = await supabase
       .from('bar_tabs')
@@ -72,6 +73,7 @@ exports.handler = async (event) => {
         spent_cents:              0,
         status:                   'active',
         stripe_payment_intent_id: payment_intent_id,
+        lang:                     buyerLang,
       })
       .select('*')
       .single()
