@@ -424,7 +424,21 @@ export default function PromoterEventDetail() {
                 <div style={{ background: 'rgba(170,255,0,0.06)', border: `1px solid ${BRAND.neon}44`, borderRadius: '10px', padding: '0.75rem 1rem', color: BRAND.neon, fontSize: '0.82rem' }}>
                   ✓ Closed out {closeOutResult.refunded} balance{closeOutResult.refunded === 1 ? '' : 's'} — refunded {fmtPriceCents(closeOutResult.total_refunded_cents || 0, event?.currency)}
                   {closeOutResult.errors?.length > 0 && (
-                    <div style={{ color: BRAND.orange, marginTop: '0.4rem' }}>{closeOutResult.errors.length} balance(s) had errors — check logs.</div>
+                    <div style={{ color: BRAND.orange, marginTop: '0.6rem', borderTop: `1px solid ${BRAND.orange}33`, paddingTop: '0.6rem' }}>
+                      <div style={{ fontWeight: '700', marginBottom: '0.3rem' }}>
+                        {closeOutResult.errors.length} balance{closeOutResult.errors.length === 1 ? '' : 's'} couldn't refund:
+                      </div>
+                      {closeOutResult.errors.map((err, i) => (
+                        <div key={i} style={{ fontSize: '0.78rem', lineHeight: 1.45, marginBottom: '0.25rem' }}>
+                          • {err.error || 'Unknown error'}
+                          {err.balance_id && (
+                            <span style={{ color: C.textDim, marginLeft: '0.4rem' }}>
+                              ({String(err.balance_id).slice(0, 8)}…)
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
