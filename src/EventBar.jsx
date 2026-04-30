@@ -5,6 +5,8 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { imageFor, descFor } from './featuredDrinks'
 import { BRAND } from './theme'
+import { useT } from './i18n'
+import LocaleToggle from './LocaleToggle'
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
@@ -60,6 +62,7 @@ function Centered({ children }) {
 
 // ─── CUSTOMER VIEW ────────────────────────────────────────────────────────────
 function CustomerView({ event, menu, onOrderPlaced }) {
+  const t = useT()
   const categories = ['all', ...new Set(menu.map(i => i.category))]
   const [cat,       setCat]       = useState('all')
   const [cart,      setCart]      = useState([])
@@ -232,11 +235,11 @@ function CustomerView({ event, menu, onOrderPlaced }) {
   // refunds simple).
   const submitOrder = async () => {
     if (!name.trim()) {
-      setPayErr('Add your name so the bartender can call you.')
+      setPayErr(t('bar.err.needName'))
       return
     }
     if (!balance || balance.status !== 'active') {
-      setPayErr('Load a doves balance first to place an order.')
+      setPayErr(t('bar.err.needBalance'))
       setLoadOpen(true)
       return
     }
@@ -246,7 +249,10 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     try {
       const cartCents = Math.round(cartTotal * 100)
       if (cartCents > balanceRemaining) {
-        throw new Error(`Need $${(cartCents / 100).toFixed(2)}, balance has $${(balanceRemaining / 100).toFixed(2)}. Top up or remove items.`)
+        throw new Error(t('bar.err.insufficient', {
+          need: (cartCents / 100).toFixed(2),
+          have: (balanceRemaining / 100).toFixed(2),
+        }))
       }
       const res = await fetch('/.netlify/functions/spend-doves', {
         method: 'POST',
@@ -258,7 +264,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
         }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Order failed')
+      if (!res.ok) throw new Error(json.error || t('bar.err.orderFailed'))
       setBalance(json.balance)
       onOrderPlaced(json.order)
       stashOrder(json.order)
@@ -294,7 +300,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
               fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase',
               letterSpacing: '0.18em', fontWeight: '800', marginBottom: '0.4rem',
             }}>
-              Ready for pickup
+              {t('bar.readyForPickup')}
             </div>
             <div style={{
               fontSize: '4rem', fontWeight: '900', color: BRAND.neon, lineHeight: 1,
@@ -314,7 +320,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
               </div>
             )}
             <div style={{ color: '#8a8098', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              {fmt(currentOrder.total, event.currency)} · {itemCount} item{itemCount !== 1 ? 's' : ''}
+              {fmt(currentOrder.total, event.currency)} · {t(itemCount === 1 ? 'bar.itemCount.one' : 'bar.itemCount.many', { count: itemCount })}
             </div>
 
             {/* Line items — demo card aesthetic */}
@@ -351,7 +357,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
                 marginBottom: '0.6rem',
               }}
             >
-              {pickingUp ? 'Confirming…' : 'Received'}
+              {pickingUp ? t('bar.confirming') : t('bar.received')}
             </button>
 
             <button
@@ -364,7 +370,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
                 cursor: refreshing ? 'wait' : 'pointer',
               }}
             >
-              {refreshing ? 'Refreshing…' : '↻ Refresh status'}
+              {refreshing ? t('bar.refreshing') : t('bar.refreshStatus')}
             </button>
           </div>
         </div>
@@ -372,11 +378,9 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     }
 
     // ─── PENDING / MAKING: simple status light + copy ────────────────────
-    const headline = making ? 'Bartender is making it' : 'Order received'
+    const headline = making ? t('bar.makingTitle') : t('bar.receivedTitle')
     const headlineColor = making ? C.blue : C.goldLight
-    const subline = making
-      ? 'You\'re next in line. Hold tight.'
-      : 'The bartender has your order. We\'ll call you when it\'s ready.'
+    const subline = making ? t('bar.makingBody') : t('bar.receivedBody')
 
     return (
       <div style={{
@@ -391,7 +395,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
           {headline}
         </div>
         <div style={{ color: C.text, fontSize: '1.05rem', fontWeight: '700', marginBottom: '0.4rem' }}>
-          Order #{currentOrder.id}
+          {t('bar.orderHash', { n: currentOrder.id })}
         </div>
         <div style={{ color: C.textMid, fontSize: '0.92rem', marginBottom: '2rem', maxWidth: '320px' }}>
           {subline}
@@ -407,20 +411,25 @@ function CustomerView({ event, menu, onOrderPlaced }) {
             onClick={refreshOrder}
             disabled={refreshing}
           >
-            {refreshing ? 'Refreshing…' : '↻ Refresh status'}
+            {refreshing ? t('bar.refreshing') : t('bar.refreshStatus')}
           </button>
           <button
             style={{ background: 'transparent', color: C.textMid, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '0.7rem 1.4rem', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
             onClick={dismissOrder}
           >
-            Order again
+            {t('bar.orderAgain')}
           </button>
         </div>
       </div>
     )
   }
 
-  const catLabel = key => ({ spirits: 'Spirits', beer: 'Beer', cocktail: 'Cocktails', na: 'No Alc', snacks: 'Snacks', all: 'All' }[key] || key)
+  const catLabel = key => {
+    const knownKey = `bar.cat.${key}`
+    const translated = t(knownKey)
+    // If key is unknown, t() returns the lookup key — fall back to raw value.
+    return translated === knownKey ? key : translated
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#e8e0d0', fontFamily: 'system-ui, sans-serif', paddingBottom: cartCount > 0 ? '230px' : '40px' }}>
@@ -429,13 +438,14 @@ function CustomerView({ event, menu, onOrderPlaced }) {
         <div>
           <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#e8e0d0' }}>{event.name}</div>
           <div style={{ fontSize: '0.72rem', color: '#8a8098' }}>
-            {balance ? 'Spending doves · order in one tap' : 'Load doves to start ordering'}
+            {balance ? t('bar.headerSpending') : t('bar.headerLoad')}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <LocaleToggle />
           {cartCount > 0 && (
             <div style={{ background: BRAND.pink, color: '#fff', borderRadius: '99px', fontSize: '0.72rem', fontWeight: '800', padding: '0.2rem 0.6rem' }}>
-              {cartCount} in cart
+              {t('bar.inCart', { count: cartCount })}
             </div>
           )}
           {balance ? (
@@ -450,7 +460,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
               background: 'transparent', border: `1px solid ${BRAND.orange}55`, borderRadius: '999px',
               padding: '0.35rem 0.8rem', color: BRAND.orange, fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer',
             }}>
-              + Load Doves
+              {t('bar.loadDoves')}
             </button>
           )}
         </div>
@@ -511,7 +521,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
                       background: BRAND.gradientAngle, color: '#000', border: 'none',
                       borderRadius: '6px', padding: '0.25rem 0.7rem', fontSize: '0.8rem',
                       fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit',
-                    }}>ADD</button>
+                    }}>{t('bar.add')}</button>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <button onClick={() => removeFromCart(item.id)} style={{ background: '#222', border: 'none', color: '#e8e0d0', borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, fontFamily: 'inherit' }}>−</button>
@@ -537,7 +547,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
             <input
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Your name (so the bartender can call you)"
+              placeholder={t('bar.namePh')}
               style={{ background: 'transparent', border: 'none', outline: 'none', width: '100%', fontSize: '0.88rem', color: '#e8e0d0', fontFamily: 'inherit' }}
             />
           </div>
@@ -557,7 +567,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
             }}
           >
             <span>
-              {placing ? 'Placing…' : balance ? 'Place Order' : 'Load doves to order'}
+              {placing ? t('bar.placing') : balance ? t('bar.placeOrder') : t('bar.loadDovesToOrder')}
             </span>
             <span>{fmt(cartTotal, event.currency)}</span>
           </button>
@@ -629,6 +639,7 @@ function BarPaymentStep({ onSuccess }) {
 const LOAD_PRESETS = [25, 50, 100, 200]
 
 function LoadDovesModal({ event, onClose, onLoaded }) {
+  const t = useT()
   const [stage, setStage] = useState('amount')   // amount | pay
   const [amount, setAmount] = useState(50)        // dollars
   const [name, setName]     = useState('')
@@ -640,8 +651,8 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
   const proceed = async (e) => {
     e?.preventDefault()
     setErr('')
-    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) { setErr('Valid email required.'); return }
-    if (!amount || amount < 5) { setErr('Minimum load is $5.'); return }
+    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) { setErr(t('load.invalidEmail')); return }
+    if (!amount || amount < 5) { setErr(t('load.minimum')); return }
     setLoading(true)
     try {
       const res = await fetch('/.netlify/functions/create-dove-load-intent', {
@@ -655,7 +666,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
         }),
       })
       const json = await res.json()
-      if (!res.ok || !json.clientSecret) throw new Error(json.error || 'Could not start load')
+      if (!res.ok || !json.clientSecret) throw new Error(json.error || t('load.startError'))
       setClientSecret(json.clientSecret)
       setStage('pay')
     } catch (e) {
@@ -676,10 +687,10 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
         }),
       })
       const json = await res.json()
-      if (!res.ok || !json.balance) throw new Error(json.error || 'Could not save balance')
+      if (!res.ok || !json.balance) throw new Error(json.error || t('load.saveError'))
       onLoaded(json.balance)
     } catch (e) {
-      setErr(`Charge succeeded but balance failed to save: ${e.message}. Save this PI: ${paymentIntent.id}`)
+      setErr(t('load.saveFailed', { msg: e.message, pi: paymentIntent.id }))
     }
   }
 
@@ -697,7 +708,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div>
             <div style={{ fontSize: '0.65rem', color: C.goldLight, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700' }}>
-              {stage === 'amount' ? 'Load Doves' : 'Pay'}
+              {stage === 'amount' ? t('load.title') : t('load.pay')}
             </div>
             <div style={{ color: C.text, fontSize: '1.4rem', fontWeight: '900', letterSpacing: '-0.02em' }}>
               ${amount}
@@ -709,7 +720,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
         {stage === 'amount' && (
           <>
             <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.55, marginBottom: '1rem' }}>
-              Card is charged once now. Whatever you don't spend gets refunded after the show closes — no card prompt per drink. Refunds usually arrive instantly when the bar closes out, but Stripe can take up to 7 days in rare cases.
+              {t('load.body')}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '0.85rem' }}>
               {LOAD_PRESETS.map(p => (
@@ -734,7 +745,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
               max="1000"
               value={amount}
               onChange={e => setAmount(Number(e.target.value) || 0)}
-              placeholder="Custom amount"
+              placeholder={t('load.amountPh')}
               style={{
                 width: '100%', boxSizing: 'border-box',
                 background: '#1a1a1a', border: `1px solid ${C.border}`,
@@ -745,7 +756,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
             <form onSubmit={proceed} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               <input
                 value={name} onChange={e => setName(e.target.value)}
-                placeholder="Your name (so the bartender can call you)"
+                placeholder={t('bar.namePh')}
                 style={{
                   width: '100%', boxSizing: 'border-box',
                   background: '#1a1a1a', border: `1px solid ${C.border}`,
@@ -756,7 +767,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
               <input
                 type="email" required
                 value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="Email — for refund receipt"
+                placeholder={t('load.emailPh')}
                 style={{
                   width: '100%', boxSizing: 'border-box',
                   background: '#1a1a1a', border: `1px solid ${C.border}`,
@@ -770,10 +781,10 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
                 padding: '0.95rem', fontSize: '0.95rem', fontWeight: '800', cursor: loading ? 'wait' : 'pointer',
                 marginTop: '0.4rem', opacity: loading ? 0.6 : 1,
               }}>
-                {loading ? 'Loading…' : `Continue — load $${amount}`}
+                {loading ? t('load.loading') : t('load.continue', { amt: amount })}
               </button>
               <div style={{ textAlign: 'center', color: C.textDim, fontSize: '0.7rem', marginTop: '0.25rem' }}>
-                Unspent doves refunded to your card when the bar closes out — usually instant, up to 7 days in rare cases.
+                {t('load.refundNote')}
               </div>
             </form>
           </>
@@ -786,7 +797,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
         )}
         {stage === 'pay' && !stripePromise && (
           <div style={{ color: C.red, fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
-            Stripe not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.
+            {t('load.stripeMissing')}
           </div>
         )}
         {err && stage === 'pay' && (
@@ -960,6 +971,7 @@ function StaffPinGate({ pin: correctPin, onUnlock }) {
 
 // ─── MAIN: EVENT BAR ──────────────────────────────────────────────────────────
 export default function EventBar({ staffMode = false }) {
+  const t = useT()
   const { slug } = useParams()
   const navigate = useNavigate()
   const [event,    setEvent]   = useState(null)
@@ -1090,7 +1102,7 @@ export default function EventBar({ staffMode = false }) {
 
   if (loading) return (
     <Centered>
-      <div style={{ color: C.textMid, fontFamily: 'system-ui, sans-serif' }}>Loading…</div>
+      <div style={{ color: C.textMid, fontFamily: 'system-ui, sans-serif' }}>{t('common.loading')}</div>
     </Centered>
   )
 
@@ -1098,8 +1110,8 @@ export default function EventBar({ staffMode = false }) {
     <Centered>
       <div style={{ textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕊</div>
-        <div style={{ color: C.text, fontWeight: '700', fontSize: '1.1rem', marginBottom: '0.4rem' }}>Event not found</div>
-        <div style={{ color: C.textMid, fontSize: '0.85rem' }}>Check the link and try again.</div>
+        <div style={{ color: C.text, fontWeight: '700', fontSize: '1.1rem', marginBottom: '0.4rem' }}>{t('bar.eventNotFound')}</div>
+        <div style={{ color: C.textMid, fontSize: '0.85rem' }}>{t('bar.checkLink')}</div>
       </div>
     </Centered>
   )
