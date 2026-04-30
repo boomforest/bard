@@ -38,6 +38,7 @@ export default function EventPage() {
   const t = useT()
   const { locale } = useLocale()
   const [event, setEvent]     = useState(null)
+  const [promoter, setPromoter] = useState(null)   // { id, username, handle }
   const [tiers, setTiers]     = useState([])
   const [qty, setQty]         = useState({})       // { tierId: count }
   const [loading, setLoading] = useState(true)
@@ -64,14 +65,20 @@ export default function EventPage() {
       }
       setEvent(ev)
 
-      const { data: tierRows } = await supabase
-        .from('ticket_tiers')
-        .select('*')
-        .eq('event_id', ev.id)
-        .order('sort_order', { ascending: true })
+      const [{ data: tierRows }, { data: promoterRow }] = await Promise.all([
+        supabase
+          .from('ticket_tiers')
+          .select('*')
+          .eq('event_id', ev.id)
+          .order('sort_order', { ascending: true }),
+        ev.promoter_id
+          ? supabase.from('users').select('id, username, handle').eq('id', ev.promoter_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
 
       if (cancelled) return
       setTiers(tierRows || [])
+      setPromoter(promoterRow || null)
       setLoading(false)
     }
     load()
@@ -317,6 +324,10 @@ export default function EventPage() {
               </div>
             )}
           </>
+        )}
+
+        {promoter && !showEnded && (
+          <FollowPromoter promoter={promoter} />
         )}
 
         <div style={{ textAlign: 'center', color: C.textDim, fontSize: '0.72rem', marginTop: '2rem', letterSpacing: '0.05em' }}>
@@ -594,6 +605,134 @@ function WaitlistSignup({ eventId, eventName }) {
           opacity: submitting ? 0.6 : 1, marginTop: '0.25rem',
         }}>
           {submitting ? t('waitlist.adding') : t('waitlist.cta')}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+// ─── FOLLOW PROMOTER ──────────────────────────────────────────────────────────
+// Subscribe to a promoter's future events. Stored on promoter_followers
+// with the buyer's zip + radius for future distance-based filtering.
+// For v1 the email blast goes to all followers regardless of distance —
+// schema captures the geo intent for v2.
+function FollowPromoter({ promoter }) {
+  const t = useT()
+  const { locale } = useLocale()
+  const [open, setOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [name, setName]   = useState('')
+  const [zip, setZip]     = useState('')
+  const [radius, setRadius] = useState(25)
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [err, setErr] = useState('')
+
+  const promoterName = promoter?.username || promoter?.handle || 'this promoter'
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setErr('')
+    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) { setErr(t('follow.invalidEmail')); return }
+    setSubmitting(true)
+    const { error } = await supabase
+      .from('promoter_followers')
+      .upsert(
+        {
+          promoter_id:  promoter.id,
+          email:        email.trim().toLowerCase(),
+          name:         name.trim() || null,
+          zip:          zip.trim() || null,
+          radius_miles: radius,
+          lang:         locale,
+        },
+        { onConflict: 'promoter_id,email', ignoreDuplicates: true },
+      )
+    setSubmitting(false)
+    if (error) { setErr(error.message); return }
+    setDone(true)
+  }
+
+  if (done) {
+    return (
+      <div style={{
+        background: C.card, border: `1px solid ${BRAND.neon}55`,
+        borderRadius: '14px', padding: '1.25rem 1.4rem', marginTop: '1.5rem', textAlign: 'center',
+      }}>
+        <div style={{ color: C.text, fontWeight: '800', fontSize: '0.95rem', marginBottom: '0.25rem' }}>
+          {t('follow.done.title')}
+        </div>
+        <div style={{ color: C.textMid, fontSize: '0.82rem', lineHeight: 1.5 }}>
+          {t('follow.done.body', { promoter: promoterName })}
+        </div>
+      </div>
+    )
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          marginTop: '1.5rem', width: '100%',
+          background: 'transparent', border: `1px solid ${C.border}`,
+          color: C.textMid, borderRadius: '12px',
+          padding: '0.85rem 1rem', fontSize: '0.85rem', fontWeight: '700',
+          cursor: 'pointer', fontFamily: FONT,
+        }}
+      >
+        {t('follow.cta', { promoter: promoterName })} →
+      </button>
+    )
+  }
+
+  return (
+    <div style={{
+      background: C.card, border: `1px solid ${C.border}`,
+      borderRadius: '14px', padding: '1.25rem 1.4rem', marginTop: '1.5rem',
+    }}>
+      <div style={{ color: C.text, fontWeight: '800', fontSize: '1rem', marginBottom: '0.3rem', letterSpacing: '-0.01em' }}>
+        {t('follow.cta', { promoter: promoterName })}
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '0.85rem' }}>
+        {t('follow.body')}
+      </div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+        <input style={INPUT} type="email" placeholder={t('common.email')} value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+        <input style={INPUT} type="text"  placeholder={t('waitlist.namePh')} value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
+        <input style={INPUT} type="text"  placeholder={t('follow.zipPh')} value={zip} onChange={e => setZip(e.target.value)} inputMode="numeric" autoComplete="postal-code" />
+        <div>
+          <div style={{ color: C.textMid, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700', marginBottom: '0.45rem' }}>
+            {t('follow.radius')}
+          </div>
+          <div style={{ display: 'flex', gap: '0.45rem' }}>
+            {[10, 25, 50, 100].map(r => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRadius(r)}
+                style={{
+                  flex: 1, padding: '0.55rem 0', borderRadius: '8px',
+                  border: `1px solid ${radius === r ? BRAND.purple : C.border}`,
+                  background: radius === r ? 'rgba(181,123,255,0.1)' : 'transparent',
+                  color: radius === r ? BRAND.purple : C.textMid,
+                  cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700',
+                  fontFamily: FONT,
+                }}
+              >
+                {r}mi
+              </button>
+            ))}
+          </div>
+        </div>
+        {err && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{err}</div>}
+        <button type="submit" disabled={submitting} style={{
+          background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
+          padding: '0.85rem', fontWeight: '800', fontSize: '0.92rem',
+          cursor: submitting ? 'wait' : 'pointer', fontFamily: FONT,
+          opacity: submitting ? 0.6 : 1, marginTop: '0.35rem',
+        }}>
+          {submitting ? t('follow.subscribing') : t('follow.subscribe')}
         </button>
       </form>
     </div>

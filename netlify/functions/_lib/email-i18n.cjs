@@ -35,6 +35,14 @@ const DICTS = {
     'waitlist.greeting':       'Hi {name},',
     'waitlist.cta':            'Grab a ticket →',
     'waitlist.footer':         "You're getting this because you joined the waitlist for this event.",
+
+    // ─── New event from followed promoter (send-new-event-notification) ──
+    'newEvent.subject':        '{promoter} just announced a new show',
+    'newEvent.eyebrow':        'New Show',
+    'newEvent.greeting':       'Hi {name},',
+    'newEvent.body':           '{promoter} just announced a new event. Here are the details:',
+    'newEvent.cta':            'See event & buy tickets →',
+    'newEvent.footer':         "You're getting this because you subscribed to {promoter}'s announcements.",
   },
   es: {
     // ─── Event ticket confirmation ───────────────────────────────────────
@@ -64,6 +72,14 @@ const DICTS = {
     'waitlist.greeting':       'Hola {name},',
     'waitlist.cta':             'Conseguir boleto →',
     'waitlist.footer':         'Recibes esto porque te uniste a la lista de espera de este evento.',
+
+    // ─── New event from followed promoter ────────────────────────────────
+    'newEvent.subject':        '{promoter} anunció un nuevo show',
+    'newEvent.eyebrow':        'Nuevo show',
+    'newEvent.greeting':       'Hola {name},',
+    'newEvent.body':           '{promoter} acaba de anunciar un nuevo evento. Aquí están los detalles:',
+    'newEvent.cta':            'Ver evento y comprar boletos →',
+    'newEvent.footer':         'Recibes esto porque te suscribiste a los avisos de {promoter}.',
   },
 }
 
