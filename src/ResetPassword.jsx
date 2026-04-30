@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark } from './theme'
+import { useT } from './i18n'
+import LocaleToggle from './LocaleToggle'
 
 // Lands here from the Supabase password-recovery email link.
 //
@@ -15,6 +17,7 @@ import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark } from './theme'
 //   - bad:     no session, link expired or invalid
 
 export default function ResetPassword() {
+  const t = useT()
   const navigate = useNavigate()
   const [state, setState]       = useState('waiting')   // waiting | ready | bad
   const [password, setPassword] = useState('')
@@ -43,8 +46,8 @@ export default function ResetPassword() {
   const submit = async (e) => {
     e.preventDefault()
     setError('')
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
-    if (password !== confirm) { setError("Passwords don't match."); return }
+    if (password.length < 8) { setError(t('reset.tooShort')); return }
+    if (password !== confirm) { setError(t('reset.mismatch')); return }
     setSaving(true)
     const { error: upErr } = await supabase.auth.updateUser({ password })
     if (upErr) { setError(upErr.message); setSaving(false); return }
@@ -66,16 +69,16 @@ export default function ResetPassword() {
         <div style={{ textAlign: 'center', maxWidth: '380px' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕊</div>
           <div style={{ color: C.text, fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>
-            This reset link expired
+            {t('reset.expiredTitle')}
           </div>
           <div style={{ color: C.textMid, fontSize: '0.88rem', marginBottom: '1.5rem' }}>
-            Recovery links are single-use and short-lived. Try requesting a new one.
+            {t('reset.expiredBody')}
           </div>
           <button onClick={() => navigate('/me')} style={{
             background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
             padding: '0.85rem 1.5rem', fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer', fontFamily: FONT,
           }}>
-            Sign in →
+            {t('reset.signIn')}
           </button>
         </div>
       </div>
@@ -87,15 +90,15 @@ export default function ResetPassword() {
       <div style={{ ...PAGE, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
         <div style={{ textAlign: 'center', maxWidth: '380px' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕊</div>
-          <div style={{ ...eyebrowStyle(BRAND.neon), marginBottom: '0.4rem' }}>Password updated</div>
+          <div style={{ ...eyebrowStyle(BRAND.neon), marginBottom: '0.4rem' }}>{t('reset.doneEyebrow')}</div>
           <div style={{ color: C.text, fontSize: '1.2rem', fontWeight: '800', marginBottom: '1.5rem' }}>
-            You're signed in.
+            {t('reset.doneBody')}
           </div>
           <button onClick={() => navigate('/me')} style={{
             background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
             padding: '0.85rem 1.5rem', fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer', fontFamily: FONT,
           }}>
-            Continue →
+            {t('reset.continue')}
           </button>
         </div>
       </div>
@@ -105,26 +108,27 @@ export default function ResetPassword() {
   return (
     <div style={{ ...PAGE, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
       <div style={{ width: '100%', maxWidth: '380px' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.85rem', marginBottom: '1.5rem' }}>
           <div style={LogoMark({ size: 56 })}>GRAIL</div>
+          <LocaleToggle />
         </div>
-        <div style={{ ...eyebrowStyle(BRAND.purple), textAlign: 'center' }}>Reset password</div>
+        <div style={{ ...eyebrowStyle(BRAND.purple), textAlign: 'center' }}>{t('reset.eyebrow')}</div>
         <div style={{ color: C.text, fontWeight: '800', fontSize: '1.4rem', textAlign: 'center', marginBottom: '0.4rem', letterSpacing: '-0.02em' }}>
-          Pick a new password
+          {t('reset.title')}
         </div>
         <div style={{ color: C.textMid, fontSize: '0.85rem', textAlign: 'center', marginBottom: '1.5rem' }}>
-          Minimum 8 characters.
+          {t('reset.minChars')}
         </div>
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
           <input
             type="password" autoComplete="new-password" required
-            placeholder="New password"
+            placeholder={t('reset.newPasswordPh')}
             value={password} onChange={e => setPassword(e.target.value)}
             style={INPUT}
           />
           <input
             type="password" autoComplete="new-password" required
-            placeholder="Confirm new password"
+            placeholder={t('reset.confirmPh')}
             value={confirm} onChange={e => setConfirm(e.target.value)}
             style={INPUT}
           />
@@ -136,7 +140,7 @@ export default function ResetPassword() {
             cursor: saving ? 'wait' : 'pointer', fontFamily: FONT, marginTop: '0.25rem',
             opacity: saving ? 0.6 : 1,
           }}>
-            {saving ? 'Updating…' : 'Set new password'}
+            {saving ? t('reset.updating') : t('reset.submit')}
           </button>
         </form>
       </div>
