@@ -11,28 +11,38 @@ const fmtDate = (iso) => {
 
 export default function PromoterEvents({ promoterId, onNew, onCheckStripe, stripeReady }) {
   const navigate = useNavigate()
-  const [events,  setEvents]  = useState([])
-  const [loading, setLoading] = useState(true)
-  const [copied,  setCopied]  = useState('')
+  const [events,    setEvents]    = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [copied,    setCopied]    = useState('')
+  const [showHidden, setShowHidden] = useState(false)
+  const [hideBusy,  setHideBusy]  = useState('')
+
+  // Reload helper so Hide/Unhide can refresh without remounting
+  const load = async () => {
+    setLoading(true)
+    let q = supabase
+      .from('events')
+      .select('id, name, artist_name, slug, show_date, capacity, tickets_sold, status, flyer_url, hidden')
+      .eq('promoter_id', promoterId)
+      // Most recent show date first; nulls last so dateless drafts don't
+      // pin themselves to the top.
+      .order('show_date', { ascending: false, nullsFirst: false })
+    if (!showHidden) q = q.eq('hidden', false)
+    const { data } = await q
+    setEvents(data || [])
+    setLoading(false)
+  }
 
   useEffect(() => {
     if (!promoterId) return
     let cancelled = false
-    async function load() {
-      setLoading(true)
-      const { data } = await supabase
-        .from('events')
-        .select('id, name, artist_name, slug, show_date, capacity, tickets_sold, status, flyer_url')
-        .eq('promoter_id', promoterId)
-        .order('created_at', { ascending: false })
-      if (!cancelled) {
-        setEvents(data || [])
-        setLoading(false)
-      }
-    }
-    load()
+    ;(async () => {
+      await load()
+      if (cancelled) return
+    })()
     return () => { cancelled = true }
-  }, [promoterId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promoterId, showHidden])
 
   const copy = (text, key) => {
     navigator.clipboard?.writeText(text)
@@ -40,11 +50,18 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
     setTimeout(() => setCopied(''), 1500)
   }
 
+  const toggleHidden = async (ev) => {
+    setHideBusy(ev.id)
+    await supabase.from('events').update({ hidden: !ev.hidden }).eq('id', ev.id)
+    await load()
+    setHideBusy('')
+  }
+
   return (
     <div style={{ ...PAGE, padding: '2rem 1.5rem 4rem' }}>
       <div style={{ maxWidth: '720px', margin: '0 auto' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <div>
             <div style={eyebrowStyle()}>Promoter</div>
             <div style={{ color: C.text, fontSize: '1.6rem', fontWeight: '900', letterSpacing: '-0.02em' }}>Your Events</div>
@@ -55,6 +72,19 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
             cursor: 'pointer', fontFamily: FONT,
           }}>
             + New Event
+          </button>
+        </div>
+
+        {/* Show hidden events toggle */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+          <button
+            onClick={() => setShowHidden(v => !v)}
+            style={{
+              background: 'transparent', border: 'none', color: C.textMid,
+              fontSize: '0.78rem', cursor: 'pointer', fontFamily: FONT, padding: '0.2rem 0',
+            }}
+          >
+            {showHidden ? '↓ Hiding hidden events' : '↑ Show hidden events'}
           </button>
         </div>
 
@@ -114,14 +144,28 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
             {events.map(ev => {
               const date = ev.show_date || ev.event_date
               const isPast = date && new Date(date) < new Date()
-              const eventLink = `${window.location.origin}/e/${ev.slug}`
-              const scanLink  = `${window.location.origin}/scan/${ev.slug}`
+              const origin    = window.location.origin
+              const eventLink = `${origin}/e/${ev.slug}`
+              const barLink   = `${origin}/${ev.slug}/bar`
+              const staffLink = `${origin}/${ev.slug}/bar/staff`
+              const dovesLink = `${origin}/${ev.slug}/doves`
+              const scanLink  = `${origin}/scan/${ev.slug}`
               const sold = ev.tickets_sold || 0
               const cap = ev.capacity || 0
+
+              const linkRow = [
+                { label: 'Public',      url: eventLink, key: `ev-${ev.id}` },
+                { label: 'Bar (fans)',  url: barLink,   key: `bar-${ev.id}` },
+                { label: 'Bar staff',   url: staffLink, key: `staff-${ev.id}` },
+                { label: 'Doves menu',  url: dovesLink, key: `dov-${ev.id}` },
+                { label: 'Door scan',   url: scanLink,  key: `sc-${ev.id}` },
+              ]
+
               return (
                 <div key={ev.id} style={{
-                  background: C.card, border: `1px solid ${C.border}`,
+                  background: C.card, border: `1px solid ${ev.hidden ? '#1a1a1a' : C.border}`,
                   borderRadius: '14px', overflow: 'hidden',
+                  opacity: ev.hidden ? 0.55 : 1,
                 }}>
                   <button
                     onClick={() => navigate(`/promoter/event/${ev.slug}`)}
@@ -137,11 +181,12 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
                       <div style={{ width: '64px', height: '64px', borderRadius: '8px', background: 'linear-gradient(135deg, #2a0a2e, #1a0d2e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', flexShrink: 0, opacity: 0.6 }}>🕊</div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
                         <div style={{ color: C.text, fontWeight: '800', fontSize: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {ev.name || ev.artist_name}
                         </div>
                         <span style={badgeStyle(isPast ? 'neutral' : 'live')}>{isPast ? 'Past' : 'Live'}</span>
+                        {ev.hidden && <span style={badgeStyle('neutral')}>hidden</span>}
                       </div>
                       <div style={{ color: C.textMid, fontSize: '0.82rem' }}>
                         {fmtDate(date)} · {sold}/{cap} tickets sold
@@ -150,39 +195,50 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
                     <div style={{ alignSelf: 'center', color: C.textMid, fontSize: '1.1rem', flexShrink: 0 }}>›</div>
                   </button>
 
+                  {/* Quick-link grid: every URL the promoter might want to share */}
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                    gap: '1px', background: C.border, borderTop: `1px solid ${C.border}`,
+                  }}>
+                    {linkRow.map(l => (
+                      <button
+                        key={l.key}
+                        onClick={() => copy(l.url, l.key)}
+                        style={{
+                          padding: '0.7rem 0.5rem', background: C.card, border: 'none',
+                          color: copied === l.key ? BRAND.neon : C.textMid,
+                          fontSize: '0.78rem', cursor: 'pointer',
+                          fontFamily: FONT, fontWeight: '600',
+                        }}
+                      >
+                        {copied === l.key ? '✓ Copied' : l.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Manage + Hide controls */}
                   <div style={{ display: 'flex', borderTop: `1px solid ${C.border}` }}>
-                    <a
-                      href={eventLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        flex: 1, textAlign: 'center', padding: '0.75rem',
-                        color: C.textMid, fontSize: '0.8rem', textDecoration: 'none',
-                        borderRight: `1px solid ${C.border}`, fontFamily: FONT, fontWeight: '600',
-                      }}
-                    >
-                      View
-                    </a>
                     <button
-                      onClick={() => copy(eventLink, `ev-${ev.id}`)}
+                      onClick={() => navigate(`/promoter/event/${ev.slug}`)}
                       style={{
-                        flex: 1, padding: '0.75rem', background: 'transparent', border: 'none',
-                        color: copied === `ev-${ev.id}` ? BRAND.neon : C.textMid,
-                        fontSize: '0.8rem', cursor: 'pointer',
-                        borderRight: `1px solid ${C.border}`, fontFamily: FONT, fontWeight: '600',
+                        flex: 1, padding: '0.7rem', background: 'transparent', border: 'none',
+                        color: C.text, fontSize: '0.82rem', cursor: 'pointer',
+                        borderRight: `1px solid ${C.border}`, fontFamily: FONT, fontWeight: '700',
                       }}
                     >
-                      {copied === `ev-${ev.id}` ? '✓ Copied' : 'Copy ticket link'}
+                      Manage event →
                     </button>
                     <button
-                      onClick={() => copy(scanLink, `sc-${ev.id}`)}
+                      onClick={() => toggleHidden(ev)}
+                      disabled={hideBusy === ev.id}
                       style={{
-                        flex: 1, padding: '0.75rem', background: 'transparent', border: 'none',
-                        color: copied === `sc-${ev.id}` ? BRAND.neon : C.textMid,
-                        fontSize: '0.8rem', cursor: 'pointer', fontFamily: FONT, fontWeight: '600',
+                        padding: '0.7rem 1.25rem', background: 'transparent', border: 'none',
+                        color: C.textMid, fontSize: '0.78rem',
+                        cursor: hideBusy === ev.id ? 'wait' : 'pointer',
+                        fontFamily: FONT, fontWeight: '600',
                       }}
                     >
-                      {copied === `sc-${ev.id}` ? '✓ Copied' : 'Copy scanner link'}
+                      {hideBusy === ev.id ? '…' : ev.hidden ? 'Unhide' : 'Hide'}
                     </button>
                   </div>
                 </div>
