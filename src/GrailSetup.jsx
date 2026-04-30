@@ -911,14 +911,25 @@ function SectionHeader({ title, sub }) {
 }
 
 // ─── STEP INDICATOR ───────────────────────────────────────────────────────────
-function StepIndicator({ current }) {
+function StepIndicator({ current, onJump }) {
   return (
     <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '2rem' }}>
       {STEPS.map((s, i) => {
         const done    = i < current
         const active  = i === current
+        const clickable = !!onJump  // any step is jumpable; data persists in parent
         return (
-          <div key={s.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' }}>
+          <button
+            type="button"
+            key={s.id}
+            onClick={clickable ? () => onJump(i) : undefined}
+            disabled={!clickable}
+            style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem',
+              background: 'transparent', border: 'none', padding: '0.25rem 0.1rem',
+              cursor: clickable ? 'pointer' : 'default', fontFamily: 'inherit',
+            }}
+          >
             <div style={{
               height: '3px', width: '100%', borderRadius: '99px',
               background: done ? C.gold : active ? C.goldDim : C.border,
@@ -931,7 +942,7 @@ function StepIndicator({ current }) {
             }}>
               {s.label}
             </div>
-          </div>
+          </button>
         )
       })}
     </div>
@@ -1009,7 +1020,7 @@ export default function GrailSetup() {
 
       {/* Content */}
       <div style={{ width: '100%', maxWidth: '560px', padding: '1.5rem 1.5rem 4rem', boxSizing: 'border-box' }}>
-        <StepIndicator current={step} />
+        <StepIndicator current={step} onJump={setStep} />
 
         {step === 0 && <StepInfo    data={data} setData={setData} onNext={next} />}
         {step === 1 && <StepSplits  data={data} setData={setData} onBack={back} onNext={next} />}
