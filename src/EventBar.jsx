@@ -137,6 +137,26 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     setCurrentOrder(null)
   }
 
+  // Manual refresh — fallback for when realtime doesn't fire (flaky venue
+  // wifi, backgrounded tab, websocket dropped). Re-pulls the order row.
+  const [refreshing, setRefreshing] = useState(false)
+  const refreshOrder = async () => {
+    if (!currentOrder?.id) return
+    setRefreshing(true)
+    const { data } = await supabase
+      .from('bar_orders')
+      .select('*')
+      .eq('id', currentOrder.id)
+      .maybeSingle()
+    if (!data || data.status === 'done' || data.status === 'canceled') {
+      localStorage.removeItem(orderKey)
+      setCurrentOrder(null)
+    } else {
+      setCurrentOrder(data)
+    }
+    setRefreshing(false)
+  }
+
   // ── Doves balance (optional pre-load) ───────────────────────────────────────
   const tokenKey = `dove-token-${event.id}`
   const [balance, setBalance] = useState(null)        // bar_tabs row or null
@@ -310,12 +330,29 @@ function CustomerView({ event, menu, onOrderPlaced }) {
         <div style={{ color: C.textMid, fontSize: '0.92rem', marginBottom: '2rem', maxWidth: '320px' }}>
           {subline}
         </div>
-        <button
-          style={{ background: 'transparent', color: C.textMid, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '0.7rem 1.4rem', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
-          onClick={dismissOrder}
-        >
-          Order again
-        </button>
+        <div style={{ display: 'flex', gap: '0.6rem' }}>
+          <button
+            style={{
+              background: ready ? C.gold : 'transparent',
+              color: ready ? '#000' : C.text,
+              border: ready ? 'none' : `1px solid ${C.border}`,
+              borderRadius: '10px', padding: '0.7rem 1.4rem',
+              fontSize: '0.85rem', fontWeight: '700',
+              cursor: refreshing ? 'wait' : 'pointer',
+              opacity: refreshing ? 0.6 : 1,
+            }}
+            onClick={refreshOrder}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Refreshing…' : '↻ Refresh status'}
+          </button>
+          <button
+            style={{ background: 'transparent', color: C.textMid, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '0.7rem 1.4rem', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
+            onClick={dismissOrder}
+          >
+            Order again
+          </button>
+        </div>
         <style>{`@keyframes pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.12) } }`}</style>
       </div>
     )
