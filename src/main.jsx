@@ -52,7 +52,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/promoter" element={<PromoterDashboard />} />
         {/* Promoter per-event detail — auth gated */}
         <Route path="/promoter/event/:slug" element={<PromoterEventDetail />} />
-        <Route path="/promoter/event/:slug/edit" element={<PromoterEventEdit />} />
+        <Route path="/promoter/event/:slug/edit" element={<GrailSetup />} />
         {/* Unified join / onboarding flow */}
         <Route path="/join" element={<JoinPage />} />
         <Route path="/terms" element={<TermsPage />} />

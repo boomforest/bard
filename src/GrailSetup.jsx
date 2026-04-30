@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
-import { createEventFromSetup } from './eventService'
+import { createEventFromSetup, loadEventForEdit, updateEventFromSetup } from './eventService'
 import { FEATURED_DRINKS } from './featuredDrinks'
 import { CURRENCIES, DEFAULT_CURRENCY, fmtPrice } from './currencies'
 
@@ -759,7 +759,7 @@ function StepPayout({ data, setData, onBack, onNext }) {
 }
 
 // ─── STEP 6: REVIEW & LAUNCH ──────────────────────────────────────────────────
-function StepReview({ data, onBack, onLaunch, launching, launchError, launchedSlug }) {
+function StepReview({ data, onBack, onLaunch, launching, launchError, launchedSlug, isEdit }) {
   const tiers    = data.tiers    || []
   const barItems = data.barItems || []
   const producers = data.producers || []
@@ -774,11 +774,12 @@ function StepReview({ data, onBack, onLaunch, launching, launchError, launchedSl
           background: `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>
-          {data.name} is live.
+          {isEdit ? 'Changes saved.' : `${data.name} is live.`}
         </div>
         <div style={{ color: C.textMid, fontSize: '0.88rem', marginBottom: '2rem', lineHeight: 1.6 }}>
-          Share your link and start selling.<br />
-          Money moves as tickets go.
+          {isEdit
+            ? <>Your edits are live. Anyone with the link sees the new version.</>
+            : <>Share your link and start selling.<br />Money moves as tickets go.</>}
         </div>
         <div style={{
           background: '#111', border: `1px solid ${C.border}`, borderRadius: '12px',
@@ -887,7 +888,7 @@ function StepReview({ data, onBack, onLaunch, launching, launchError, launchedSl
           cursor: launching ? 'not-allowed' : 'pointer', letterSpacing: '-0.01em',
         }}
       >
-        {launching ? 'Launching…' : 'Go Live'}
+        {launching ? (isEdit ? 'Saving…' : 'Launching…') : (isEdit ? 'Save Changes' : 'Go Live')}
       </button>
 
       <button onClick={onBack} disabled={launching} style={{ width: '100%', marginTop: '0.6rem', background: 'transparent', border: 'none', color: C.textMid, fontSize: '0.85rem', cursor: launching ? 'not-allowed' : 'pointer', padding: '0.5rem' }}>
@@ -967,9 +968,17 @@ function StepIndicator({ current, onJump }) {
 }
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
+// Powers BOTH event creation and event editing — same multi-step UI.
+// Edit mode is detected by a `:slug` route param (e.g. /promoter/event/:slug/edit).
+// Creation mode mounts under /setup or inline in PromoterDashboard with no slug.
 export default function GrailSetup() {
   const navigate = useNavigate()
+  const { slug: editSlug } = useParams()    // present when we're editing
+  const isEdit = !!editSlug
+
   const [step, setStep] = useState(0)
+  const [editLoading, setEditLoading] = useState(isEdit)
+  const [editEventId, setEditEventId] = useState(null)
   const [data, setData] = useState({
     // info
     name: '', date: '', time: '', venue: '', address: '', capacity: '', age: '21+', description: '', flyer: null, flyerPreview: null,
@@ -979,10 +988,29 @@ export default function GrailSetup() {
     // tickets
     tiers: [],
     // bar
-    barEnabled: true, barItems: buildFeaturedBarItems(),
+    barEnabled: true, barItems: isEdit ? [] : buildFeaturedBarItems(),
     // payout
     stripeConnected: false,
   })
+
+  // Load existing event data when in edit mode
+  useEffect(() => {
+    if (!isEdit) return
+    let cancelled = false
+    async function load() {
+      try {
+        const { eventId, data: loaded } = await loadEventForEdit(editSlug)
+        if (cancelled) return
+        setEditEventId(eventId)
+        setData({ ...loaded, slug: editSlug })
+      } catch (err) {
+        if (!cancelled) setLaunchError(err.message || 'Could not load event.')
+      }
+      if (!cancelled) setEditLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [editSlug, isEdit])
 
   const [launching,    setLaunching]    = useState(false)
   const [launchError,  setLaunchError]  = useState('')
@@ -996,13 +1024,29 @@ export default function GrailSetup() {
     setLaunchError('')
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user?.id) throw new Error('Sign in to launch an event.')
-      const event = await createEventFromSetup(data, session.user.id)
-      setLaunchedSlug(event.slug)
+      if (!session?.user?.id) throw new Error('Sign in to continue.')
+      if (isEdit) {
+        await updateEventFromSetup(data, editEventId)
+        // Stay on the page with a "saved" indicator. The Review step's
+        // launchedSlug branch handles the success UI; for edit we send
+        // it the existing slug so the "view event" link works.
+        setLaunchedSlug(editSlug)
+      } else {
+        const event = await createEventFromSetup(data, session.user.id)
+        setLaunchedSlug(event.slug)
+      }
     } catch (err) {
-      setLaunchError(err.message || 'Could not launch the event.')
+      setLaunchError(err.message || (isEdit ? 'Could not save changes.' : 'Could not launch the event.'))
     }
     setLaunching(false)
+  }
+
+  if (editLoading) {
+    return (
+      <div style={{ minHeight: '100dvh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: '2rem', opacity: 0.4 }}>🕊</div>
+      </div>
+    )
   }
 
   return (
@@ -1031,7 +1075,7 @@ export default function GrailSetup() {
           background: `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>
-          New Show
+          {isEdit ? 'Edit Show' : 'New Show'}
         </div>
         <div style={{ width: '60px' }} />
       </div>
@@ -1052,6 +1096,7 @@ export default function GrailSetup() {
           launching={launching}
           launchError={launchError}
           launchedSlug={launchedSlug}
+          isEdit={isEdit}
         />}
       </div>
     </div>
