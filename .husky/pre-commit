@@ -1,0 +1,3 @@
+# Block commits that don't compile.
+# Bypass only for a true emergency: git commit --no-verify
+npm run build

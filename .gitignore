@@ -5,3 +5,6 @@ dist/
 
 # Local Netlify folder
 .netlify
+
+# Supabase CLI working dir
+supabase/.temp/
