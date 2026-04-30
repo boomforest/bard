@@ -230,7 +230,10 @@ function CustomerView({ event, menu, onOrderPlaced }) {
 
   // Step 1: if Doves balance is loaded, debit it; otherwise open card checkout.
   const submitOrder = async () => {
-    if (!name.trim()) { setShowName(true); return }
+    if (!name.trim()) {
+      setPayErr('Add your name so the bartender can call you.')
+      return
+    }
     setPlacing(true)
     setPayErr('')
 
@@ -466,168 +469,142 @@ function CustomerView({ event, menu, onOrderPlaced }) {
   const catLabel = key => ({ spirits: 'Spirits', beer: 'Beer', cocktail: 'Cocktails', na: 'No Alc', snacks: 'Snacks', all: 'All' }[key] || key)
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: 'system-ui, sans-serif', paddingBottom: cartCount > 0 ? '160px' : '40px' }}>
-      {/* Header */}
-      <div style={{ padding: '1rem 1.2rem 0.5rem', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#e8e0d0', fontFamily: 'system-ui, sans-serif', paddingBottom: cartCount > 0 ? '230px' : '40px' }}>
+      {/* Header — demo aesthetic */}
+      <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid #1a1a24', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ color: C.goldLight, fontWeight: '800', fontSize: '1.05rem' }}>{event.name}</div>
-          <div style={{ color: C.textMid, fontSize: '0.75rem' }}>
+          <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#e8e0d0' }}>{event.name}</div>
+          <div style={{ fontSize: '0.72rem', color: '#8a8098' }}>
             {balance ? `Spending Doves · faster ordering` : 'Card per order · or load Doves to skip card prompts'}
           </div>
         </div>
-        {balance ? (
-          <button onClick={() => setLoadOpen(true)} style={{
-            background: '#0d0800', border: `1px solid ${C.goldDim}`, borderRadius: '999px',
-            padding: '0.4rem 0.8rem', color: C.goldLight, fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer',
-          }}>
-            🕊 ${(balanceRemaining / 100).toFixed(2)}
-          </button>
-        ) : (
-          <button onClick={() => setLoadOpen(true)} style={{
-            background: 'transparent', border: `1px solid ${C.gold}`, borderRadius: '999px',
-            padding: '0.4rem 0.8rem', color: C.gold, fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer',
-          }}>
-            + Load Doves
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {cartCount > 0 && (
+            <div style={{ background: BRAND.pink, color: '#fff', borderRadius: '99px', fontSize: '0.72rem', fontWeight: '800', padding: '0.2rem 0.6rem' }}>
+              {cartCount} in cart
+            </div>
+          )}
+          {balance ? (
+            <button onClick={() => setLoadOpen(true)} style={{
+              background: 'transparent', border: `1px solid ${BRAND.neon}55`, borderRadius: '999px',
+              padding: '0.35rem 0.8rem', color: BRAND.neon, fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer',
+            }}>
+              🕊 ${(balanceRemaining / 100).toFixed(2)}
+            </button>
+          ) : (
+            <button onClick={() => setLoadOpen(true)} style={{
+              background: 'transparent', border: `1px solid ${BRAND.orange}55`, borderRadius: '999px',
+              padding: '0.35rem 0.8rem', color: BRAND.orange, fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer',
+            }}>
+              + Load Doves
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Category tabs */}
-      <div style={{ display: 'flex', gap: '0.4rem', padding: '0.8rem 1rem', overflowX: 'auto', scrollbarWidth: 'none' }}>
-        {categories.map(key => (
-          <button key={key} onClick={() => setCat(key)} style={{
-            flexShrink: 0, padding: '0.45rem 1rem', borderRadius: '99px', border: 'none', cursor: 'pointer',
-            fontSize: '0.85rem', fontWeight: cat === key ? '700' : '500',
-            background: cat === key ? C.gold : '#1c1c1c',
-            color: cat === key ? '#000' : C.textMid,
-            transition: 'all 0.15s',
-          }}>
-            {catLabel(key)}
-          </button>
-        ))}
-      </div>
+      {categories.length > 2 && (
+        <div style={{ display: 'flex', gap: '0.4rem', padding: '0.8rem 1rem 0', overflowX: 'auto', scrollbarWidth: 'none' }}>
+          {categories.map(key => (
+            <button key={key} onClick={() => setCat(key)} style={{
+              flexShrink: 0, padding: '0.4rem 0.9rem', borderRadius: '99px', border: 'none', cursor: 'pointer',
+              fontSize: '0.78rem', fontWeight: cat === key ? '800' : '600',
+              background: cat === key ? BRAND.pink : '#1c1c24',
+              color: cat === key ? '#fff' : '#8a8098',
+              transition: 'all 0.15s',
+            }}>
+              {catLabel(key)}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Menu grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.6rem', padding: '0 1rem' }}>
+      {/* Menu grid — demo aesthetic with ADD button + stepper */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', padding: '1rem' }}>
         {visible.map(item => {
           const inCart = cart.find(c => c.item.id === item.id)
+          const qty = inCart?.qty || 0
           return (
-            <button key={item.id} onClick={() => addToCart(item)} style={{
-              background: inCart ? '#1a1409' : C.card,
-              border: `1px solid ${inCart ? C.gold + '88' : C.border}`,
-              borderRadius: '14px', padding: 0, cursor: 'pointer',
-              textAlign: 'left', transition: 'border-color 0.15s, background 0.15s',
-              position: 'relative', outline: 'none', overflow: 'hidden',
-              fontFamily: 'inherit', color: 'inherit',
+            <div key={item.id} style={{
+              background: qty > 0 ? '#0d0d18' : '#111',
+              border: `1px solid ${qty > 0 ? BRAND.pink + '55' : '#1e1e2a'}`,
+              borderRadius: '12px', overflow: 'hidden',
+              transition: 'border-color 0.15s, background 0.15s',
             }}>
               {item.img ? (
-                <img src={item.img} alt={item.name} style={{ width: '100%', height: '110px', objectFit: 'cover', display: 'block' }} />
+                <img src={item.img} alt={item.name} style={{ width: '100%', height: '90px', objectFit: 'cover', display: 'block' }} />
               ) : (
                 <div style={{
-                  width: '100%', height: '110px',
+                  width: '100%', height: '90px',
                   background: 'linear-gradient(135deg, #1a1409, #0a0805)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '2.5rem',
+                  fontSize: '2.2rem',
                 }}>{item.emoji || '🥂'}</div>
               )}
-              <div style={{ padding: '0.65rem 0.75rem 0.85rem' }}>
-                <div style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.1rem' }}>{item.name}</div>
+              <div style={{ padding: '0.65rem 0.75rem 0.75rem' }}>
+                <div style={{ fontWeight: '700', fontSize: '0.88rem', color: '#e8e0d0', marginBottom: '0.15rem' }}>{item.name}</div>
                 {item.description && (
-                  <div style={{ color: C.textMid, fontSize: '0.7rem', lineHeight: 1.35, marginBottom: '0.45rem', height: '1.9em', overflow: 'hidden' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#5a5070', marginBottom: '0.6rem', lineHeight: 1.3, height: '1.86em', overflow: 'hidden' }}>
                     {item.description}
                   </div>
                 )}
-                <div style={{ color: C.goldLight, fontWeight: '800', fontSize: '0.95rem' }}>{fmt(item.price, event.currency)}</div>
-              </div>
-              {inCart && (
-                <div style={{
-                  position: 'absolute', top: '0.5rem', right: '0.5rem',
-                  background: C.gold, color: '#000', borderRadius: '99px',
-                  minWidth: '22px', height: '22px', padding: '0 0.4rem',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.72rem', fontWeight: '900',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-                }}>
-                  {inCart.qty}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: '700', fontSize: '0.9rem', color: qty > 0 ? BRAND.neon : BRAND.orange }}>
+                    {fmt(item.price, event.currency)}
+                  </span>
+                  {qty === 0 ? (
+                    <button onClick={() => addToCart(item)} style={{
+                      background: BRAND.gradientAngle, color: '#000', border: 'none',
+                      borderRadius: '6px', padding: '0.25rem 0.7rem', fontSize: '0.8rem',
+                      fontWeight: '800', cursor: 'pointer', fontFamily: 'inherit',
+                    }}>ADD</button>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <button onClick={() => removeFromCart(item.id)} style={{ background: '#222', border: 'none', color: '#e8e0d0', borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, fontFamily: 'inherit' }}>−</button>
+                      <span style={{ color: BRAND.neon, fontWeight: '700', fontSize: '0.9rem', minWidth: '16px', textAlign: 'center' }}>{qty}</span>
+                      <button onClick={() => addToCart(item)} style={{ background: '#222', border: 'none', color: '#e8e0d0', borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, fontFamily: 'inherit' }}>+</button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </button>
+              </div>
+            </div>
           )
         })}
       </div>
 
-      {/* Cart sheet */}
+      {/* Cart footer — sticky, always visible when cart has items */}
       {cartCount > 0 && (
         <div style={{
           position: 'fixed', bottom: 0, left: 0, right: 0,
-          background: '#141414', borderTop: `1px solid ${C.goldDim}`,
-          padding: '0.8rem 1rem', zIndex: 20,
-          maxHeight: cartOpen ? '70vh' : '80px',
-          overflow: 'hidden', transition: 'max-height 0.25s ease',
+          background: 'rgba(10,10,16,0.95)', backdropFilter: 'blur(12px)',
+          borderTop: '1px solid #1a1a24', padding: '0.85rem 1rem 1rem', zIndex: 20,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
-            onClick={() => setCartOpen(o => !o)}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-              <div style={{ background: C.gold, color: '#000', borderRadius: '99px', padding: '0.2rem 0.7rem', fontWeight: '800', fontSize: '0.85rem' }}>
-                {cartCount}
-              </div>
-              <span style={{ color: C.text, fontWeight: '600' }}>
-                {cartOpen ? 'Your order' : `${cartCount} item${cartCount > 1 ? 's' : ''}`}
-              </span>
-            </div>
-            <div style={{ color: C.goldLight, fontWeight: '700', fontSize: '1rem' }}>{fmt(cartTotal, event.currency)}</div>
+          <div style={{ background: '#111', border: `1px solid #1e1e2a`, borderRadius: '12px', padding: '0.7rem 0.9rem', marginBottom: '0.7rem' }}>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Your name (so the bartender can call you)"
+              style={{ background: 'transparent', border: 'none', outline: 'none', width: '100%', fontSize: '0.88rem', color: '#e8e0d0', fontFamily: 'inherit' }}
+            />
           </div>
-
-          {cartOpen && (
-            <div style={{ marginTop: '0.8rem', overflowY: 'auto', maxHeight: 'calc(70vh - 120px)' }}>
-              {cart.map(({ item, qty }) => (
-                <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <span style={{ fontSize: '1.3rem' }}>{item.emoji}</span>
-                    <div>
-                      <div style={{ color: C.text, fontSize: '0.9rem' }}>{item.name}</div>
-                      <div style={{ color: C.textMid, fontSize: '0.75rem' }}>{fmt(item.price, event.currency)} each</div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-                    <button style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#222', border: 'none', color: C.text, cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      onClick={e => { e.stopPropagation(); removeFromCart(item.id) }}>−</button>
-                    <span style={{ color: C.text, fontWeight: '700', minWidth: '16px', textAlign: 'center' }}>{qty}</span>
-                    <button style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#222', border: 'none', color: C.text, cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      onClick={e => { e.stopPropagation(); addToCart(item) }}>+</button>
-                    <span style={{ color: C.goldLight, fontWeight: '600', minWidth: '55px', textAlign: 'right' }}>
-                      {fmt(item.price * qty, event.currency)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-
-              {showName && (
-                <div style={{ marginTop: '0.8rem' }}>
-                  <input
-                    autoFocus
-                    style={{ width: '100%', background: '#1a1a1a', border: `1px solid ${C.goldDim}`, borderRadius: '8px', color: C.text, padding: '0.7rem', fontSize: '1rem', outline: 'none', boxSizing: 'border-box' }}
-                    placeholder="Your name (so we can call you)"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && submitOrder()}
-                  />
-                </div>
-              )}
-
-              {payErr && (
-                <div style={{ marginTop: '0.6rem', color: C.red, fontSize: '0.82rem' }}>{payErr}</div>
-              )}
-
-              <button
-                onClick={submitOrder}
-                disabled={placing}
-                style={{ width: '100%', background: placing ? C.goldDim : C.gold, color: '#000', border: 'none', borderRadius: '10px', padding: '0.9rem', fontSize: '1rem', fontWeight: '800', cursor: placing ? 'wait' : 'pointer', marginTop: '0.8rem' }}
-              >
-                {placing ? 'Loading payment…' : showName ? `Pay ${fmt(cartTotal, event.currency)} →` : `Continue — ${fmt(cartTotal, event.currency)}`}
-              </button>
-            </div>
+          {payErr && (
+            <div style={{ color: BRAND.orange, fontSize: '0.78rem', marginBottom: '0.5rem', textAlign: 'center' }}>{payErr}</div>
           )}
+          <button
+            onClick={submitOrder}
+            disabled={placing}
+            style={{
+              width: '100%', background: placing ? '#1a1a24' : BRAND.gradientAngle,
+              border: 'none', borderRadius: '12px', padding: '0.95rem',
+              fontSize: '1rem', fontWeight: '900', color: '#000',
+              cursor: placing ? 'wait' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              fontFamily: 'inherit',
+            }}
+          >
+            <span>{placing ? 'Placing…' : 'Place Order'}</span>
+            <span>{fmt(cartTotal, event.currency)}</span>
+          </button>
         </div>
       )}
 
