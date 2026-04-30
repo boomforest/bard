@@ -91,7 +91,11 @@ export default function PlatformAdmin() {
       </div>
 
       <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, padding: '0 1.5rem' }}>
-        {['requests', 'invite'].map(t => (
+        {[
+          ['requests', 'Requests'],
+          ['invite',   'Generate Invite'],
+          ['errors',   'Errors'],
+        ].map(([t, label]) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -105,7 +109,7 @@ export default function PlatformAdmin() {
               marginBottom: '-1px',
             }}
           >
-            {t === 'requests' ? 'Requests' : 'Generate Invite'}
+            {label}
           </button>
         ))}
       </div>
@@ -113,6 +117,7 @@ export default function PlatformAdmin() {
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '2rem 1.5rem' }}>
         {tab === 'requests' && <RequestsTab adminId={session.user.id} />}
         {tab === 'invite'   && <InviteTab   adminId={session.user.id} />}
+        {tab === 'errors'   && <ErrorsTab   adminId={session.user.id} />}
       </div>
     </div>
   )
@@ -416,6 +421,170 @@ function InviteTab({ adminId }) {
         <div style={{ marginTop: '1.25rem', padding: '0.85rem 1rem', background: 'rgba(170,255,0,0.06)', border: `1px solid ${BRAND.neon}44`, borderRadius: '10px' }}>
           <div style={{ ...eyebrowStyle(BRAND.neon), marginBottom: '0.4rem' }}>Copied to clipboard</div>
           <div style={{ color: C.text, fontSize: '0.85rem', wordBreak: 'break-all', fontFamily: 'monospace' }}>{url}</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── ERRORS TAB ───────────────────────────────────────────────────────────────
+// Shows the auto-reported error inbox. Anything caught by ErrorBoundary or the
+// global window.onerror / unhandledrejection listeners lands here. Filter
+// defaults to unresolved; toggle to see history.
+function ErrorsTab({ adminId }) {
+  const [errors,   setErrors]   = useState([])
+  const [loading,  setLoading]  = useState(true)
+  const [busy,     setBusy]     = useState('')
+  const [showResolved, setShowResolved] = useState(false)
+  const [expandedId, setExpandedId] = useState(null)
+
+  const load = async () => {
+    setLoading(true)
+    let q = supabase
+      .from('error_reports')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (!showResolved) q = q.eq('resolved', false)
+    const { data } = await q
+    setErrors(data || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [showResolved]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const markResolved = async (e, resolved) => {
+    setBusy(e.id)
+    await supabase
+      .from('error_reports')
+      .update({
+        resolved,
+        resolved_at: resolved ? new Date().toISOString() : null,
+        resolved_by: resolved ? adminId : null,
+      })
+      .eq('id', e.id)
+    await load()
+    setBusy('')
+  }
+
+  const fmtWhen = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  }
+
+  if (loading) return <div style={{ textAlign: 'center', padding: '3rem 0', fontSize: '2rem', opacity: 0.4 }}>🕊</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ color: C.textMid, fontSize: '0.82rem' }}>
+          {errors.length} {showResolved ? 'total' : 'unresolved'} error{errors.length === 1 ? '' : 's'}
+        </div>
+        <button
+          onClick={() => setShowResolved(v => !v)}
+          style={{
+            background: 'transparent', border: 'none', color: C.textMid,
+            fontSize: '0.78rem', cursor: 'pointer', fontFamily: FONT,
+          }}
+        >
+          {showResolved ? 'Hide resolved' : 'Show resolved'}
+        </button>
+      </div>
+
+      {errors.length === 0 ? (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '3rem 2rem', textAlign: 'center' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '0.6rem', opacity: 0.5 }}>🕊</div>
+          <div style={{ color: C.text, fontSize: '1rem', fontWeight: '700', marginBottom: '0.3rem' }}>
+            {showResolved ? 'No errors recorded.' : 'No unresolved errors.'}
+          </div>
+          <div style={{ color: C.textMid, fontSize: '0.85rem' }}>The platform is quiet.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          {errors.map(e => {
+            const expanded = expandedId === e.id
+            return (
+              <div key={e.id} style={{
+                background: C.card, border: `1px solid ${e.resolved ? C.border : BRAND.orange + '55'}`,
+                borderRadius: '12px', overflow: 'hidden',
+              }}>
+                <button
+                  onClick={() => setExpandedId(expanded ? null : e.id)}
+                  style={{
+                    width: '100%', textAlign: 'left', background: 'transparent', border: 'none',
+                    cursor: 'pointer', padding: '0.85rem 1.1rem', fontFamily: FONT, color: 'inherit',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem', gap: '0.5rem' }}>
+                    <span style={{ color: e.resolved ? C.textMid : BRAND.orange, fontSize: '0.78rem', fontWeight: '700' }}>
+                      {e.resolved ? 'resolved' : 'open'}
+                    </span>
+                    <span style={{ color: C.textMid, fontSize: '0.75rem' }}>{fmtWhen(e.created_at)}</span>
+                  </div>
+                  <div style={{ color: C.text, fontSize: '0.92rem', fontWeight: '700', marginBottom: '0.25rem', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                    {e.message || '(no message)'}
+                  </div>
+                  <div style={{ color: C.textMid, fontSize: '0.78rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {e.user_email && <span>{e.user_email}</span>}
+                    {e.url && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '320px' }}>{e.url}</span>}
+                  </div>
+                </button>
+
+                {expanded && (
+                  <div style={{ padding: '0 1.1rem 1rem' }}>
+                    {e.stack && (
+                      <pre style={{
+                        background: '#0a0a14', border: `1px solid ${C.border}`, borderRadius: '8px',
+                        padding: '0.7rem 0.85rem', color: C.textMid, fontSize: '0.72rem',
+                        lineHeight: 1.5, overflow: 'auto', maxHeight: '240px', whiteSpace: 'pre-wrap',
+                        margin: '0 0 0.7rem',
+                      }}>
+                        {e.stack}
+                      </pre>
+                    )}
+                    {e.context && (
+                      <pre style={{
+                        background: '#0a0a14', border: `1px solid ${C.border}`, borderRadius: '8px',
+                        padding: '0.6rem 0.85rem', color: C.textMid, fontSize: '0.72rem',
+                        lineHeight: 1.5, overflow: 'auto', maxHeight: '160px', whiteSpace: 'pre-wrap',
+                        margin: '0 0 0.7rem',
+                      }}>
+                        {JSON.stringify(e.context, null, 2)}
+                      </pre>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {!e.resolved ? (
+                        <button
+                          onClick={() => markResolved(e, true)}
+                          disabled={busy === e.id}
+                          style={{
+                            flex: 1, background: BRAND.gradient, color: '#000', border: 'none',
+                            borderRadius: '8px', padding: '0.55rem', fontSize: '0.8rem', fontWeight: '800',
+                            cursor: busy === e.id ? 'wait' : 'pointer', fontFamily: FONT,
+                          }}
+                        >
+                          {busy === e.id ? '…' : 'Mark resolved'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => markResolved(e, false)}
+                          disabled={busy === e.id}
+                          style={{
+                            flex: 1, background: 'transparent', color: C.textMid,
+                            border: `1px solid ${C.border}`, borderRadius: '8px',
+                            padding: '0.55rem', fontSize: '0.8rem', fontWeight: '700',
+                            cursor: busy === e.id ? 'wait' : 'pointer', fontFamily: FONT,
+                          }}
+                        >
+                          {busy === e.id ? '…' : 'Reopen'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

@@ -28,10 +28,17 @@ import PromoterRequestPage from './PromoterRequestPage'
 import PlatformAdmin from './PlatformAdmin'
 import PromoterEventDetail from './PromoterEventDetail'
 import PromoterEventEdit from './PromoterEventEdit'
+import ErrorBoundary from './ErrorBoundary'
+import { installGlobalErrorHandlers } from './errorReporter'
 import './index.css'
+
+// Catches anything that escapes React's render cycle — promise
+// rejections, async event-handler errors, etc.
+installGlobalErrorHandlers()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <ErrorBoundary>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<GrailHome />} />
@@ -84,5 +91,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/:handle"         element={<HandleRedirect />} />
       </Routes>
     </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 )
