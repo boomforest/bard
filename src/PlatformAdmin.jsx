@@ -156,6 +156,24 @@ function RequestsTab({ adminId }) {
         .from('promoter_requests')
         .update({ status: 'invited', reviewed_at: new Date().toISOString(), reviewed_by: adminId })
         .eq('id', req.id)
+
+      // Fire the invite email — best-effort, never blocks the success state.
+      // The link is already on the clipboard if email delivery is delayed.
+      try {
+        await fetch('/.netlify/functions/send-promoter-invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email:      req.email,
+            name:       req.name,
+            invite_url: url,
+            origin:     window.location.origin,
+          }),
+        })
+      } catch (mailErr) {
+        console.warn('invite email failed (link still on clipboard):', mailErr)
+      }
+
       load()
     } catch (err) {
       alert(err.message)
@@ -272,6 +290,24 @@ function InviteTab({ adminId }) {
       const u = `${window.location.origin}/join?invite=${token}`
       navigator.clipboard?.writeText(u)
       setUrl(u)
+
+      // If an email was provided, fire the invite email. Best-effort —
+      // link is already on clipboard regardless.
+      if (email) {
+        try {
+          await fetch('/.netlify/functions/send-promoter-invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email,
+              invite_url: u,
+              origin:     window.location.origin,
+            }),
+          })
+        } catch (mailErr) {
+          console.warn('invite email failed (link still on clipboard):', mailErr)
+        }
+      }
     } catch (err) {
       setError(err.message)
     }
