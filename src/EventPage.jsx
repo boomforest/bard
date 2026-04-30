@@ -5,15 +5,19 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { fmtPriceCents } from './currencies'
 import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
+import { useT, useLocale } from './i18n'
+import LocaleToggle from './LocaleToggle'
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
   : null
 
-const fmtDate = (iso) => {
+const localeTag = (l) => (l === 'es' ? 'es-MX' : 'en-US')
+
+const fmtDate = (iso, locale = 'es') => {
   if (!iso) return ''
   const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  return d.toLocaleDateString(localeTag(locale), { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 const fmtTime = (timeStr) => {
@@ -31,6 +35,8 @@ const fmtTime = (timeStr) => {
 export default function EventPage() {
   const { slug } = useParams()
   const navigate = useNavigate()
+  const t = useT()
+  const { locale } = useLocale()
   const [event, setEvent]     = useState(null)
   const [tiers, setTiers]     = useState([])
   const [qty, setQty]         = useState({})       // { tierId: count }
@@ -52,7 +58,7 @@ export default function EventPage() {
       if (cancelled) return
 
       if (evErr || !ev) {
-        setError('Event not found.')
+        setError('not_found')
         setLoading(false)
         return
       }
@@ -72,12 +78,12 @@ export default function EventPage() {
     return () => { cancelled = true }
   }, [slug])
 
-  const totalCents = tiers.reduce((s, t) => s + (qty[t.id] || 0) * t.price_cents, 0)
+  const totalCents = tiers.reduce((s, ti) => s + (qty[ti.id] || 0) * ti.price_cents, 0)
   const totalTickets = Object.values(qty).reduce((s, n) => s + n, 0)
 
   const showDate = event?.show_date || event?.event_date
   const showEnded = showDate ? new Date(showDate) < new Date() : false
-  const allSoldOut = tiers.length > 0 && tiers.every(t => (t.qty - (t.sold || 0)) <= 0)
+  const allSoldOut = tiers.length > 0 && tiers.every(ti => (ti.qty - (ti.sold || 0)) <= 0)
 
   if (loading) {
     return (
@@ -93,16 +99,16 @@ export default function EventPage() {
         <div style={{ textAlign: 'center', maxWidth: '380px' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕊</div>
           <div style={{ color: C.text, fontSize: '1.3rem', fontWeight: '800', marginBottom: '0.5rem', letterSpacing: '-0.02em' }}>
-            Event not found
+            {t('event.notFound.title')}
           </div>
           <div style={{ color: C.textMid, fontSize: '0.88rem', marginBottom: '2rem' }}>
-            The link may be wrong, or this event isn't live yet.
+            {t('event.notFound.body')}
           </div>
           <button onClick={() => navigate('/')} style={{
             background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
             padding: '0.85rem 2rem', fontWeight: '800', fontSize: '0.95rem', cursor: 'pointer', fontFamily: FONT,
           }}>
-            Explore GRAIL →
+            {t('event.notFound.cta')}
           </button>
         </div>
       </div>
@@ -127,9 +133,12 @@ export default function EventPage() {
             borderRadius: '8px', padding: '0.4rem 0.85rem', fontSize: '0.82rem',
             cursor: 'pointer', fontFamily: FONT, fontWeight: '600',
           }}>
-            ← Back
+            {t('common.back')}
           </button>
-          <div style={LogoMark({ size: 32 })}>GRAIL</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <LocaleToggle />
+            <div style={LogoMark({ size: 32 })}>GRAIL</div>
+          </div>
         </div>
 
         {/* Flyer + poster */}
@@ -152,13 +161,13 @@ export default function EventPage() {
 
           <div style={{ padding: '1.5rem 1.5rem 1.25rem' }}>
             <div style={{ ...eyebrowStyle(BRAND.pink), marginBottom: '0.5rem' }}>
-              {showEnded ? 'Past Event' : 'Live Now'}
+              {showEnded ? t('event.eyebrow.past') : t('event.eyebrow.live')}
             </div>
             <div style={{ color: C.text, fontWeight: '900', fontSize: '1.5rem', letterSpacing: '-0.02em', marginBottom: '0.4rem', lineHeight: 1.2 }}>
               {event.name || event.artist_name}
             </div>
             <div style={{ color: C.textMid, fontSize: '0.92rem', marginBottom: '0.25rem' }}>
-              {fmtDate(showDate)}{event.doors_time && ` · Doors ${fmtTime(event.doors_time)}`}
+              {fmtDate(showDate, locale)}{event.doors_time && ` · ${locale === 'es' ? 'Puertas' : 'Doors'} ${fmtTime(event.doors_time)}`}
             </div>
             {(event.venue_hint || event.venue_address || event.address) && (
               <div style={{ color: C.textMid, fontSize: '0.85rem' }}>
@@ -191,10 +200,10 @@ export default function EventPage() {
             borderRadius: '14px', padding: '2rem', textAlign: 'center',
           }}>
             <div style={{ color: C.text, fontSize: '1.05rem', fontWeight: '800', marginBottom: '0.4rem' }}>
-              This show has ended.
+              {t('event.ended.title')}
             </div>
             <div style={{ color: C.textMid, fontSize: '0.85rem' }}>
-              Thanks for being part of it.
+              {t('event.ended.body')}
             </div>
           </div>
         ) : tiers.length === 0 ? (
@@ -203,18 +212,18 @@ export default function EventPage() {
             borderRadius: '14px', padding: '2rem', textAlign: 'center',
             color: C.textMid, fontSize: '0.88rem',
           }}>
-            No tickets available yet.
+            {t('event.noTickets')}
           </div>
         ) : (
           <>
-            <div style={eyebrowStyle()}>Tickets</div>
+            <div style={eyebrowStyle()}>{t('event.tickets')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.5rem' }}>
-              {tiers.map(t => {
-                const remaining = t.qty - (t.sold || 0)
+              {tiers.map(tier => {
+                const remaining = tier.qty - (tier.sold || 0)
                 const soldOut = remaining <= 0
-                const current = qty[t.id] || 0
+                const current = qty[tier.id] || 0
                 return (
-                  <div key={t.id} style={{
+                  <div key={tier.id} style={{
                     background: C.card, border: `1px solid ${current > 0 ? BRAND.pink + '55' : C.border}`,
                     borderRadius: '12px', padding: '1rem 1.2rem',
                     transition: 'border-color 0.15s',
@@ -222,46 +231,46 @@ export default function EventPage() {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ color: C.text, fontWeight: '700', fontSize: '0.95rem', marginBottom: '0.15rem' }}>{t.name}</div>
-                        {t.description && (
-                          <div style={{ color: C.textMid, fontSize: '0.78rem', marginBottom: '0.25rem' }}>{t.description}</div>
+                        <div style={{ color: C.text, fontWeight: '700', fontSize: '0.95rem', marginBottom: '0.15rem' }}>{tier.name}</div>
+                        {tier.description && (
+                          <div style={{ color: C.textMid, fontSize: '0.78rem', marginBottom: '0.25rem' }}>{tier.description}</div>
                         )}
                         <div style={{ color: BRAND.pink, fontWeight: '800', fontSize: '0.95rem' }}>
-                          {fmtPriceCents(t.price_cents, event?.currency)}
+                          {fmtPriceCents(tier.price_cents, event?.currency)}
                           {!soldOut && remaining < 20 && (
                             <span style={{ color: BRAND.orange, fontWeight: '600', fontSize: '0.72rem', marginLeft: '0.5rem' }}>
-                              · {remaining} left
+                              {t('event.fewLeft', { count: remaining })}
                             </span>
                           )}
                         </div>
                       </div>
                       {soldOut ? (
-                        <span style={badgeStyle('neutral')}>Sold Out</span>
+                        <span style={badgeStyle('neutral')}>{t('event.soldOut')}</span>
                       ) : current === 0 ? (
                         <button
-                          onClick={() => setQty(q => ({ ...q, [t.id]: 1 }))}
+                          onClick={() => setQty(q => ({ ...q, [tier.id]: 1 }))}
                           style={{
                             background: BRAND.gradient, color: '#000', border: 'none',
                             borderRadius: '8px', padding: '0.45rem 1rem',
                             fontWeight: '800', fontSize: '0.82rem', cursor: 'pointer', fontFamily: FONT,
                           }}
                         >
-                          Add
+                          {t('event.add')}
                         </button>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <button
                             onClick={() => setQty(q => {
                               const next = { ...q }
-                              if (next[t.id] > 1) next[t.id]--
-                              else delete next[t.id]
+                              if (next[tier.id] > 1) next[tier.id]--
+                              else delete next[tier.id]
                               return next
                             })}
                             style={{ background: '#1a1a24', border: 'none', color: C.text, borderRadius: '6px', width: '28px', height: '28px', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, fontFamily: FONT }}
                           >−</button>
                           <span style={{ color: BRAND.neon, fontWeight: '800', fontSize: '0.95rem', minWidth: '18px', textAlign: 'center' }}>{current}</span>
                           <button
-                            onClick={() => setQty(q => ({ ...q, [t.id]: Math.min((q[t.id] || 0) + 1, remaining) }))}
+                            onClick={() => setQty(q => ({ ...q, [tier.id]: Math.min((q[tier.id] || 0) + 1, remaining) }))}
                             disabled={current >= remaining}
                             style={{ background: '#1a1a24', border: 'none', color: C.text, borderRadius: '6px', width: '28px', height: '28px', cursor: current >= remaining ? 'not-allowed' : 'pointer', fontSize: '1rem', lineHeight: 1, fontFamily: FONT, opacity: current >= remaining ? 0.4 : 1 }}
                           >+</button>
@@ -288,7 +297,7 @@ export default function EventPage() {
               }}>
                 <div>
                   <div style={{ color: C.textMid, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700' }}>
-                    {totalTickets} ticket{totalTickets !== 1 ? 's' : ''}
+                    {t(totalTickets === 1 ? 'event.ticketCount.one' : 'event.ticketCount.many', { count: totalTickets })}
                   </div>
                   <div style={{ color: C.text, fontWeight: '900', fontSize: '1.2rem', letterSpacing: '-0.02em' }}>
                     {fmtPriceCents(totalCents, event?.currency)}
@@ -303,7 +312,7 @@ export default function EventPage() {
                     fontFamily: FONT,
                   }}
                 >
-                  Checkout →
+                  {t('event.checkout')}
                 </button>
               </div>
             )}
@@ -311,7 +320,7 @@ export default function EventPage() {
         )}
 
         <div style={{ textAlign: 'center', color: C.textDim, fontSize: '0.72rem', marginTop: '2rem', letterSpacing: '0.05em' }}>
-          Powered by GRAIL
+          {t('common.poweredBy')}
         </div>
       </div>
 
@@ -339,6 +348,7 @@ export default function EventPage() {
 
 // ─── CHECKOUT MODAL ───────────────────────────────────────────────────────────
 function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
+  const t = useT()
   const [stage, setStage] = useState('details')   // details | pay
   const [name,  setName]  = useState('')
   const [email, setEmail] = useState('')
@@ -347,14 +357,14 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
   const [clientSecret, setClientSecret] = useState(null)
 
   const items = tiers
-    .filter(t => qty[t.id] > 0)
-    .map(t => ({ tier_id: t.id, qty: qty[t.id], name: t.name, price_cents: t.price_cents }))
+    .filter(ti => qty[ti.id] > 0)
+    .map(ti => ({ tier_id: ti.id, qty: qty[ti.id], name: ti.name, price_cents: ti.price_cents }))
 
   const handleProceed = async (e) => {
     e?.preventDefault()
     setError('')
-    if (!name.trim() || !email.trim()) { setError('Name and email required.'); return }
-    if (!/^\S+@\S+\.\S+$/.test(email))  { setError('Enter a valid email.');     return }
+    if (!name.trim() || !email.trim()) { setError(t('checkout.emailRequired')); return }
+    if (!/^\S+@\S+\.\S+$/.test(email))  { setError(t('checkout.emailInvalid'));  return }
     setLoading(true)
     try {
       const res = await fetch('/.netlify/functions/create-payment-intent', {
@@ -368,7 +378,7 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
         }),
       })
       const json = await res.json()
-      if (!res.ok || !json.clientSecret) throw new Error(json.error || 'Could not start checkout')
+      if (!res.ok || !json.clientSecret) throw new Error(json.error || t('checkout.startError'))
       setClientSecret(json.clientSecret)
       setStage('pay')
     } catch (err) {
@@ -391,7 +401,7 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <div>
-            <div style={eyebrowStyle()}>Checkout</div>
+            <div style={eyebrowStyle()}>{t('checkout.title')}</div>
             <div style={{ color: C.text, fontSize: '1.1rem', fontWeight: '800', letterSpacing: '-0.01em' }}>
               {event.name || event.artist_name}
             </div>
@@ -408,25 +418,25 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
             </div>
           ))}
           <div style={{ borderTop: `1px solid ${C.border}`, marginTop: '0.5rem', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: C.text, fontWeight: '800' }}>
-            <span>Total</span>
+            <span>{t('checkout.total')}</span>
             <span style={{ color: BRAND.neon }}>{fmtPriceCents(totalCents, event.currency)}</span>
           </div>
         </div>
 
         {stage === 'details' && (
           <form onSubmit={handleProceed} style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
-            <input style={INPUT} type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
-            <input style={INPUT} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+            <input style={INPUT} type="text" placeholder={t('checkout.namePh')} value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
+            <input style={INPUT} type="email" placeholder={t('common.email')} value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
             {error && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{error}</div>}
             <button type="submit" disabled={loading} style={{
               background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
               padding: '0.95rem', fontSize: '0.95rem', fontWeight: '800', cursor: loading ? 'wait' : 'pointer',
               fontFamily: FONT, marginTop: '0.5rem', opacity: loading ? 0.6 : 1,
             }}>
-              {loading ? 'Preparing…' : 'Continue to payment'}
+              {loading ? t('checkout.preparing') : t('checkout.continue')}
             </button>
             <div style={{ textAlign: 'center', color: C.textDim, fontSize: '0.7rem', marginTop: '0.25rem' }}>
-              Payments processed securely by Stripe.
+              {t('checkout.securedBy')}
             </div>
           </form>
         )}
@@ -454,6 +464,7 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
 }
 
 function PaymentStep({ onBack, onSuccess }) {
+  const t = useT()
   const stripe   = useStripe()
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
@@ -469,7 +480,7 @@ function PaymentStep({ onBack, onSuccess }) {
       redirect: 'if_required',
     })
     if (error) {
-      setErr(error.message || 'Payment failed')
+      setErr(error.message)
       setSubmitting(false)
       return
     }
@@ -484,10 +495,10 @@ function PaymentStep({ onBack, onSuccess }) {
         if (!res.ok) throw new Error(json.error || 'Could not finalize ticket')
         onSuccess(json)
       } catch (writeErr) {
-        setErr(`Payment went through but tickets failed to save: ${writeErr.message}. Save your confirmation: ${paymentIntent.id}`)
+        setErr(t('checkout.savedFailed', { msg: writeErr.message, pi: paymentIntent.id }))
       }
     } else {
-      setErr(`Unexpected payment status: ${paymentIntent?.status || 'unknown'}`)
+      setErr(t('checkout.unexpectedStatus', { status: paymentIntent?.status || 'unknown' }))
     }
     setSubmitting(false)
   }
@@ -501,13 +512,13 @@ function PaymentStep({ onBack, onSuccess }) {
         padding: '0.95rem', fontSize: '0.95rem', fontWeight: '800', cursor: submitting ? 'wait' : 'pointer',
         fontFamily: FONT, opacity: submitting ? 0.6 : 1,
       }}>
-        {submitting ? 'Processing…' : 'Pay now'}
+        {submitting ? t('common.processing') : t('checkout.payNow')}
       </button>
       <button type="button" onClick={onBack} disabled={submitting} style={{
         background: 'transparent', color: C.textMid, border: 'none', cursor: 'pointer',
         fontSize: '0.82rem', padding: '0.25rem', fontFamily: FONT,
       }}>
-        ← Back
+        {t('common.back')}
       </button>
     </form>
   )
@@ -517,6 +528,7 @@ function PaymentStep({ onBack, onSuccess }) {
 // Shown when every tier is sold out. Buyers leave their email and the
 // promoter can blast them from the dashboard if a ticket frees up.
 function WaitlistSignup({ eventId, eventName }) {
+  const t = useT()
   const [email, setEmail] = useState('')
   const [name,  setName]  = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -526,7 +538,7 @@ function WaitlistSignup({ eventId, eventName }) {
   const submit = async (e) => {
     e.preventDefault()
     setErr('')
-    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) { setErr('Enter a valid email.'); return }
+    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) { setErr(t('waitlist.invalidEmail')); return }
     setSubmitting(true)
     const { error } = await supabase
       .from('event_waitlist')
@@ -547,10 +559,10 @@ function WaitlistSignup({ eventId, eventName }) {
       }}>
         <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>🕊</div>
         <div style={{ color: C.text, fontWeight: '800', fontSize: '1rem', marginBottom: '0.35rem' }}>
-          You're on the waitlist.
+          {t('waitlist.done.title')}
         </div>
         <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.5 }}>
-          If a ticket frees up before doors, we'll email you a link to grab it.
+          {t('waitlist.done.body')}
         </div>
       </div>
     )
@@ -561,16 +573,16 @@ function WaitlistSignup({ eventId, eventName }) {
       background: C.card, border: `1px solid ${C.border}`,
       borderRadius: '14px', padding: '1.25rem 1.4rem', marginBottom: '1.5rem',
     }}>
-      <div style={{ ...eyebrowStyle(BRAND.pink), marginBottom: '0.4rem' }}>Sold Out</div>
+      <div style={{ ...eyebrowStyle(BRAND.pink), marginBottom: '0.4rem' }}>{t('waitlist.eyebrow')}</div>
       <div style={{ color: C.text, fontWeight: '800', fontSize: '1.05rem', marginBottom: '0.3rem', letterSpacing: '-0.01em' }}>
-        Join the waitlist
+        {t('waitlist.title')}
       </div>
       <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '0.85rem' }}>
-        Tickets sometimes free up before doors. Drop your email and we'll send you a buy link if any open back up.
+        {t('waitlist.body')}
       </div>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-        <input style={INPUT} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
-        <input style={INPUT} type="text"  placeholder="Name (optional)" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
+        <input style={INPUT} type="email" placeholder={t('common.email')} value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+        <input style={INPUT} type="text"  placeholder={t('waitlist.namePh')} value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
         {err && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{err}</div>}
         <button type="submit" disabled={submitting} style={{
           background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
@@ -578,7 +590,7 @@ function WaitlistSignup({ eventId, eventName }) {
           cursor: submitting ? 'wait' : 'pointer', fontFamily: FONT,
           opacity: submitting ? 0.6 : 1, marginTop: '0.25rem',
         }}>
-          {submitting ? 'Adding…' : 'Notify me if tickets open'}
+          {submitting ? t('waitlist.adding') : t('waitlist.cta')}
         </button>
       </form>
     </div>
@@ -587,6 +599,7 @@ function WaitlistSignup({ eventId, eventName }) {
 
 // ─── PURCHASE CONFIRMATION ────────────────────────────────────────────────────
 function PurchaseConfirmation({ purchase, eventName, onClose }) {
+  const t = useT()
   const tickets = purchase.tickets || []
   const ticketCount = tickets.length
   const firstTicketUrl = tickets[0] ? `${window.location.origin}/t/${tickets[0].id}` : null
@@ -603,23 +616,23 @@ function PurchaseConfirmation({ purchase, eventName, onClose }) {
         maxWidth: '400px', width: '100%',
       }}>
         <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🕊</div>
-        <div style={{ ...eyebrowStyle(BRAND.neon) }}>Confirmed</div>
+        <div style={{ ...eyebrowStyle(BRAND.neon) }}>{t('purchase.eyebrow')}</div>
         <div style={{ color: C.text, fontWeight: '900', fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.4rem' }}>
-          You're going to {eventName}.
+          {t('purchase.youreGoing', { event: eventName })}
         </div>
         <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-          {ticketCount} ticket{ticketCount !== 1 ? 's' : ''} secured. Confirmation email is on its way.
+          {t(ticketCount === 1 ? 'purchase.secured.one' : 'purchase.secured.many', { count: ticketCount })}
         </div>
 
         {tickets.length > 0 && (
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '0.85rem 1rem', marginBottom: '1.25rem', textAlign: 'left' }}>
             <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.5rem' }}>
-              Your ticket{tickets.length > 1 ? 's' : ''}
+              {t(tickets.length > 1 ? 'purchase.yourTicket.many' : 'purchase.yourTicket.one')}
             </div>
-            {tickets.map((t, i) => (
+            {tickets.map((tk, i) => (
               <a
-                key={t.id}
-                href={`${window.location.origin}/t/${t.id}`}
+                key={tk.id}
+                href={`${window.location.origin}/t/${tk.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -629,8 +642,8 @@ function PurchaseConfirmation({ purchase, eventName, onClose }) {
                   color: BRAND.pink, textDecoration: 'none', fontSize: '0.88rem', fontWeight: '700',
                 }}
               >
-                <span>🎟  Ticket #{t.ticket_number}</span>
-                <span style={{ color: C.textMid, fontSize: '0.85rem' }}>View →</span>
+                <span>{t('purchase.viewTicket', { n: tk.ticket_number })}</span>
+                <span style={{ color: C.textMid, fontSize: '0.85rem' }}>{t('purchase.view')}</span>
               </a>
             ))}
           </div>
@@ -646,14 +659,14 @@ function PurchaseConfirmation({ purchase, eventName, onClose }) {
               textDecoration: 'none', marginBottom: '0.5rem', fontFamily: FONT,
             }}
           >
-            Open ticket
+            {t('purchase.openTicket')}
           </a>
         )}
         <button onClick={onClose} style={{
           background: 'transparent', color: C.textMid, border: 'none',
           padding: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', fontFamily: FONT,
         }}>
-          Close
+          {t('common.close')}
         </button>
       </div>
     </div>
