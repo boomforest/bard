@@ -43,7 +43,7 @@ exports.handler = async (event) => {
 
     const { data: ev, error: evErr } = await supabase
       .from('events')
-      .select('id, promoter_id')
+      .select('id, promoter_id, name, artist_name, currency')
       .eq('id', event_id)
       .maybeSingle()
     if (evErr || !ev) throw new Error('Event not found')
@@ -130,6 +130,23 @@ exports.handler = async (event) => {
 
         refundedCount += 1
         totalRefundedCents += unspent
+
+        // Best-effort buyer notification. Doesn't block close-out if
+        // it fails — the refund itself already landed on Stripe.
+        if (b.email && unspent > 0) {
+          const host  = event?.headers?.host || 'grail.mx'
+          const proto = event?.headers?.['x-forwarded-proto'] || 'https'
+          fetch(`${proto}://${host}/.netlify/functions/send-refund-confirmation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email:        b.email,
+              amount_cents: unspent,
+              currency:     ev.currency || 'mxn',
+              event_name:   ev.name || ev.artist_name || null,
+            }),
+          }).catch(mailErr => console.warn('refund email failed (non-fatal):', mailErr.message))
+        }
       } catch (oneErr) {
         console.error(`close-out-bar: balance ${b.id} failed`, oneErr)
         errors.push({ balance_id: b.id, error: oneErr.message })

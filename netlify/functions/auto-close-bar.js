@@ -39,7 +39,7 @@ exports.handler = async () => {
 
   const { data: tabs, error: tabsErr } = await supabase
     .from('bar_tabs')
-    .select('id, event_id, loaded_cents, spent_cents, stripe_payment_intent_id, events!inner(show_date)')
+    .select('id, event_id, email, loaded_cents, spent_cents, stripe_payment_intent_id, events!inner(show_date, name, artist_name, currency)')
     .eq('status', 'active')
     .lt('events.show_date', nowIso)
 
@@ -103,6 +103,22 @@ exports.handler = async () => {
         })
         .eq('id', tab.id)
       summary.refunded += 1
+
+      // Best-effort buyer email. Same fire-and-forget pattern as
+      // close-out-bar — refund is already committed if this throws.
+      if (tab.email) {
+        const host = process.env.URL || 'https://grail.mx'
+        fetch(`${host}/.netlify/functions/send-refund-confirmation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email:        tab.email,
+            amount_cents: unspent,
+            currency:     tab.events?.currency || 'mxn',
+            event_name:   tab.events?.name || tab.events?.artist_name || null,
+          }),
+        }).catch(mailErr => console.warn('refund email failed (non-fatal):', mailErr.message))
+      }
     } else {
       console.warn(`auto-close-bar: tab ${tab.id} refund failed`, lastError?.message)
       summary.errors.push({ balance_id: tab.id, error: lastError?.message || 'unknown' })
