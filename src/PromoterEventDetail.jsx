@@ -450,7 +450,9 @@ export default function PromoterEventDetail() {
                         {hasInsufficientFunds && (
                           <div style={{ marginTop: '0.7rem', paddingTop: '0.6rem', borderTop: `1px solid ${BRAND.orange}33` }}>
                             <div style={{ color: C.text, fontSize: '0.78rem', lineHeight: 1.5, marginBottom: '0.5rem' }}>
-                              Stripe holds new charges in pending balance for 2–7 days before they're available for refund. You can either wait, or refund from your platform balance now and reconcile when the bar's funds clear.
+                              <strong style={{ color: BRAND.orange }}>If your Stripe account is still under review</strong>, incoming charges sit in pending balance and can't be refunded immediately — Stripe needs them cleared before reversing the transfer. This usually clears within 2–7 days of account verification.
+                              <br /><br />
+                              You can either refund from your platform balance now (you'll absorb the cost until the bar's funds clear and you reconcile), <strong>or do nothing</strong> — the platform retries the refund automatically once a day, and after 7 days will fall back to the platform-balance method on its own.
                             </div>
                             <button
                               onClick={() => handleCloseOut({ forcePlatformBalance: true })}

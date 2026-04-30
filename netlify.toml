@@ -2,3 +2,10 @@
   command = "npm run build"
   publish = "dist"
   functions = "netlify/functions"
+
+# Daily auto-close — retries refunds for any bar_tabs still active after
+# their event has happened. Standard reverse_transfer first; platform-
+# balance fallback once the show is 7+ days past, so a Stripe-account
+# verification delay never leaves a buyer permanently un-refunded.
+[functions."auto-close-bar"]
+  schedule = "0 12 * * *"
