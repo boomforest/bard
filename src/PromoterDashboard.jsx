@@ -167,15 +167,110 @@ export default function PromoterDashboard() {
       </div>
 
       {view === 'events' && (
-        <PromoterEvents
-          key={refreshKey}
-          promoterId={session.user.id}
-          onNew={() => setView('new')}
-          onCheckStripe={startStripeOnboarding}
-          stripeReady={stripeReady}
-        />
+        <>
+          <FollowersStrip promoterId={session.user.id} />
+          <PromoterEvents
+            key={refreshKey}
+            promoterId={session.user.id}
+            onNew={() => setView('new')}
+            onCheckStripe={startStripeOnboarding}
+            stripeReady={stripeReady}
+          />
+        </>
       )}
       {view === 'new' && <GrailSetup />}
+    </div>
+  )
+}
+
+// ─── FOLLOWERS STRIP ─────────────────────────────────────────────────────────
+// Compact card showing how many people are subscribed to this promoter's
+// announcements. Click to expand the list (emails + zip + radius).
+function FollowersStrip({ promoterId }) {
+  const [followers, setFollowers] = useState(null)   // null while loading
+  const [expanded,  setExpanded]  = useState(false)
+  const [copied,    setCopied]    = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const { data } = await supabase
+        .from('promoter_followers')
+        .select('id, email, name, zip, radius_miles, notified_at, created_at')
+        .eq('promoter_id', promoterId)
+        .order('created_at', { ascending: false })
+      if (!cancelled) setFollowers(data || [])
+    }
+    load()
+    return () => { cancelled = true }
+  }, [promoterId])
+
+  const copyEmails = () => {
+    const list = [...new Set((followers || []).map(f => f.email).filter(Boolean))]
+    if (list.length === 0) return
+    navigator.clipboard?.writeText(list.join(', '))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  if (followers === null || followers.length === 0) return null
+
+  return (
+    <div style={{ padding: '1rem 1.5rem 0' }}>
+      <div style={{
+        background: C.card, border: `1px solid ${C.border}`,
+        borderRadius: '12px', padding: '0.85rem 1rem',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button
+            onClick={() => setExpanded(e => !e)}
+            style={{
+              background: 'transparent', border: 'none', color: C.text,
+              cursor: 'pointer', fontFamily: FONT, fontSize: '0.85rem',
+              fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: 0,
+            }}
+          >
+            <span style={{ color: BRAND.neon }}>{followers.length}</span>
+            <span style={{ color: C.textMid, fontWeight: '600' }}>
+              {followers.length === 1 ? 'follower' : 'followers'} · auto-emailed when you create new events
+            </span>
+            <span style={{ color: C.textDim }}>{expanded ? '▴' : '▾'}</span>
+          </button>
+          {expanded && (
+            <button
+              onClick={copyEmails}
+              style={{
+                background: 'transparent', color: copied ? BRAND.neon : C.textMid,
+                border: `1px solid ${C.border}`, borderRadius: '6px',
+                padding: '0.3rem 0.7rem', fontSize: '0.72rem', fontWeight: '700',
+                cursor: 'pointer', fontFamily: FONT,
+              }}
+            >
+              {copied ? '✓ Copied' : 'Copy emails'}
+            </button>
+          )}
+        </div>
+
+        {expanded && (
+          <div style={{ marginTop: '0.75rem', borderTop: `1px solid ${C.border}`, paddingTop: '0.75rem' }}>
+            {followers.map(f => (
+              <div key={f.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '0.4rem 0', fontSize: '0.8rem',
+              }}>
+                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ color: C.text, fontWeight: '700' }}>{f.name || '—'}</span>
+                  <span style={{ color: C.textMid, marginLeft: '0.5rem' }}>{f.email}</span>
+                </div>
+                <div style={{ color: C.textDim, fontSize: '0.72rem', flexShrink: 0, marginLeft: '0.6rem' }}>
+                  {f.zip ? `${f.zip} · ${f.radius_miles}mi` : `${f.radius_miles}mi`}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

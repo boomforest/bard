@@ -338,6 +338,17 @@ export default {
   'signup.done.promoterBody':   'Te contactamos cuando GRAIL esté listo para tu primer evento.',
   'signup.done.fanBody':        'Te avisamos cuando tu primer show salga al aire.',
 
+  // ─── Promoter follower ───────────────────────────────────────────────────
+  'follow.cta':                 'Recibe avisos de {promoter}',
+  'follow.body':                'Déjanos tu correo y te avisamos cuando este promotor anuncie shows nuevos cerca de ti.',
+  'follow.zipPh':               'Tu código postal',
+  'follow.radius':              '¿Qué tan lejos viajarás?',
+  'follow.subscribe':           'Suscribirme',
+  'follow.subscribing':         'Suscribiendo…',
+  'follow.invalidEmail':        'Ingresa un correo válido.',
+  'follow.done.title':          'Estás suscrito.',
+  'follow.done.body':           'Te avisamos cuando {promoter} anuncie un show nuevo.',
+
   // ─── Locale toggle ───────────────────────────────────────────────────────
   'locale.es':                  'ES',
   'locale.en':                  'EN',

@@ -1203,6 +1203,20 @@ export default function GrailSetup() {
       } else {
         const event = await createEventFromSetup(data, session.user.id)
         setLaunchedSlug(event.slug)
+        // Fire-and-forget follower blast. Failure here doesn't block
+        // the launch — the event is created either way and the promoter
+        // can manually re-trigger from the dashboard if needed.
+        fetch('/.netlify/functions/send-new-event-notification', {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            event_id: event.id,
+            origin:   window.location.origin,
+          }),
+        }).catch(err => console.warn('follower blast failed (non-fatal):', err.message))
       }
     } catch (err) {
       setLaunchError(err.message || (isEdit ? 'Could not save changes.' : 'Could not launch the event.'))
