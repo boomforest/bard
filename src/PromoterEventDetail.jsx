@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
+import { fmtPriceCents } from './currencies'
 import { BRAND, C, FONT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
-
-const dollars = (cents) => `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 
 const fmtDate = (iso) => {
   if (!iso) return ''
@@ -88,7 +87,7 @@ export default function PromoterEventDetail() {
     if (!confirm(
       `Close out the bar?\n\n` +
       `${activeBalances.length} active balance${activeBalances.length === 1 ? '' : 's'}\n` +
-      `$${(unspentTotal / 100).toFixed(2)} in unspent Doves will be refunded to buyers.\n\n` +
+      `${fmtPriceCents(unspentTotal, event?.currency)} in unspent Doves will be refunded to buyers.\n\n` +
       `The 2% Grail fee on the original load is non-refundable.`
     )) return
 
@@ -239,8 +238,8 @@ export default function PromoterEventDetail() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
           <Stat label="Tickets sold" value={`${sold} / ${cap}`} accent={C.text} />
           <Stat label="Admitted" value={`${admittedCount}`} accent={BRAND.neon} />
-          <Stat label="Gross" value={dollars(grossCents)} accent={C.text} />
-          <Stat label="Net (after 2%)" value={dollars(netCents)} accent={BRAND.pink} />
+          <Stat label="Gross" value={fmtPriceCents(grossCents, event?.currency)} accent={C.text} />
+          <Stat label="Net (after 2%)" value={fmtPriceCents(netCents, event?.currency)} accent={BRAND.pink} />
         </div>
 
         {/* Quick actions */}
@@ -290,11 +289,11 @@ export default function PromoterEventDetail() {
               <div style={eyebrowStyle()}>Doves balances</div>
               <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '1.1rem 1.3rem', marginBottom: '0.75rem' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem', marginBottom: active.length > 0 ? '1rem' : '0' }}>
-                  <MiniStat label="Loaded"   value={dollars(totalLoaded)}   accent={C.text} />
-                  <MiniStat label="Spent"    value={dollars(totalSpent)}    accent={BRAND.neon} />
+                  <MiniStat label="Loaded"   value={fmtPriceCents(totalLoaded, event?.currency)}   accent={C.text} />
+                  <MiniStat label="Spent"    value={fmtPriceCents(totalSpent, event?.currency)}    accent={BRAND.neon} />
                   <MiniStat label="Active"   value={`${active.length}`}     accent={C.text} />
-                  <MiniStat label="Unspent"  value={dollars(totalUnspent)}  accent={BRAND.orange} />
-                  <MiniStat label="Refunded" value={dollars(totalRefunded)} accent={C.textMid} />
+                  <MiniStat label="Unspent"  value={fmtPriceCents(totalUnspent, event?.currency)}  accent={BRAND.orange} />
+                  <MiniStat label="Refunded" value={fmtPriceCents(totalRefunded, event?.currency)} accent={C.textMid} />
                 </div>
                 {active.length > 0 && (
                   <button
@@ -308,7 +307,7 @@ export default function PromoterEventDetail() {
                       cursor: closingOut ? 'wait' : 'pointer', fontFamily: FONT,
                     }}
                   >
-                    {closingOut ? 'Closing out…' : `Close Out Bar — refund ${dollars(totalUnspent)}`}
+                    {closingOut ? 'Closing out…' : `Close Out Bar — refund ${fmtPriceCents(totalUnspent, event?.currency)}`}
                   </button>
                 )}
                 {active.length === 0 && (
@@ -319,7 +318,7 @@ export default function PromoterEventDetail() {
               </div>
               {closeOutResult && !closeOutResult.error && (
                 <div style={{ background: 'rgba(170,255,0,0.06)', border: `1px solid ${BRAND.neon}44`, borderRadius: '10px', padding: '0.75rem 1rem', color: BRAND.neon, fontSize: '0.82rem' }}>
-                  ✓ Closed out {closeOutResult.refunded} balance{closeOutResult.refunded === 1 ? '' : 's'} — refunded {dollars(closeOutResult.total_refunded_cents || 0)}
+                  ✓ Closed out {closeOutResult.refunded} balance{closeOutResult.refunded === 1 ? '' : 's'} — refunded {fmtPriceCents(closeOutResult.total_refunded_cents || 0, event?.currency)}
                   {closeOutResult.errors?.length > 0 && (
                     <div style={{ color: BRAND.orange, marginTop: '0.4rem' }}>{closeOutResult.errors.length} balance(s) had errors — check logs.</div>
                   )}
@@ -351,11 +350,11 @@ export default function PromoterEventDetail() {
                     <div>
                       <div style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem' }}>{t.name}</div>
                       <div style={{ color: C.textMid, fontSize: '0.78rem', marginTop: '0.15rem' }}>
-                        {dollars(t.price_cents)} · {t.sold || 0}/{t.qty} sold · {remaining} left
+                        {fmtPriceCents(t.price_cents, event?.currency)} · {t.sold || 0}/{t.qty} sold · {remaining} left
                       </div>
                     </div>
                     <div style={{ color: BRAND.pink, fontWeight: '800', fontSize: '0.95rem' }}>
-                      {dollars(tierGross)}
+                      {fmtPriceCents(tierGross, event?.currency)}
                     </div>
                   </div>
                 )

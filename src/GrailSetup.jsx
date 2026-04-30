@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { createEventFromSetup } from './eventService'
 import { FEATURED_DRINKS } from './featuredDrinks'
-import { CURRENCIES, DEFAULT_CURRENCY } from './currencies'
+import { CURRENCIES, DEFAULT_CURRENCY, fmtPrice } from './currencies'
 
 // Builds the default barItems[] for a brand-new event — the 4 featured
 // hydration-forward drinks with their default prices. Promoters can edit
@@ -480,14 +480,14 @@ function StepTickets({ data, setData, onBack, onNext }) {
           {tiers.map(t => (
             <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: C.text, marginBottom: '0.2rem' }}>
               <span>{t.name || '—'}</span>
-              <span style={{ color: C.textMid }}>{t.qty ? `${t.qty} × ` : ''}<span style={{ color: C.goldLight }}>${t.price || '—'}</span></span>
+              <span style={{ color: C.textMid }}>{t.qty ? `${t.qty} × ` : ''}<span style={{ color: C.goldLight }}>{t.price ? fmtPrice(t.price, data.currency) : '—'}</span></span>
             </div>
           ))}
           {tiers.length > 0 && tiers[0].qty && tiers[0].price && (
             <div style={{ borderTop: `1px solid ${C.border}`, marginTop: '0.5rem', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
               <span style={{ color: C.textMid }}>Max gross</span>
               <span style={{ color: C.goldLight, fontWeight: '700' }}>
-                ${tiers.reduce((s, t) => s + (Number(t.qty) * Number(t.price) || 0), 0).toLocaleString()}
+                {fmtPrice(tiers.reduce((s, t) => s + (Number(t.qty) * Number(t.price) || 0), 0), data.currency)}
               </span>
             </div>
           )}
@@ -849,7 +849,7 @@ function StepReview({ data, onBack, onLaunch, launching, launchError, launchedSl
       {/* Tickets */}
       <ReviewCard title="Tickets">
         {tiers.map(t => (
-          <ReviewRow key={t.id} label={t.name} value={`$${t.price} · ${t.qty} available`} />
+          <ReviewRow key={t.id} label={t.name} value={`${fmtPrice(t.price, data.currency)} · ${t.qty} available`} />
         ))}
       </ReviewCard>
 

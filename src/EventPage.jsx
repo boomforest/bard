@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { fmtPriceCents } from './currencies'
 import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
@@ -24,7 +25,8 @@ const fmtTime = (timeStr) => {
   return `${h12}:${m} ${ampm}`
 }
 
-const dollars = (cents) => `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+// Use fmtPriceCents from currencies.js — keeps the currency code visible
+// so $50 MXN never gets confused with $50 USD.
 
 export default function EventPage() {
   const { slug } = useParams()
@@ -224,7 +226,7 @@ export default function EventPage() {
                           <div style={{ color: C.textMid, fontSize: '0.78rem', marginBottom: '0.25rem' }}>{t.description}</div>
                         )}
                         <div style={{ color: BRAND.pink, fontWeight: '800', fontSize: '0.95rem' }}>
-                          {dollars(t.price_cents)}
+                          {fmtPriceCents(t.price_cents, event?.currency)}
                           {!soldOut && remaining < 20 && (
                             <span style={{ color: BRAND.orange, fontWeight: '600', fontSize: '0.72rem', marginLeft: '0.5rem' }}>
                               · {remaining} left
@@ -284,7 +286,7 @@ export default function EventPage() {
                     {totalTickets} ticket{totalTickets !== 1 ? 's' : ''}
                   </div>
                   <div style={{ color: C.text, fontWeight: '900', fontSize: '1.2rem', letterSpacing: '-0.02em' }}>
-                    {dollars(totalCents)}
+                    {fmtPriceCents(totalCents, event?.currency)}
                   </div>
                 </div>
                 <button
@@ -397,12 +399,12 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
           {items.map(i => (
             <div key={i.tier_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: C.text, marginBottom: '0.3rem' }}>
               <span>{i.qty}× {i.name}</span>
-              <span style={{ color: BRAND.pink, fontWeight: '700' }}>${((i.qty * i.price_cents) / 100).toLocaleString()}</span>
+              <span style={{ color: BRAND.pink, fontWeight: '700' }}>{fmtPriceCents(i.qty * i.price_cents, event.currency)}</span>
             </div>
           ))}
           <div style={{ borderTop: `1px solid ${C.border}`, marginTop: '0.5rem', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: C.text, fontWeight: '800' }}>
             <span>Total</span>
-            <span style={{ color: BRAND.neon }}>${(totalCents / 100).toLocaleString()}</span>
+            <span style={{ color: BRAND.neon }}>{fmtPriceCents(totalCents, event.currency)}</span>
           </div>
         </div>
 
