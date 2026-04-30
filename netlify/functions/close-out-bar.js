@@ -92,6 +92,14 @@ exports.handler = async (event) => {
           // absorbs the refund. Used as a manual override when the
           // standard path fails and the promoter wants to settle
           // immediately. Reconcile the platform's exposure later.
+          // Idempotency key keyed on (balance_id, source). If the Stripe
+          // call succeeds but the Supabase update afterwards fails, the
+          // next retry passes the same key — Stripe returns the existing
+          // refund object instead of creating a duplicate. No double-charge.
+          // Source is included in the key so a manual platform-balance
+          // retry after a failed connected-account attempt is treated as
+          // a distinct operation by Stripe.
+          const idempotencyKey = `closeout_${b.id}_${force_platform_balance ? 'platform' : 'connected'}`
           refundResult = await stripe.refunds.create({
             payment_intent:         b.stripe_payment_intent_id,
             amount:                 unspent,
@@ -104,6 +112,8 @@ exports.handler = async (event) => {
               refunded_by:    user.id,
               source:         force_platform_balance ? 'platform_balance' : 'connected_account',
             },
+          }, {
+            idempotencyKey,
           })
         }
         await supabase

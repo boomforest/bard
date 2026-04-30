@@ -68,6 +68,10 @@ exports.handler = async () => {
     let lastError = null
 
     try {
+      // Idempotency key — same shape as close-out-bar. A retry after a
+      // failed Supabase update will return the existing refund instead
+      // of creating a duplicate. Critical for the scheduled fn since
+      // it runs daily and would otherwise re-attempt every active tab.
       refund = await stripe.refunds.create({
         payment_intent:         tab.stripe_payment_intent_id,
         amount:                 unspent,
@@ -80,6 +84,8 @@ exports.handler = async () => {
           source:      'connected_account',
           trigger:     'auto',
         },
+      }, {
+        idempotencyKey: `closeout_${tab.id}_connected`,
       })
     } catch (e) {
       lastError = e
