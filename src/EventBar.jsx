@@ -63,13 +63,79 @@ function CustomerView({ event, menu, onOrderPlaced }) {
   const [cat,       setCat]       = useState('all')
   const [cart,      setCart]      = useState([])
   const [cartOpen,  setCartOpen]  = useState(false)
-  const [confirmed, setConfirmed] = useState(null)
+  // Persist the customer's active order so refresh doesn't lose it AND
+  // status changes from staff (pending → making → ready → done) propagate
+  // live via realtime subscription. Cleared from localStorage when staff
+  // marks the order done.
+  const [currentOrder, setCurrentOrder] = useState(null)
   const [name,      setName]      = useState('')
   const [showName,  setShowName]  = useState(false)
   const [placing,   setPlacing]   = useState(false)
   const [payOpen,   setPayOpen]   = useState(false)
   const [clientSecret, setClientSecret] = useState(null)
   const [payErr,    setPayErr]    = useState('')
+
+  const orderKey = `bar-last-order-${event.id}`
+
+  // Restore on mount: read last order id from localStorage, fetch from DB
+  useEffect(() => {
+    let cancelled = false
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(orderKey) : null
+    if (!stored) return
+    async function check() {
+      const { data } = await supabase
+        .from('bar_orders')
+        .select('*')
+        .eq('id', stored)
+        .maybeSingle()
+      if (cancelled) return
+      // If the order is gone or already done/canceled, clear and let the
+      // customer see the menu fresh.
+      if (!data || data.status === 'done' || data.status === 'canceled') {
+        localStorage.removeItem(orderKey)
+        return
+      }
+      setCurrentOrder(data)
+      if (data.customer_name && !name) setName(data.customer_name)
+    }
+    check()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id])
+
+  // Realtime: while a current order exists, listen for status changes so
+  // the customer sees "Making → Ready" without refreshing.
+  useEffect(() => {
+    if (!currentOrder?.id) return
+    const channel = supabase
+      .channel(`bar-order-${currentOrder.id}`)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'bar_orders', filter: `id=eq.${currentOrder.id}` },
+        (payload) => {
+          const next = payload.new
+          if (next.status === 'done' || next.status === 'canceled') {
+            // Auto-dismiss when fully resolved
+            localStorage.removeItem(orderKey)
+            setCurrentOrder(null)
+          } else {
+            setCurrentOrder(next)
+          }
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentOrder?.id])
+
+  const stashOrder = (order) => {
+    setCurrentOrder(order)
+    try { localStorage.setItem(orderKey, order.id) } catch {/* quota */}
+  }
+
+  const dismissOrder = () => {
+    localStorage.removeItem(orderKey)
+    setCurrentOrder(null)
+  }
 
   // ── Doves balance (optional pre-load) ───────────────────────────────────────
   const tokenKey = `dove-token-${event.id}`
@@ -149,7 +215,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
         if (!res.ok) throw new Error(json.error || 'Order failed')
         setBalance(json.balance)
         onOrderPlaced(json.order)
-        setConfirmed(json.order.id)
+        stashOrder(json.order)
         setCart([]); setCartOpen(false); setName(''); setShowName(false)
       } catch (err) {
         setPayErr(err.message)
@@ -200,7 +266,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
       return
     }
     onOrderPlaced(order)
-    setConfirmed(orderId)
+    stashOrder(order)
     setCart([])
     setCartOpen(false)
     setName('')
@@ -209,27 +275,51 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     setClientSecret(null)
   }
 
-  if (confirmed) return (
-    <div style={{
-      minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', padding: '2rem',
-      textAlign: 'center', fontFamily: 'system-ui, sans-serif',
-    }}>
-      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🌅</div>
-      <div style={{ color: C.green, fontSize: '1.6rem', fontWeight: '800', marginBottom: '0.4rem' }}>
-        Order #{confirmed}
+  if (currentOrder) {
+    const status = currentOrder.status || 'pending'
+    const ready  = status === 'ready'
+    const making = status === 'making'
+    const headline =
+      ready  ? 'Ready! 🥂' :
+      making ? 'Bartender is making it' :
+               'Order received'
+    const headlineColor = ready ? C.green : making ? C.blue : C.goldLight
+    const subline =
+      ready  ? 'Walk up to the bar — they\'ll hand it to you.' :
+      making ? 'You\'re next in line. Hold tight.' :
+               'The bartender has your order. We\'ll call you when it\'s ready.'
+
+    return (
+      <div style={{
+        minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', padding: '2rem',
+        textAlign: 'center', fontFamily: 'system-ui, sans-serif',
+      }}>
+        <div style={{
+          fontSize: '4rem', marginBottom: '1rem',
+          animation: ready ? 'pulse 1.4s ease-in-out infinite' : 'none',
+        }}>
+          {ready ? '🥂' : making ? '🔨' : '🌅'}
+        </div>
+        <div style={{ color: headlineColor, fontSize: '1.7rem', fontWeight: '900', marginBottom: '0.3rem', letterSpacing: '-0.02em' }}>
+          {headline}
+        </div>
+        <div style={{ color: C.text, fontSize: '1.05rem', fontWeight: '700', marginBottom: '0.4rem' }}>
+          Order #{currentOrder.id}
+        </div>
+        <div style={{ color: C.textMid, fontSize: '0.92rem', marginBottom: '2rem', maxWidth: '320px' }}>
+          {subline}
+        </div>
+        <button
+          style={{ background: 'transparent', color: C.textMid, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '0.7rem 1.4rem', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
+          onClick={dismissOrder}
+        >
+          Order again
+        </button>
+        <style>{`@keyframes pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.12) } }`}</style>
       </div>
-      <div style={{ color: C.textMid, fontSize: '0.95rem', marginBottom: '2rem' }}>
-        The bartender has your order. We'll call you when it's ready.
-      </div>
-      <button
-        style={{ background: C.gold, color: '#000', border: 'none', borderRadius: '10px', padding: '0.9rem 2rem', fontSize: '1rem', fontWeight: '700', cursor: 'pointer' }}
-        onClick={() => setConfirmed(null)}
-      >
-        Order Again
-      </button>
-    </div>
-  )
+    )
+  }
 
   const catLabel = key => ({ spirits: 'Spirits', beer: 'Beer', cocktail: 'Cocktails', na: 'No Alc', snacks: 'Snacks', all: 'All' }[key] || key)
 
