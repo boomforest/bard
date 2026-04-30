@@ -3,10 +3,14 @@ import { useParams } from 'react-router-dom'
 import { supabase } from './supabase'
 import { QRCode } from 'react-qrcode-logo'
 import { BRAND, C, FONT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
+import { useT, useLocale } from './i18n'
+import LocaleToggle from './LocaleToggle'
 
-const fmtDate = (iso) => {
+const localeTag = (l) => (l === 'es' ? 'es-MX' : 'en-US')
+
+const fmtDate = (iso, locale = 'es') => {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString('en-US', {
+  return new Date(iso).toLocaleDateString(localeTag(locale), {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
     timeZone: 'America/Mexico_City',
   })
@@ -29,6 +33,8 @@ const fmtTime = (timeStr, iso) => {
 }
 
 export default function TicketView() {
+  const t = useT()
+  const { locale } = useLocale()
   const { ticketId } = useParams()
   const [ticket, setTicket] = useState(null)
   const [event, setEvent]   = useState(null)
@@ -47,7 +53,7 @@ export default function TicketView() {
         .maybeSingle()
       if (cancelled) return
       if (err || !data) {
-        setError('Ticket not found.')
+        setError('not_found')
         setLoading(false)
         return
       }
@@ -72,15 +78,15 @@ export default function TicketView() {
       <div style={{ ...PAGE, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
         <div style={{ textAlign: 'center', maxWidth: '380px' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕊</div>
-          <div style={{ color: C.text, fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>{error}</div>
-          <div style={{ color: C.textMid, fontSize: '0.85rem' }}>Check your link and try again.</div>
+          <div style={{ color: C.text, fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>{t('ticket.notFound')}</div>
+          <div style={{ color: C.textMid, fontSize: '0.85rem' }}>{t('ticket.checkLink')}</div>
         </div>
       </div>
     )
   }
 
   const eventName = event?.name || event?.artist_name || 'Event'
-  const dateStr   = fmtDate(event?.show_date || event?.event_date)
+  const dateStr   = fmtDate(event?.show_date || event?.event_date, locale)
   const timeStr   = fmtTime(event?.doors_time, event?.show_date || event?.event_date)
   const venue     = event?.venue_hint || event?.venue_address || event?.address || ''
 
@@ -102,8 +108,12 @@ export default function TicketView() {
         background: 'radial-gradient(ellipse, rgba(204,68,238,0.08) 0%, transparent 65%)',
       }} />
 
-      <div style={{ marginBottom: '1.25rem', position: 'relative', zIndex: 1 }}>
+      <div style={{
+        marginBottom: '1.25rem', position: 'relative', zIndex: 1,
+        display: 'flex', alignItems: 'center', gap: '0.85rem',
+      }}>
         <div style={LogoMark({ size: 56 })}>GRAIL</div>
+        <LocaleToggle />
       </div>
 
       <div style={{
@@ -122,7 +132,7 @@ export default function TicketView() {
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 30%, rgba(18,18,26,0.95) 100%)' }} />
           <div style={{ position: 'absolute', bottom: '0.85rem', left: '1.2rem', right: '1.2rem' }}>
             <div style={{ ...eyebrowStyle(BRAND.pink), fontSize: '0.62rem', marginBottom: '0.3rem' }}>
-              {ticket?.torn ? 'Already Admitted' : 'Active Ticket'}
+              {ticket?.torn ? t('ticket.alreadyAdmitted') : t('ticket.activeTicket')}
             </div>
             <div style={{ color: C.text, fontWeight: '900', fontSize: '1.3rem', lineHeight: 1.15, letterSpacing: '-0.02em' }}>
               {eventName}
@@ -136,7 +146,7 @@ export default function TicketView() {
         {/* Venue */}
         {venue && (
           <div style={{ padding: '1rem 1.2rem 0' }}>
-            <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.2rem' }}>Venue</div>
+            <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.2rem' }}>{t('ticket.venue')}</div>
             <div style={{ color: C.text, fontWeight: '700', fontSize: '0.92rem' }}>{venue}</div>
           </div>
         )}
@@ -163,9 +173,9 @@ export default function TicketView() {
             />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.3rem' }}>Ticket holder</div>
+            <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.3rem' }}>{t('ticket.holder')}</div>
             <div style={{ color: C.text, fontWeight: '700', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {ticket?.name || 'Guest'}
+              {ticket?.name || t('ticket.guest')}
             </div>
             <div style={{ color: BRAND.pink, fontWeight: '800', fontSize: '0.85rem', marginTop: '0.3rem' }}>
               #{ticket?.ticket_number}
@@ -177,7 +187,7 @@ export default function TicketView() {
             )}
             {ticket?.torn && (
               <div style={{ marginTop: '0.5rem' }}>
-                <span style={badgeStyle('neutral')}>USED</span>
+                <span style={badgeStyle('neutral')}>{t('ticket.used')}</span>
               </div>
             )}
           </div>
@@ -185,7 +195,7 @@ export default function TicketView() {
       </div>
 
       <div style={{ color: C.textMid, fontSize: '0.78rem', marginTop: '1rem', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-        {ticket?.torn ? 'This ticket has already been used.' : 'Show this screen at the door.'}
+        {ticket?.torn ? t('ticket.alreadyUsed') : t('ticket.showAtDoor')}
       </div>
 
       {/* Bar entry — only show when the event has bar enabled and a slug */}
@@ -200,13 +210,17 @@ export default function TicketView() {
             position: 'relative', zIndex: 1, fontFamily: FONT,
           }}
         >
-          Order from the bar →
+          {t('ticket.orderFromBar')}
         </a>
       )}
 
       {ticket?.torn && ticket?.torn_at && (
         <div style={{ color: C.textDim, fontSize: '0.72rem', marginTop: '0.4rem', position: 'relative', zIndex: 1 }}>
-          Admitted {new Date(ticket.torn_at).toLocaleString('en-US', { timeZone: 'America/Mexico_City', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+          {t('ticket.admittedAt', {
+            when: new Date(ticket.torn_at).toLocaleString(localeTag(locale), {
+              timeZone: 'America/Mexico_City', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+            }),
+          })}
         </div>
       )}
     </div>
