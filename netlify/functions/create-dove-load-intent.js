@@ -24,8 +24,9 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { event_id, amount_cents, email, customer_name } = JSON.parse(event.body || '{}')
+    const { event_id, amount_cents, email, customer_name, lang } = JSON.parse(event.body || '{}')
     const amount = Math.floor(Number(amount_cents) || 0)
+    const buyerLang = lang === 'en' ? 'en' : 'es'
     if (!event_id) throw new Error('event_id required')
     if (!amount || amount < MIN_LOAD_CENTS) throw new Error(`Minimum load is $${MIN_LOAD_CENTS / 100}`)
     if (amount > MAX_LOAD_CENTS) throw new Error(`Maximum load is $${MAX_LOAD_CENTS / 100}`)
@@ -72,6 +73,7 @@ exports.handler = async (event) => {
         amount_cents:   String(amount),
         email:          email || '',
         customer_name:  customer_name || '',
+        buyer_lang:     buyerLang,
       },
     })
 

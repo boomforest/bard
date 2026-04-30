@@ -349,6 +349,7 @@ export default function EventPage() {
 // ─── CHECKOUT MODAL ───────────────────────────────────────────────────────────
 function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
   const t = useT()
+  const { locale } = useLocale()
   const [stage, setStage] = useState('details')   // details | pay
   const [name,  setName]  = useState('')
   const [email, setEmail] = useState('')
@@ -375,6 +376,7 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
           items:       items.map(i => ({ tier_id: i.tier_id, qty: i.qty })),
           buyer_email: email,
           buyer_name:  name,
+          lang:        locale,
         }),
       })
       const json = await res.json()
@@ -529,6 +531,7 @@ function PaymentStep({ onBack, onSuccess }) {
 // promoter can blast them from the dashboard if a ticket frees up.
 function WaitlistSignup({ eventId, eventName }) {
   const t = useT()
+  const { locale } = useLocale()
   const [email, setEmail] = useState('')
   const [name,  setName]  = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -543,7 +546,7 @@ function WaitlistSignup({ eventId, eventName }) {
     const { error } = await supabase
       .from('event_waitlist')
       .upsert(
-        { event_id: eventId, email: email.trim().toLowerCase(), name: name.trim() || null },
+        { event_id: eventId, email: email.trim().toLowerCase(), name: name.trim() || null, lang: locale },
         { onConflict: 'event_id,email', ignoreDuplicates: true },
       )
     setSubmitting(false)
