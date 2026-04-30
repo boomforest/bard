@@ -7,6 +7,8 @@ import { fmtPriceCents } from './currencies'
 import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
 import { useT, useLocale } from './i18n'
 import LocaleToggle from './LocaleToggle'
+import GrailOptIn from './GrailOptIn'
+import { subscribeToGrail } from './eventService'
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
@@ -367,6 +369,7 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [clientSecret, setClientSecret] = useState(null)
+  const [grailOptIn, setGrailOptIn] = useState(false)
 
   const items = tiers
     .filter(ti => qty[ti.id] > 0)
@@ -392,6 +395,10 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
       })
       const json = await res.json()
       if (!res.ok || !json.clientSecret) throw new Error(json.error || t('checkout.startError'))
+      if (grailOptIn) {
+        // Don't await — opt-in shouldn't block payment if it errors.
+        subscribeToGrail({ email, name, lang: locale, source: 'checkout' })
+      }
       setClientSecret(json.clientSecret)
       setStage('pay')
     } catch (err) {
@@ -440,6 +447,7 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
           <form onSubmit={handleProceed} style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
             <input style={INPUT} type="text" placeholder={t('checkout.namePh')} value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
             <input style={INPUT} type="email" placeholder={t('common.email')} value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+            <GrailOptIn checked={grailOptIn} onChange={setGrailOptIn} />
             {error && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{error}</div>}
             <button type="submit" disabled={loading} style={{
               background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
@@ -548,6 +556,7 @@ function WaitlistSignup({ eventId, eventName }) {
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
+  const [grailOptIn, setGrailOptIn] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
@@ -562,6 +571,7 @@ function WaitlistSignup({ eventId, eventName }) {
       )
     setSubmitting(false)
     if (error) { setErr(error.message); return }
+    if (grailOptIn) subscribeToGrail({ email, name, lang: locale, source: 'waitlist' })
     setDone(true)
   }
 
@@ -597,6 +607,7 @@ function WaitlistSignup({ eventId, eventName }) {
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
         <input style={INPUT} type="email" placeholder={t('common.email')} value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
         <input style={INPUT} type="text"  placeholder={t('waitlist.namePh')} value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
+        <GrailOptIn checked={grailOptIn} onChange={setGrailOptIn} />
         {err && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{err}</div>}
         <button type="submit" disabled={submitting} style={{
           background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
@@ -627,6 +638,7 @@ function FollowPromoter({ promoter }) {
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
+  const [grailOptIn, setGrailOptIn] = useState(false)
 
   const promoterName = promoter?.username || promoter?.handle || 'this promoter'
 
@@ -650,6 +662,7 @@ function FollowPromoter({ promoter }) {
       )
     setSubmitting(false)
     if (error) { setErr(error.message); return }
+    if (grailOptIn) subscribeToGrail({ email, name, lang: locale, source: 'follow_promoter' })
     setDone(true)
   }
 
@@ -725,6 +738,7 @@ function FollowPromoter({ promoter }) {
             ))}
           </div>
         </div>
+        <GrailOptIn checked={grailOptIn} onChange={setGrailOptIn} />
         {err && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{err}</div>}
         <button type="submit" disabled={submitting} style={{
           background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
