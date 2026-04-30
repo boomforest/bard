@@ -1,18 +1,24 @@
-// Scheduled function — runs daily and tries to close out any bar_tabs
-// that are still active for events that have already happened.
+// Scheduled function — runs daily and tries the standard refund flow on
+// any bar_tabs still active after their event has happened.
 //
 // Cadence (per netlify.toml):  0 12 * * *   (noon UTC, daily)
 //
 // Logic per tab:
 //   1. If event.show_date is in the past, attempt a normal refund
-//      (reverse_transfer:true). This will succeed when the bar's
-//      Connect account has cleared funds available.
-//   2. If reverse_transfer fails AND the show was 7+ days ago, retry
-//      with reverse_transfer:false (platform-balance fallback). The
-//      platform absorbs the float; reconcile when the bar's pending
-//      funds eventually settle.
+//      (reverse_transfer:true). Succeeds the moment the bar's Connect
+//      account has cleared funds available — typically a few days after
+//      the event, depending on Stripe's payout schedule for that
+//      account.
+//   2. If reverse_transfer fails, log it to the /admin Errors inbox
+//      and move on. Tomorrow's run will try again.
 //   3. Tabs with status='active' and no unspent balance just get
 //      marked 'depleted' (no refund needed).
+//
+// EXPLICITLY does NOT fall back to platform-balance refunds. JP doesn't
+// want auto-drains on his platform balance — that's a customer/promoter
+// dispute he'd be absorbing the cost of. The only path to a
+// platform-balance refund is the manual admin-only button in
+// PromoterEventDetail.
 //
 // SHOW/BAR ECONOMY — refunds go back to the buyer's original card via
 // Stripe. DO NOT WRITE to profiles.dov_balance from here.
@@ -20,9 +26,6 @@
 const Stripe = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
 const { reportServerError } = require('./_lib/server-error-report.cjs')
-
-const ONE_DAY_MS = 24 * 60 * 60 * 1000
-const SEVEN_DAYS_MS = 7 * ONE_DAY_MS
 
 exports.handler = async () => {
   const stripe = Stripe(process.env.STRIPE_SECRET_KEY)
@@ -32,29 +35,26 @@ exports.handler = async () => {
     { auth: { persistSession: false } },
   )
 
-  // Pull active tabs whose event has already happened. We do the
-  // 7-day cutoff per-tab rather than in SQL so we can cleanly
-  // distinguish "try standard refund first" vs "fall back to platform
-  // balance".
-  const now = Date.now()
+  const nowIso = new Date().toISOString()
+
   const { data: tabs, error: tabsErr } = await supabase
     .from('bar_tabs')
     .select('id, event_id, loaded_cents, spent_cents, stripe_payment_intent_id, events!inner(show_date)')
     .eq('status', 'active')
-    .lt('events.show_date', new Date(now).toISOString())
+    .lt('events.show_date', nowIso)
 
   if (tabsErr) {
     console.error('auto-close-bar: failed to fetch tabs', tabsErr)
     return { statusCode: 500, body: JSON.stringify({ error: tabsErr.message }) }
   }
 
-  const summary = { processed: 0, refunded: 0, platform_fallback: 0, depleted: 0, errors: [] }
+  const summary = { processed: 0, refunded: 0, depleted: 0, errors: [] }
 
   for (const tab of tabs || []) {
     summary.processed += 1
     const unspent = tab.loaded_cents - tab.spent_cents
 
-    // Nothing to refund — just mark depleted
+    // Nothing to refund — mark depleted and move on
     if (unspent <= 0) {
       await supabase
         .from('bar_tabs')
@@ -64,15 +64,9 @@ exports.handler = async () => {
       continue
     }
 
-    const showDate = tab.events?.show_date ? new Date(tab.events.show_date).getTime() : 0
-    const daysSinceShow = (now - showDate) / ONE_DAY_MS
-    const allowPlatformFallback = daysSinceShow >= 7
-
     let refund = null
-    let usedFallback = false
     let lastError = null
 
-    // Pass 1: standard reverse-transfer
     try {
       refund = await stripe.refunds.create({
         payment_intent:         tab.stripe_payment_intent_id,
@@ -91,29 +85,6 @@ exports.handler = async () => {
       lastError = e
     }
 
-    // Pass 2: platform-balance fallback if standard failed AND
-    // the show is 7+ days behind us
-    if (!refund && allowPlatformFallback) {
-      try {
-        refund = await stripe.refunds.create({
-          payment_intent:         tab.stripe_payment_intent_id,
-          amount:                 unspent,
-          refund_application_fee: false,
-          reverse_transfer:       false,
-          metadata: {
-            kind:        'dove_closeout',
-            balance_id:  tab.id,
-            event_id:    tab.event_id,
-            source:      'platform_balance',
-            trigger:     'auto_after_grace',
-          },
-        })
-        usedFallback = true
-      } catch (e) {
-        lastError = e
-      }
-    }
-
     if (refund) {
       await supabase
         .from('bar_tabs')
@@ -126,24 +97,22 @@ exports.handler = async () => {
         })
         .eq('id', tab.id)
       summary.refunded += 1
-      if (usedFallback) summary.platform_fallback += 1
     } else {
       console.warn(`auto-close-bar: tab ${tab.id} refund failed`, lastError?.message)
       summary.errors.push({ balance_id: tab.id, error: lastError?.message || 'unknown' })
-      // Surface to /admin Errors inbox. Scheduled fn has no client to
-      // bubble errors back to, so this is the only path.
+      // Surface to /admin Errors inbox so JP knows when promoter
+      // accounts have stuck pending balances. Scheduled fn has no
+      // client to bubble errors back to.
       await reportServerError({
         message: `auto-close-bar: ${lastError?.message || 'unknown error'}`,
         stack:   lastError?.stack,
         context: {
-          fn:           'auto-close-bar',
-          balance_id:   tab.id,
-          event_id:     tab.event_id,
+          fn:            'auto-close-bar',
+          balance_id:    tab.id,
+          event_id:      tab.event_id,
           unspent_cents: unspent,
-          days_since_show: daysSinceShow,
-          allow_platform_fallback: allowPlatformFallback,
-          stripe_code: lastError?.code || null,
-          stripe_type: lastError?.type || null,
+          stripe_code:   lastError?.code || null,
+          stripe_type:   lastError?.type || null,
         },
       })
     }

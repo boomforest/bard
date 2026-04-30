@@ -455,7 +455,7 @@ export default function PromoterEventDetail() {
                             <div style={{ color: C.text, fontSize: '0.78rem', lineHeight: 1.5, marginBottom: isAdmin ? '0.5rem' : 0 }}>
                               <strong style={{ color: BRAND.orange }}>If your Stripe account is still under review</strong>, incoming charges sit in pending balance and can't be refunded immediately — Stripe needs them cleared before reversing the transfer. This usually clears within 2–7 days of account verification.
                               <br /><br />
-                              <strong>You don't need to do anything</strong> — the platform retries the refund automatically once a day, and after 7 days the platform owner will close it out from their own balance if your funds still haven't cleared. Buyers always get refunded eventually.
+                              The platform retries the refund automatically once a day. As soon as your bar's funds clear settlement, the next nightly run will close out the unspent balances and your buyers get refunded. <strong>You're responsible for keeping the connected account funded</strong> while balances are open — the platform never auto-refunds from its own balance.
                             </div>
                             {isAdmin && (
                               <button
