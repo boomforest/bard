@@ -262,7 +262,9 @@ function CustomerView({ event, menu, onOrderPlaced }) {
       setBalance(json.balance)
       onOrderPlaced(json.order)
       stashOrder(json.order)
-      setCart([]); setCartOpen(false); setName(''); setShowName(false)
+      // Keep `name` populated — buyer already told us their name on the
+      // load-doves modal (or first order), no reason to re-ask each round.
+      setCart([]); setCartOpen(false); setShowName(false)
     } catch (err) {
       setPayErr(err.message)
     }

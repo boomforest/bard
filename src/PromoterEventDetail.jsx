@@ -38,6 +38,8 @@ export default function PromoterEventDetail() {
   const [pinSaving, setPinSaving] = useState(false)
   const [pinErr, setPinErr] = useState('')
   const [pinSaved, setPinSaved] = useState(false)
+  const [emailSweepStatus, setEmailSweepStatus] = useState(null)  // { sent, total, errors }
+  const [sweeping, setSweeping] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
@@ -154,6 +156,61 @@ export default function PromoterEventDetail() {
   const generatePin = () => {
     const fresh = String(Math.floor(1000 + Math.random() * 9000))
     setPinDraft(fresh)
+  }
+
+  // Resend the ticket-confirmation email to every (non-refunded) buyer
+  // by re-invoking send-event-confirmation grouped by buyer email.
+  // Useful pre-event ("did everyone get their links?") and post-event
+  // recovery if Resend hiccups silently for a batch.
+  const handleEmailSweep = async () => {
+    const live = tickets.filter(t => !t.refunded && t.email)
+    if (live.length === 0) { alert('No live tickets to email.'); return }
+    // Group by purchaser email so each buyer gets one email with all
+    // their ticket links — same shape as the original purchase email.
+    const groups = new Map()
+    for (const t of live) {
+      const key = (t.email || '').toLowerCase()
+      if (!groups.has(key)) groups.set(key, { email: t.email, name: t.name, ids: [] })
+      groups.get(key).ids.push(t.id)
+    }
+    if (!confirm(`Resend ticket confirmation to ${groups.size} buyer${groups.size === 1 ? '' : 's'} (${live.length} ticket${live.length === 1 ? '' : 's'} total)?`)) return
+
+    setSweeping(true)
+    setEmailSweepStatus(null)
+    let sent = 0
+    const errors = []
+    for (const g of groups.values()) {
+      try {
+        const res = await fetch('/.netlify/functions/send-event-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_id:    event.id,
+            ticket_ids:  g.ids,
+            buyer_email: g.email,
+            buyer_name:  g.name || '',
+            origin:      window.location.origin,
+          }),
+        })
+        if (res.ok) sent += 1
+        else {
+          const j = await res.json().catch(() => ({}))
+          errors.push({ email: g.email, error: j.error || `${res.status}` })
+        }
+      } catch (e) {
+        errors.push({ email: g.email, error: e.message })
+      }
+    }
+    setEmailSweepStatus({ sent, total: groups.size, errors })
+    setSweeping(false)
+  }
+
+  const copyAttendeeEmails = () => {
+    const list = [...new Set(tickets.filter(t => !t.refunded && t.email).map(t => t.email))]
+    if (list.length === 0) { alert('No live attendee emails.'); return }
+    navigator.clipboard?.writeText(list.join(', '))
+    setCopied('attendee-emails')
+    setTimeout(() => setCopied(''), 1500)
   }
 
   const handleRefund = async (ticket) => {
@@ -522,6 +579,57 @@ export default function PromoterEventDetail() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
             <div style={eyebrowStyle()}>Attendees ({tickets.length})</div>
           </div>
+
+          {tickets.length > 0 && (
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+              <button
+                onClick={copyAttendeeEmails}
+                style={{
+                  background: 'transparent', color: copied === 'attendee-emails' ? BRAND.neon : C.text,
+                  border: `1px solid ${C.border}`, borderRadius: '8px',
+                  padding: '0.5rem 0.85rem', fontSize: '0.78rem', fontWeight: '700',
+                  cursor: 'pointer', fontFamily: FONT,
+                }}
+              >
+                {copied === 'attendee-emails' ? '✓ Copied' : 'Copy all emails'}
+              </button>
+              <button
+                onClick={handleEmailSweep}
+                disabled={sweeping}
+                style={{
+                  background: sweeping ? '#1a1a24' : BRAND.gradient, color: '#000',
+                  border: 'none', borderRadius: '8px',
+                  padding: '0.5rem 0.85rem', fontSize: '0.78rem', fontWeight: '800',
+                  cursor: sweeping ? 'wait' : 'pointer', fontFamily: FONT,
+                  opacity: sweeping ? 0.6 : 1,
+                }}
+              >
+                {sweeping ? 'Sending…' : 'Resend ticket emails to all'}
+              </button>
+            </div>
+          )}
+
+          {emailSweepStatus && (
+            <div style={{
+              background: emailSweepStatus.errors.length > 0 ? 'rgba(240,112,32,0.08)' : 'rgba(170,255,0,0.06)',
+              border: `1px solid ${(emailSweepStatus.errors.length > 0 ? BRAND.orange : BRAND.neon)}44`,
+              borderRadius: '10px', padding: '0.7rem 1rem',
+              color: emailSweepStatus.errors.length > 0 ? BRAND.orange : BRAND.neon,
+              fontSize: '0.82rem', marginBottom: '0.75rem',
+            }}>
+              ✓ Sent {emailSweepStatus.sent} of {emailSweepStatus.total}
+              {emailSweepStatus.errors.length > 0 && (
+                <div style={{ marginTop: '0.4rem', fontSize: '0.76rem' }}>
+                  {emailSweepStatus.errors.length} failed:{' '}
+                  {emailSweepStatus.errors.map((e, i) => (
+                    <span key={i}>
+                      {e.email} ({e.error}){i < emailSweepStatus.errors.length - 1 ? ', ' : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {refundErr && (
             <div style={{ background: 'rgba(240,112,32,0.08)', border: `1px solid ${BRAND.orange}55`, borderRadius: '10px', padding: '0.7rem 1rem', color: BRAND.orange, fontSize: '0.82rem', marginBottom: '0.75rem' }}>
