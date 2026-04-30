@@ -80,6 +80,7 @@ export async function createEventFromSetup(setupData, promoterId) {
       age_restriction: setupData.age || null,
       description:     setupData.description || null,
       flyer_url:       flyerUrl,
+      currency:        (setupData.currency || 'mxn').toLowerCase(),
       bar_enabled:     setupData.barEnabled !== false,
       active:          true,
       status:          'live',

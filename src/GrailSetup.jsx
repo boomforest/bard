@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { createEventFromSetup } from './eventService'
 import { FEATURED_DRINKS } from './featuredDrinks'
+import { CURRENCIES, DEFAULT_CURRENCY } from './currencies'
 
 // Builds the default barItems[] for a brand-new event — the 4 featured
 // hydration-forward drinks with their default prices. Promoters can edit
@@ -243,6 +244,22 @@ function StepInfo({ data, setData, onNext }) {
         </Field>
         <Field label="Age Restriction">
           <Select value={data.age} onChange={set('age')} options={['All Ages', '18+', '21+']} />
+        </Field>
+      </FieldGroup>
+
+      <FieldGroup>
+        <Field label="Currency">
+          <select
+            value={data.currency || 'mxn'}
+            onChange={set('currency')}
+            style={{
+              width: '100%', background: '#0d0d0d', border: `1px solid ${C.border}`,
+              borderRadius: '10px', color: C.text, padding: '0.75rem 0.7rem',
+              fontSize: '0.9rem', outline: 'none', fontFamily: 'inherit', cursor: 'pointer',
+            }}
+          >
+            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+          </select>
         </Field>
       </FieldGroup>
 
@@ -956,6 +973,7 @@ export default function GrailSetup() {
   const [data, setData] = useState({
     // info
     name: '', date: '', time: '', venue: '', address: '', capacity: '', age: '21+', description: '', flyer: null, flyerPreview: null,
+    currency: DEFAULT_CURRENCY,
     // splits
     producers: [],
     // tickets

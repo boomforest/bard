@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { uploadFlyer } from './eventService'
+import { CURRENCIES } from './currencies'
 import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark } from './theme'
 
 const AGE_OPTIONS = ['All Ages', '18+', '21+']
@@ -34,6 +35,7 @@ export default function PromoterEventEdit() {
   const [address, setAddress]         = useState('')
   const [capacity, setCapacity]       = useState('')
   const [age, setAge]                 = useState('21+')
+  const [currency, setCurrency]       = useState('mxn')
   const [description, setDescription] = useState('')
   const [active, setActive]           = useState(true)
   const [flyerFile, setFlyerFile]     = useState(null)
@@ -62,6 +64,7 @@ export default function PromoterEventEdit() {
       setAddress(ev.venue_address || ev.address || '')
       setCapacity(ev.capacity ?? '')
       setAge(ev.age_restriction || '21+')
+      setCurrency((ev.currency || 'mxn').toLowerCase())
       setDescription(ev.description || '')
       setActive(ev.active !== false)
       setFlyerPreview(ev.flyer_url || null)
@@ -119,6 +122,7 @@ export default function PromoterEventEdit() {
           venue_address:   address || null,
           capacity:        newCapacity,
           age_restriction: age || null,
+          currency:        (currency || 'mxn').toLowerCase(),
           description:     description || null,
           active,
           flyer_url:       flyerUrl,
@@ -231,6 +235,12 @@ export default function PromoterEventEdit() {
               </select>
             </Field>
           </Row>
+
+          <Field label="Currency">
+            <select value={currency} onChange={e => setCurrency(e.target.value)} style={{ ...INPUT, cursor: 'pointer', appearance: 'none' }}>
+              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+            </select>
+          </Field>
 
           <Field label="Description">
             <textarea
