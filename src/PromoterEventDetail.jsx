@@ -27,6 +27,10 @@ export default function PromoterEventDetail() {
   const [tiers, setTiers]     = useState([])
   const [tickets, setTickets] = useState([])
   const [doveBalances, setDoveBalances] = useState([])
+  const [waitlist, setWaitlist] = useState([])
+  const [waitlistMsg, setWaitlistMsg] = useState('')
+  const [waitlistBlasting, setWaitlistBlasting] = useState(false)
+  const [waitlistResult, setWaitlistResult] = useState(null)
   const [error, setError]     = useState('')
   const [loading, setLoading] = useState(true)
   const [copied, setCopied]   = useState('')
@@ -66,11 +70,12 @@ export default function PromoterEventDetail() {
       }
       setEvent(ev)
 
-      const [{ data: tierRows }, { data: ticketRows }, { data: balanceRows }, { data: callerRow }] = await Promise.all([
+      const [{ data: tierRows }, { data: ticketRows }, { data: balanceRows }, { data: callerRow }, { data: waitlistRows }] = await Promise.all([
         supabase.from('ticket_tiers').select('*').eq('event_id', ev.id).order('sort_order'),
         supabase.from('tickets').select('id, ticket_number, name, email, tier_id, tier_name, torn, torn_at, refunded, created_at, stripe_payment_intent_id').eq('event_id', ev.id).order('created_at', { ascending: false }),
         supabase.from('bar_tabs').select('*').eq('event_id', ev.id).order('created_at', { ascending: false }),
         supabase.from('users').select('is_admin').eq('id', session.user.id).maybeSingle(),
+        supabase.from('event_waitlist').select('id, email, name, notified_at, created_at').eq('event_id', ev.id).order('created_at', { ascending: false }),
       ])
 
       if (cancelled) return
@@ -78,6 +83,7 @@ export default function PromoterEventDetail() {
       setTickets(ticketRows || [])
       setDoveBalances(balanceRows || [])
       setIsAdmin(!!callerRow?.is_admin)
+      setWaitlist(waitlistRows || [])
       setLoading(false)
     }
     load()
@@ -211,6 +217,53 @@ export default function PromoterEventDetail() {
     navigator.clipboard?.writeText(list.join(', '))
     setCopied('attendee-emails')
     setTimeout(() => setCopied(''), 1500)
+  }
+
+  const copyWaitlistEmails = () => {
+    const list = [...new Set(waitlist.map(w => w.email).filter(Boolean))]
+    if (list.length === 0) { alert('Waitlist is empty.'); return }
+    navigator.clipboard?.writeText(list.join(', '))
+    setCopied('waitlist-emails')
+    setTimeout(() => setCopied(''), 1500)
+  }
+
+  const handleWaitlistBlast = async () => {
+    const msg = waitlistMsg.trim()
+    if (!msg) { alert('Write a message first.'); return }
+    if (waitlist.length === 0) { alert('Waitlist is empty.'); return }
+    if (!confirm(`Email ${waitlist.length} waitlist member${waitlist.length === 1 ? '' : 's'} now?`)) return
+
+    setWaitlistBlasting(true)
+    setWaitlistResult(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Sign in expired — please reload.')
+      const res = await fetch('/.netlify/functions/send-waitlist-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          event_id: event.id,
+          message: msg,
+          origin:   window.location.origin,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Send failed')
+      setWaitlistResult(json)
+      // Refresh waitlist to pick up notified_at stamps
+      const { data: refreshed } = await supabase
+        .from('event_waitlist')
+        .select('id, email, name, notified_at, created_at')
+        .eq('event_id', event.id)
+        .order('created_at', { ascending: false })
+      setWaitlist(refreshed || [])
+    } catch (err) {
+      setWaitlistResult({ error: err.message })
+    }
+    setWaitlistBlasting(false)
   }
 
   const handleRefund = async (ticket) => {
@@ -693,6 +746,126 @@ export default function PromoterEventDetail() {
                 )
               })}
             </div>
+          )}
+        </div>
+
+        {/* Waitlist */}
+        <div style={{ marginTop: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+            <div style={eyebrowStyle()}>Waitlist ({waitlist.length})</div>
+          </div>
+
+          {waitlist.length === 0 ? (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '1.25rem 1.5rem', textAlign: 'center' }}>
+              <div style={{ color: C.textMid, fontSize: '0.85rem' }}>
+                Nobody on the waitlist yet. Buyers see a signup form once every tier sells out.
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                <button
+                  onClick={copyWaitlistEmails}
+                  style={{
+                    background: 'transparent', color: copied === 'waitlist-emails' ? BRAND.neon : C.text,
+                    border: `1px solid ${C.border}`, borderRadius: '8px',
+                    padding: '0.5rem 0.85rem', fontSize: '0.78rem', fontWeight: '700',
+                    cursor: 'pointer', fontFamily: FONT,
+                  }}
+                >
+                  {copied === 'waitlist-emails' ? '✓ Copied' : 'Copy waitlist emails'}
+                </button>
+              </div>
+
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '1rem 1.2rem', marginBottom: '0.85rem' }}>
+                <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.5rem' }}>
+                  Send a message
+                </div>
+                <textarea
+                  value={waitlistMsg}
+                  onChange={e => setWaitlistMsg(e.target.value)}
+                  placeholder="A few tickets just freed up — first come, first served. Tap below to grab one."
+                  rows={4}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    background: '#0d0d14', border: `1px solid ${C.border}`,
+                    borderRadius: '10px', padding: '0.7rem 0.85rem',
+                    color: C.text, fontFamily: FONT, fontSize: '0.88rem',
+                    resize: 'vertical', marginBottom: '0.6rem',
+                  }}
+                />
+                <div style={{ color: C.textDim, fontSize: '0.72rem', marginBottom: '0.6rem' }}>
+                  Each recipient gets a button linking back to the event page.
+                </div>
+                <button
+                  onClick={handleWaitlistBlast}
+                  disabled={waitlistBlasting || !waitlistMsg.trim()}
+                  style={{
+                    background: waitlistBlasting || !waitlistMsg.trim() ? '#1a1a24' : BRAND.gradient,
+                    color: waitlistBlasting || !waitlistMsg.trim() ? C.textMid : '#000',
+                    border: 'none', borderRadius: '10px',
+                    padding: '0.7rem 1.1rem', fontSize: '0.85rem', fontWeight: '800',
+                    cursor: waitlistBlasting || !waitlistMsg.trim() ? 'not-allowed' : 'pointer',
+                    fontFamily: FONT, opacity: waitlistBlasting ? 0.6 : 1,
+                  }}
+                >
+                  {waitlistBlasting ? 'Sending…' : `Notify ${waitlist.length} ${waitlist.length === 1 ? 'person' : 'people'}`}
+                </button>
+              </div>
+
+              {waitlistResult && (
+                <div style={{
+                  background: waitlistResult.error || (waitlistResult.errors?.length > 0)
+                    ? 'rgba(240,112,32,0.08)'
+                    : 'rgba(170,255,0,0.06)',
+                  border: `1px solid ${(waitlistResult.error || waitlistResult.errors?.length > 0) ? BRAND.orange : BRAND.neon}44`,
+                  borderRadius: '10px', padding: '0.7rem 1rem',
+                  color: (waitlistResult.error || waitlistResult.errors?.length > 0) ? BRAND.orange : BRAND.neon,
+                  fontSize: '0.82rem', marginBottom: '0.75rem',
+                }}>
+                  {waitlistResult.error
+                    ? waitlistResult.error
+                    : `✓ Sent ${waitlistResult.sent} of ${waitlistResult.total}`}
+                  {waitlistResult.errors?.length > 0 && (
+                    <div style={{ marginTop: '0.4rem', fontSize: '0.76rem' }}>
+                      {waitlistResult.errors.length} failed:{' '}
+                      {waitlistResult.errors.map((e, i) => (
+                        <span key={i}>{e.email} ({e.error}){i < waitlistResult.errors.length - 1 ? ', ' : ''}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', overflow: 'hidden' }}>
+                {waitlist.map((w, i) => (
+                  <div key={w.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '0.85rem',
+                    padding: '0.7rem 1.2rem',
+                    borderTop: i === 0 ? 'none' : `1px solid ${C.border}`,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: C.text, fontWeight: '700', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {w.name || '—'}
+                      </div>
+                      <div style={{ color: C.textMid, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {w.email}
+                      </div>
+                    </div>
+                    <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                      {w.notified_at ? (
+                        <span style={badgeStyle('success')}>NOTIFIED</span>
+                      ) : (
+                        <span style={badgeStyle('neutral')}>WAITING</span>
+                      )}
+                      <div style={{ color: C.textDim, fontSize: '0.7rem', marginTop: '0.25rem' }}>
+                        {fmtWhen(w.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
 

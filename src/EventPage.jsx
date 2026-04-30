@@ -77,6 +77,7 @@ export default function EventPage() {
 
   const showDate = event?.show_date || event?.event_date
   const showEnded = showDate ? new Date(showDate) < new Date() : false
+  const allSoldOut = tiers.length > 0 && tiers.every(t => (t.qty - (t.sold || 0)) <= 0)
 
   if (loading) {
     return (
@@ -271,6 +272,10 @@ export default function EventPage() {
                 )
               })}
             </div>
+
+            {allSoldOut && (
+              <WaitlistSignup eventId={event.id} eventName={event.name || event.artist_name} />
+            )}
 
             {/* Sticky checkout footer */}
             {totalTickets > 0 && (
@@ -505,6 +510,78 @@ function PaymentStep({ onBack, onSuccess }) {
         ← Back
       </button>
     </form>
+  )
+}
+
+// ─── WAITLIST SIGNUP ──────────────────────────────────────────────────────────
+// Shown when every tier is sold out. Buyers leave their email and the
+// promoter can blast them from the dashboard if a ticket frees up.
+function WaitlistSignup({ eventId, eventName }) {
+  const [email, setEmail] = useState('')
+  const [name,  setName]  = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setErr('')
+    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) { setErr('Enter a valid email.'); return }
+    setSubmitting(true)
+    const { error } = await supabase
+      .from('event_waitlist')
+      .upsert(
+        { event_id: eventId, email: email.trim().toLowerCase(), name: name.trim() || null },
+        { onConflict: 'event_id,email', ignoreDuplicates: false },
+      )
+    setSubmitting(false)
+    if (error) { setErr(error.message); return }
+    setDone(true)
+  }
+
+  if (done) {
+    return (
+      <div style={{
+        background: C.card, border: `1px solid ${BRAND.neon}55`,
+        borderRadius: '14px', padding: '1.5rem', textAlign: 'center', marginBottom: '1.5rem',
+      }}>
+        <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>🕊</div>
+        <div style={{ color: C.text, fontWeight: '800', fontSize: '1rem', marginBottom: '0.35rem' }}>
+          You're on the waitlist.
+        </div>
+        <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.5 }}>
+          If a ticket frees up before doors, we'll email you a link to grab it.
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      background: C.card, border: `1px solid ${C.border}`,
+      borderRadius: '14px', padding: '1.25rem 1.4rem', marginBottom: '1.5rem',
+    }}>
+      <div style={{ ...eyebrowStyle(BRAND.pink), marginBottom: '0.4rem' }}>Sold Out</div>
+      <div style={{ color: C.text, fontWeight: '800', fontSize: '1.05rem', marginBottom: '0.3rem', letterSpacing: '-0.01em' }}>
+        Join the waitlist
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '0.85rem' }}>
+        Tickets sometimes free up before doors. Drop your email and we'll send you a buy link if any open back up.
+      </div>
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+        <input style={INPUT} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+        <input style={INPUT} type="text"  placeholder="Name (optional)" value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
+        {err && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{err}</div>}
+        <button type="submit" disabled={submitting} style={{
+          background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
+          padding: '0.85rem', fontWeight: '800', fontSize: '0.92rem',
+          cursor: submitting ? 'wait' : 'pointer', fontFamily: FONT,
+          opacity: submitting ? 0.6 : 1, marginTop: '0.25rem',
+        }}>
+          {submitting ? 'Adding…' : 'Notify me if tickets open'}
+        </button>
+      </form>
+    </div>
   )
 }
 
