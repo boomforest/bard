@@ -317,15 +317,94 @@ function CustomerView({ event, menu, onOrderPlaced }) {
     const status = currentOrder.status || 'pending'
     const ready  = status === 'ready'
     const making = status === 'making'
-    const headline =
-      ready  ? 'Ready! 🥂' :
-      making ? 'Bartender is making it' :
-               'Order received'
-    const headlineColor = ready ? C.green : making ? C.blue : C.goldLight
-    const subline =
-      ready  ? 'Walk up to the bar — they\'ll hand it to you.' :
-      making ? 'You\'re next in line. Hold tight.' :
-               'The bartender has your order. We\'ll call you when it\'s ready.'
+    const items  = Array.isArray(currentOrder.items) ? currentOrder.items : []
+    const itemCount = items.reduce((s, i) => s + (i.qty || 0), 0)
+
+    // ─── READY: receipt-style screen modeled on the demo ─────────────────
+    // Big order number, line items, big "Received" button to confirm pickup.
+    if (ready) {
+      return (
+        <div style={{
+          minHeight: '100vh', background: C.bg, color: C.text,
+          fontFamily: 'system-ui, sans-serif',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          padding: '2.5rem 1.5rem',
+        }}>
+          <div style={{ width: '100%', maxWidth: '420px', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: C.green, textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: '800', marginBottom: '0.5rem' }}>
+              Ready for pickup
+            </div>
+            <div style={{
+              fontSize: '4rem', fontWeight: '900', color: C.green, lineHeight: 1,
+              letterSpacing: '-0.03em', marginBottom: '0.4rem',
+            }}>
+              #{currentOrder.id}
+            </div>
+            <div style={{ color: C.textMid, fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              {currentOrder.customer_name ? `${currentOrder.customer_name} · ` : ''}
+              {itemCount} item{itemCount !== 1 ? 's' : ''} · {fmt(currentOrder.total, event.currency)}
+            </div>
+
+            {/* Line items */}
+            <div style={{
+              background: C.card, border: `1px solid ${C.border}`,
+              borderRadius: '12px', padding: '0.9rem 1.1rem', marginBottom: '1.5rem',
+              textAlign: 'left',
+            }}>
+              {items.map((i, idx) => (
+                <div key={idx} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  fontSize: '0.92rem', color: C.text,
+                  marginBottom: idx < items.length - 1 ? '0.5rem' : 0,
+                }}>
+                  <span>{i.qty}× {i.name}</span>
+                  <span style={{ color: C.goldLight, fontWeight: '700' }}>
+                    {fmt((i.price || 0) * (i.qty || 0), event.currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Received button — closes the loop on the staff side */}
+            <button
+              onClick={confirmPickup}
+              disabled={pickingUp}
+              style={{
+                width: '100%', background: C.gold, color: '#000',
+                border: 'none', borderRadius: '12px',
+                padding: '1.1rem', fontSize: '1.05rem', fontWeight: '900',
+                cursor: pickingUp ? 'wait' : 'pointer',
+                boxShadow: '0 4px 24px rgba(232,184,75,0.35)',
+                opacity: pickingUp ? 0.6 : 1, letterSpacing: '0.02em',
+                marginBottom: '0.6rem',
+              }}
+            >
+              {pickingUp ? 'Confirming…' : 'Received'}
+            </button>
+
+            <button
+              onClick={refreshOrder}
+              disabled={refreshing}
+              style={{
+                width: '100%', background: 'transparent', color: C.textMid,
+                border: `1px solid ${C.border}`, borderRadius: '10px',
+                padding: '0.65rem', fontSize: '0.82rem', fontWeight: '600',
+                cursor: refreshing ? 'wait' : 'pointer',
+              }}
+            >
+              {refreshing ? 'Refreshing…' : '↻ Refresh status'}
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    // ─── PENDING / MAKING: simple status light + copy ────────────────────
+    const headline = making ? 'Bartender is making it' : 'Order received'
+    const headlineColor = making ? C.blue : C.goldLight
+    const subline = making
+      ? 'You\'re next in line. Hold tight.'
+      : 'The bartender has your order. We\'ll call you when it\'s ready.'
 
     return (
       <div style={{
@@ -333,11 +412,8 @@ function CustomerView({ event, menu, onOrderPlaced }) {
         alignItems: 'center', justifyContent: 'center', padding: '2rem',
         textAlign: 'center', fontFamily: 'system-ui, sans-serif',
       }}>
-        <div style={{
-          fontSize: '4rem', marginBottom: '1rem',
-          animation: ready ? 'pulse 1.4s ease-in-out infinite' : 'none',
-        }}>
-          {ready ? '🥂' : making ? '🔨' : '🌅'}
+        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
+          {making ? '🔨' : '🌅'}
         </div>
         <div style={{ color: headlineColor, fontSize: '1.7rem', fontWeight: '900', marginBottom: '0.3rem', letterSpacing: '-0.02em' }}>
           {headline}
@@ -348,30 +424,13 @@ function CustomerView({ event, menu, onOrderPlaced }) {
         <div style={{ color: C.textMid, fontSize: '0.92rem', marginBottom: '2rem', maxWidth: '320px' }}>
           {subline}
         </div>
-        {ready && (
-          <button
-            style={{
-              background: C.gold, color: '#000', border: 'none', borderRadius: '12px',
-              padding: '1rem 2rem', fontSize: '1rem', fontWeight: '900',
-              cursor: pickingUp ? 'wait' : 'pointer', marginBottom: '0.85rem',
-              boxShadow: '0 4px 24px rgba(232,184,75,0.35)',
-              opacity: pickingUp ? 0.6 : 1, letterSpacing: '0.02em',
-            }}
-            onClick={confirmPickup}
-            disabled={pickingUp}
-          >
-            {pickingUp ? 'Confirming…' : '✓ I picked it up'}
-          </button>
-        )}
         <div style={{ display: 'flex', gap: '0.6rem' }}>
           <button
             style={{
               background: 'transparent', color: C.text,
-              border: `1px solid ${C.border}`,
-              borderRadius: '10px', padding: '0.7rem 1.4rem',
-              fontSize: '0.85rem', fontWeight: '700',
-              cursor: refreshing ? 'wait' : 'pointer',
-              opacity: refreshing ? 0.6 : 1,
+              border: `1px solid ${C.border}`, borderRadius: '10px',
+              padding: '0.7rem 1.4rem', fontSize: '0.85rem', fontWeight: '700',
+              cursor: refreshing ? 'wait' : 'pointer', opacity: refreshing ? 0.6 : 1,
             }}
             onClick={refreshOrder}
             disabled={refreshing}
@@ -385,7 +444,6 @@ function CustomerView({ event, menu, onOrderPlaced }) {
             Order again
           </button>
         </div>
-        <style>{`@keyframes pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.12) } }`}</style>
       </div>
     )
   }
