@@ -656,7 +656,7 @@ export default function GrailDoves() {
       const mapped = (rows || []).map(r => ({
         id:    r.id,
         name:  r.name,
-        doves: Math.round((r.price_cents || 0) / 100),
+        doves: (r.price_cents || 0) / 100,
         cat:   (r.category || 'drinks').toLowerCase(),
         emoji: emojiFor(r.name),
         desc:  r.description || '',
