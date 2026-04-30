@@ -128,13 +128,61 @@ export default {
   'load.stripeMissing':         'Stripe not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.',
 
   // ─── GrailDoves ──────────────────────────────────────────────────────────
-  'doves.eyebrow':              'Bar Tab',
-  'doves.title':                'Your Doves',
-  'doves.balance':              'Balance',
-  'doves.spent':                'Spent',
-  'doves.loadMore':             'Load more',
-  'doves.empty':                'No tab yet — load one to get started.',
-  'doves.signIn':               'Sign in to see your tab',
+  // BalanceHeader
+  'gd.balance.eyebrow':         '🕊 Dove Balance',
+  'gd.balance.unit':            'doves',
+  'gd.balance.available':       '≈ {amount} MXN available',
+  'gd.balance.loadCta':         '+ Load Doves',
+
+  // HomeScreen
+  'gd.home.orderDrink':         'Order a Drink',
+  'gd.home.payWithDoves':       'Pay with Doves',
+  'gd.home.loadDoves':          'Load Doves',
+  'gd.home.preauth':            'Pre-auth your card',
+  'gd.home.howItWorks':         'How Doves work',
+  'gd.home.step1Title':         'Load Doves',
+  'gd.home.step1Desc':          'We hold your card — nothing is charged yet',
+  'gd.home.step2Title':         'Order drinks',
+  'gd.home.step2Desc':          'Spend Doves at the bar',
+  'gd.home.step3Title':         'End of night',
+  'gd.home.step3Desc':          "You're charged only what you spent",
+  'gd.home.spentTonight':       'Spent tonight',
+
+  // LoadScreen
+  'gd.load.title':              'Load Doves',
+  'gd.load.body':               "We pre-authorize your card. You're charged only what you spend — 24h after the event.",
+  'gd.load.customLabel':        'Or enter custom amount',
+  'gd.load.summary':            'Card pre-authorized for <strong>{amount}</strong>. Unspent Doves evaporate — nothing extra is charged.',
+  'gd.load.authorizing':        'Authorizing card...',
+  'gd.load.preauthBtn':         'Pre-authorize {amount}',
+  'gd.load.dovesLoaded':        '{n} Doves loaded',
+  'gd.load.preauthorizedFor':   "Your card is pre-authorized for {amount}. You'll only be charged what you spend.",
+
+  // MenuScreen
+  'gd.menu.notEnough':          'Not enough doves',
+  'gd.menu.items':              'items',
+  'gd.menu.review':             'Review Order →',
+
+  // CartScreen
+  'gd.cart.keepShopping':       '← Keep shopping',
+  'gd.cart.title':              'Your Order',
+  'gd.cart.each':               '{doves} 🕊 each',
+  'gd.cart.orderTotal':         'Order total',
+  'gd.cart.yourBalance':        'Your balance',
+  'gd.cart.afterOrder':         'After order',
+  'gd.cart.notEnough':          'Not enough Doves — load {n} more to place this order',
+  'gd.cart.spend':              'Spend {n} Doves →',
+
+  // Confirm
+  'gd.confirm.placed':          'Order placed',
+  'gd.confirm.spent':           '{spent} Doves spent · {amount} charged to your card later',
+  'gd.confirm.remaining':       'Remaining balance: <strong>{balance} 🕊</strong>',
+  'gd.confirm.orderMore':       'Order More',
+  'gd.confirm.myBalance':       'My Balance',
+
+  // Nav tabs
+  'gd.nav.home':                '🏠 Home',
+  'gd.nav.menu':                '🍹 Menu',
 
   // ─── TicketView ──────────────────────────────────────────────────────────
   'ticket.alreadyAdmitted':     'Already Admitted',

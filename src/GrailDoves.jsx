@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { grailStore } from './grailStore'
 import { emojiFor, imageFor, descFor } from './featuredDrinks'
+import { useT } from './i18n'
+import LocaleToggle from './LocaleToggle'
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const DOVE_TO_MXN = 1   // 1 Dove = 1 MXN (simple, intuitive)
@@ -45,6 +47,7 @@ function fmt(n) {
 
 // ─── BALANCE HEADER ───────────────────────────────────────────────────────────
 function BalanceHeader({ balance, onLoad }) {
+  const t = useT()
   return (
     <div style={{
       background: `linear-gradient(135deg, #0d0800, #1a1000)`,
@@ -65,7 +68,7 @@ function BalanceHeader({ balance, onLoad }) {
             fontWeight: '700',
             marginBottom: '0.15rem',
           }}>
-            🕊 Dove Balance
+            {t('gd.balance.eyebrow')}
           </div>
           <div style={{
             color: balance > 0 ? C.goldLight : C.textMid,
@@ -75,11 +78,11 @@ function BalanceHeader({ balance, onLoad }) {
           }}>
             {balance}
             <span style={{ fontSize: '0.9rem', color: C.goldDim, fontWeight: '600', marginLeft: '0.3rem' }}>
-              doves
+              {t('gd.balance.unit')}
             </span>
           </div>
           <div style={{ color: C.textMid, fontSize: '0.72rem', marginTop: '0.15rem' }}>
-            ≈ {fmt(balance * DOVE_TO_MXN)} MXN available
+            {t('gd.balance.available', { amount: fmt(balance * DOVE_TO_MXN) })}
           </div>
         </div>
         <button
@@ -95,7 +98,7 @@ function BalanceHeader({ balance, onLoad }) {
             cursor: 'pointer',
           }}
         >
-          + Load Doves
+          {t('gd.balance.loadCta')}
         </button>
       </div>
     </div>
@@ -104,7 +107,8 @@ function BalanceHeader({ balance, onLoad }) {
 
 // ─── HOME SCREEN ──────────────────────────────────────────────────────────────
 function HomeScreen({ balance, transactions, onLoad, onMenu }) {
-  const totalSpent = transactions.reduce((s, t) => s + t.doves, 0)
+  const t = useT()
+  const totalSpent = transactions.reduce((s, tx) => s + tx.doves, 0)
 
   return (
     <div style={{ padding: '1.2rem' }}>
@@ -122,8 +126,8 @@ function HomeScreen({ balance, transactions, onLoad, onMenu }) {
           }}
         >
           <div style={{ fontSize: '1.6rem', marginBottom: '0.4rem' }}>🍹</div>
-          <div style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem' }}>Order a Drink</div>
-          <div style={{ color: C.textMid, fontSize: '0.75rem', marginTop: '0.1rem' }}>Pay with Doves</div>
+          <div style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem' }}>{t('gd.home.orderDrink')}</div>
+          <div style={{ color: C.textMid, fontSize: '0.75rem', marginTop: '0.1rem' }}>{t('gd.home.payWithDoves')}</div>
         </button>
         <button
           onClick={onLoad}
@@ -137,8 +141,8 @@ function HomeScreen({ balance, transactions, onLoad, onMenu }) {
           }}
         >
           <div style={{ fontSize: '1.6rem', marginBottom: '0.4rem' }}>🕊</div>
-          <div style={{ color: C.goldLight, fontWeight: '700', fontSize: '0.9rem' }}>Load Doves</div>
-          <div style={{ color: C.textMid, fontSize: '0.75rem', marginTop: '0.1rem' }}>Pre-auth your card</div>
+          <div style={{ color: C.goldLight, fontWeight: '700', fontSize: '0.9rem' }}>{t('gd.home.loadDoves')}</div>
+          <div style={{ color: C.textMid, fontSize: '0.75rem', marginTop: '0.1rem' }}>{t('gd.home.preauth')}</div>
         </button>
       </div>
 
@@ -152,12 +156,12 @@ function HomeScreen({ balance, transactions, onLoad, onMenu }) {
           marginBottom: '1.5rem',
         }}>
           <div style={{ color: C.goldLight, fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.7rem' }}>
-            How Doves work
+            {t('gd.home.howItWorks')}
           </div>
           {[
-            ['🕊', 'Load Doves', 'We hold your card — nothing is charged yet'],
-            ['🍹', 'Order drinks', 'Spend Doves at the bar'],
-            ['✓',  'End of night', 'You\'re charged only what you spent'],
+            ['🕊', t('gd.home.step1Title'), t('gd.home.step1Desc')],
+            ['🍹', t('gd.home.step2Title'), t('gd.home.step2Desc')],
+            ['✓',  t('gd.home.step3Title'), t('gd.home.step3Desc')],
           ].map(([icon, title, desc]) => (
             <div key={title} style={{ display: 'flex', gap: '0.7rem', marginBottom: '0.6rem', alignItems: 'flex-start' }}>
               <span style={{ fontSize: '1rem', flexShrink: 0 }}>{icon}</span>
@@ -182,7 +186,7 @@ function HomeScreen({ balance, transactions, onLoad, onMenu }) {
             display: 'flex',
             justifyContent: 'space-between',
           }}>
-            <span>Spent tonight</span>
+            <span>{t('gd.home.spentTonight')}</span>
             <span style={{ color: C.goldLight }}>{totalSpent} doves · {fmt(totalSpent)}</span>
           </div>
           {transactions.slice().reverse().map(tx => (
@@ -216,6 +220,7 @@ function HomeScreen({ balance, transactions, onLoad, onMenu }) {
 
 // ─── LOAD SCREEN ──────────────────────────────────────────────────────────────
 function LoadScreen({ onLoad, onBack }) {
+  const t = useT()
   const [amount,   setAmount]   = useState(200)
   const [loading,  setLoading]  = useState(false)
   const [done,     setDone]     = useState(false)
@@ -245,11 +250,10 @@ function LoadScreen({ onLoad, onBack }) {
       }}>
         <div style={{ fontSize: '3rem', marginBottom: '0.7rem' }}>🕊</div>
         <div style={{ color: C.green, fontSize: '1.3rem', fontWeight: '800', marginBottom: '0.3rem' }}>
-          {amount} Doves loaded
+          {t('gd.load.dovesLoaded', { n: amount })}
         </div>
         <div style={{ color: C.textMid, fontSize: '0.85rem' }}>
-          Your card is pre-authorized for {fmt(amount)}.<br />
-          You'll only be charged what you spend.
+          {t('gd.load.preauthorizedFor', { amount: fmt(amount) })}
         </div>
       </div>
     )
@@ -261,14 +265,14 @@ function LoadScreen({ onLoad, onBack }) {
         onClick={onBack}
         style={{ background: 'transparent', border: 'none', color: C.textMid, cursor: 'pointer', marginBottom: '1.2rem', padding: 0, fontSize: '0.85rem' }}
       >
-        ← Back
+        {t('common.back')}
       </button>
 
       <div style={{ color: C.goldLight, fontWeight: '800', fontSize: '1.1rem', marginBottom: '0.3rem' }}>
-        Load Doves
+        {t('gd.load.title')}
       </div>
       <div style={{ color: C.textMid, fontSize: '0.82rem', marginBottom: '1.5rem' }}>
-        We pre-authorize your card. You're charged only what you spend — 24h after the event.
+        {t('gd.load.body')}
       </div>
 
       {/* Preset buttons */}
@@ -296,7 +300,7 @@ function LoadScreen({ onLoad, onBack }) {
       {/* Custom amount */}
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ fontSize: '0.68rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.4rem' }}>
-          Or enter custom amount
+          {t('gd.load.customLabel')}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <input
@@ -321,18 +325,18 @@ function LoadScreen({ onLoad, onBack }) {
       </div>
 
       {/* Summary */}
-      <div style={{
-        background: '#0d0d0d',
-        border: `1px solid ${C.border}`,
-        borderRadius: '10px',
-        padding: '0.9rem 1rem',
-        marginBottom: '1.5rem',
-        fontSize: '0.82rem',
-        color: C.textMid,
-      }}>
-        Card pre-authorized for <strong style={{ color: C.text }}>{fmt(amount)}</strong>.
-        {' '}Unspent Doves evaporate — nothing extra is charged.
-      </div>
+      <div
+        style={{
+          background: '#0d0d0d',
+          border: `1px solid ${C.border}`,
+          borderRadius: '10px',
+          padding: '0.9rem 1rem',
+          marginBottom: '1.5rem',
+          fontSize: '0.82rem',
+          color: C.textMid,
+        }}
+        dangerouslySetInnerHTML={{ __html: t('gd.load.summary', { amount: fmt(amount) }) }}
+      />
 
       <button
         onClick={handleLoad}
@@ -349,7 +353,7 @@ function LoadScreen({ onLoad, onBack }) {
           cursor: loading ? 'not-allowed' : 'pointer',
         }}
       >
-        {loading ? 'Authorizing card...' : `Pre-authorize ${fmt(amount)}`}
+        {loading ? t('gd.load.authorizing') : t('gd.load.preauthBtn', { amount: fmt(amount) })}
       </button>
     </div>
   )
@@ -357,6 +361,7 @@ function LoadScreen({ onLoad, onBack }) {
 
 // ─── MENU SCREEN ──────────────────────────────────────────────────────────────
 function MenuScreen({ menu, cats, balance, cart, onAddToCart, onRemoveFromCart, onGoToCart, onBack }) {
+  const t = useT()
   const [cat, setCat] = useState('all')
   const visible   = cat === 'all' ? menu : menu.filter(m => m.cat === cat)
   const cartCount = cart.reduce((s, c) => s + c.qty, 0)
@@ -461,7 +466,7 @@ function MenuScreen({ menu, cats, balance, cart, onAddToCart, onRemoveFromCart, 
                   <span style={{ color: C.goldDim, fontSize: '0.75rem' }}>🕊</span>
                 </div>
                 {!afford && (
-                  <div style={{ fontSize: '0.62rem', color: C.red, marginTop: '0.2rem' }}>Not enough doves</div>
+                  <div style={{ fontSize: '0.62rem', color: C.red, marginTop: '0.2rem' }}>{t('gd.menu.notEnough')}</div>
                 )}
               </div>
               {inCart && (
@@ -503,7 +508,7 @@ function MenuScreen({ menu, cats, balance, cart, onAddToCart, onRemoveFromCart, 
             }}>
               {cartCount}
             </div>
-            <span style={{ color: C.textMid, fontSize: '0.85rem' }}>items</span>
+            <span style={{ color: C.textMid, fontSize: '0.85rem' }}>{t('gd.menu.items')}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <span style={{ color: C.goldLight, fontWeight: '700' }}>{cartTotal} 🕊</span>
@@ -515,7 +520,7 @@ function MenuScreen({ menu, cats, balance, cart, onAddToCart, onRemoveFromCart, 
                 fontWeight: '800', fontSize: '0.85rem', cursor: 'pointer',
               }}
             >
-              Review Order →
+              {t('gd.menu.review')}
             </button>
           </div>
         </div>
@@ -526,6 +531,7 @@ function MenuScreen({ menu, cats, balance, cart, onAddToCart, onRemoveFromCart, 
 
 // ─── CART SCREEN ──────────────────────────────────────────────────────────────
 function CartScreen({ cart, balance, onAddToCart, onRemoveFromCart, onConfirm, onBack }) {
+  const t = useT()
   const total   = cart.reduce((s, c) => s + c.item.doves * c.qty, 0)
   const canPay  = balance >= total && cart.length > 0
 
@@ -535,11 +541,11 @@ function CartScreen({ cart, balance, onAddToCart, onRemoveFromCart, onConfirm, o
         onClick={onBack}
         style={{ background: 'transparent', border: 'none', color: C.textMid, cursor: 'pointer', marginBottom: '1rem', padding: 0, fontSize: '0.85rem' }}
       >
-        ← Keep shopping
+        {t('gd.cart.keepShopping')}
       </button>
 
       <div style={{ color: C.goldLight, fontWeight: '800', fontSize: '1rem', marginBottom: '1rem' }}>
-        Your Order
+        {t('gd.cart.title')}
       </div>
 
       {cart.map(({ item, qty }) => (
@@ -551,7 +557,7 @@ function CartScreen({ cart, balance, onAddToCart, onRemoveFromCart, onConfirm, o
             <span style={{ fontSize: '1.3rem' }}>{item.emoji}</span>
             <div>
               <div style={{ color: C.text, fontSize: '0.9rem' }}>{item.name}</div>
-              <div style={{ color: C.textMid, fontSize: '0.72rem' }}>{item.doves} 🕊 each</div>
+              <div style={{ color: C.textMid, fontSize: '0.72rem' }}>{t('gd.cart.each', { doves: item.doves })}</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
@@ -580,16 +586,16 @@ function CartScreen({ cart, balance, onAddToCart, onRemoveFromCart, onConfirm, o
         margin: '1.2rem 0',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-          <span style={{ color: C.textMid, fontSize: '0.85rem' }}>Order total</span>
+          <span style={{ color: C.textMid, fontSize: '0.85rem' }}>{t('gd.cart.orderTotal')}</span>
           <span style={{ color: C.text, fontWeight: '700' }}>{total} 🕊</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-          <span style={{ color: C.textMid, fontSize: '0.85rem' }}>Your balance</span>
+          <span style={{ color: C.textMid, fontSize: '0.85rem' }}>{t('gd.cart.yourBalance')}</span>
           <span style={{ color: C.goldLight, fontWeight: '700' }}>{balance} 🕊</span>
         </div>
         <div style={{ height: '1px', background: C.border, margin: '0.5rem 0' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: C.textMid, fontSize: '0.85rem' }}>After order</span>
+          <span style={{ color: C.textMid, fontSize: '0.85rem' }}>{t('gd.cart.afterOrder')}</span>
           <span style={{
             fontWeight: '700',
             color: canPay ? C.green : C.red,
@@ -601,7 +607,7 @@ function CartScreen({ cart, balance, onAddToCart, onRemoveFromCart, onConfirm, o
 
       {!canPay && total > balance && (
         <div style={{ color: C.red, fontSize: '0.8rem', textAlign: 'center', marginBottom: '0.8rem' }}>
-          Not enough Doves — load {total - balance} more to place this order
+          {t('gd.cart.notEnough', { n: total - balance })}
         </div>
       )}
 
@@ -620,7 +626,7 @@ function CartScreen({ cart, balance, onAddToCart, onRemoveFromCart, onConfirm, o
           cursor: canPay ? 'pointer' : 'not-allowed',
         }}
       >
-        Spend {total} Doves →
+        {t('gd.cart.spend', { n: total })}
       </button>
     </div>
   )
@@ -628,6 +634,7 @@ function CartScreen({ cart, balance, onAddToCart, onRemoveFromCart, onConfirm, o
 
 // ─── MAIN ──────────────────────────────────────────────────────────────────────
 export default function GrailDoves() {
+  const t = useT()
   const { slug }        = useParams()
   const navigate        = useNavigate()
   const eventSlug       = slug || LEGACY_EVENT_SLUG
@@ -767,8 +774,8 @@ export default function GrailDoves() {
   // Confirmation screen
   if (screen === 'confirm') {
     const lastTxs  = transactions.slice(-cart.length - 50) // recent
-    const orderTxs = lastTxs.filter(t => t.id.startsWith(lastOrderId || ''))
-    const spent    = orderTxs.reduce((s, t) => s + t.doves, 0)
+    const orderTxs = lastTxs.filter(tx => tx.id.startsWith(lastOrderId || ''))
+    const spent    = orderTxs.reduce((s, tx) => s + tx.doves, 0)
 
     return (
       <div style={{
@@ -778,14 +785,15 @@ export default function GrailDoves() {
       }}>
         <div style={{ fontSize: '3.5rem', marginBottom: '0.8rem' }}>🕊</div>
         <div style={{ color: C.green, fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.3rem' }}>
-          Order placed
+          {t('gd.confirm.placed')}
         </div>
         <div style={{ color: C.textMid, fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-          {spent} Doves spent · {fmt(spent)} charged to your card later
+          {t('gd.confirm.spent', { spent, amount: fmt(spent) })}
         </div>
-        <div style={{ color: C.textMid, fontSize: '0.8rem', marginBottom: '2rem' }}>
-          Remaining balance: <strong style={{ color: C.goldLight }}>{balance} 🕊</strong>
-        </div>
+        <div
+          style={{ color: C.textMid, fontSize: '0.8rem', marginBottom: '2rem' }}
+          dangerouslySetInnerHTML={{ __html: t('gd.confirm.remaining', { balance }) }}
+        />
         <div style={{ display: 'flex', gap: '0.7rem' }}>
           <button
             onClick={() => setScreen('menu')}
@@ -795,7 +803,7 @@ export default function GrailDoves() {
               fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer',
             }}
           >
-            Order More
+            {t('gd.confirm.orderMore')}
           </button>
           <button
             onClick={() => setScreen('home')}
@@ -805,7 +813,7 @@ export default function GrailDoves() {
               padding: '0.8rem 1.3rem', fontSize: '0.9rem', cursor: 'pointer',
             }}
           >
-            My Balance
+            {t('gd.confirm.myBalance')}
           </button>
         </div>
       </div>
@@ -819,6 +827,9 @@ export default function GrailDoves() {
       color: C.text,
       fontFamily: 'system-ui, -apple-system, sans-serif',
     }}>
+      <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', zIndex: 30 }}>
+        <LocaleToggle />
+      </div>
       {/* Balance header — always visible */}
       <BalanceHeader balance={balance} onLoad={() => setScreen('load')} />
 
@@ -829,8 +840,8 @@ export default function GrailDoves() {
         background: C.surface,
       }}>
         {[
-          { key: 'home', label: '🏠 Home' },
-          { key: 'menu', label: '🍹 Menu' },
+          { key: 'home', label: t('gd.nav.home') },
+          { key: 'menu', label: t('gd.nav.menu') },
         ].map(({ key, label }) => (
           <button
             key={key}
