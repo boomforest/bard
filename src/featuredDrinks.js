@@ -6,24 +6,72 @@
 // Promoters can:
 //   - Edit the price on any featured drink
 //   - Remove a featured drink they don't want to serve
-//   - Add custom items on top (no emoji, fully promoter-named/priced)
+//   - Add custom items on top (no image, no emoji, fully promoter-named/priced)
 //
-// The consumer dove menu (GrailDoves.jsx) matches bar_menu_items.name against
-// FEATURED_DRINKS to render the emoji card; unmatched items render as text-only.
+// The consumer dove menu (GrailDoves.jsx) and bar (EventBar.jsx) match
+// bar_menu_items.name against FEATURED_DRINKS to render the photo card;
+// unmatched items render as plain text.
+//
+// Image files live in /public/drinks/ and are served at /drinks/{file}.
+// Match the demo (GrailDemo.jsx, AlleycatDemo.jsx) so the live experience
+// finally looks as polished as the pitch.
 
 export const FEATURED_DRINKS = [
-  { slug: 'suero',         name: 'Suero',            emoji: '🥤', defaultPrice: 50, category: 'Non-Alcoholic' },
-  { slug: 'suero-mezcal',  name: 'Suero con Mezcal', emoji: '🍹', defaultPrice: 100, category: 'Drinks' },
-  { slug: 'cerveza',       name: 'Cerveza',          emoji: '🍺', defaultPrice: 50, category: 'Beer' },
-  { slug: 'michelada',     name: 'Michelada',        emoji: '🍻', defaultPrice: 80, category: 'Drinks' },
+  {
+    slug: 'suero',
+    name: 'Suero',
+    emoji: '🥤',
+    img:  '/drinks/suero.jpg',
+    desc: 'The morning after, before it starts',
+    defaultPrice: 50,
+    category: 'Non-Alcoholic',
+  },
+  {
+    slug: 'suero-mezcal',
+    name: 'Suero con Mezcal',
+    emoji: '🍹',
+    img:  '/drinks/sueroconmezcal.jpg',
+    desc: 'Smoke in the remedy',
+    defaultPrice: 100,
+    category: 'Drinks',
+  },
+  {
+    slug: 'cerveza',
+    name: 'Cerveza',
+    emoji: '🍺',
+    img:  '/drinks/cerveza.jpg',
+    desc: 'Fría. Siempre fría.',
+    defaultPrice: 50,
+    category: 'Beer',
+  },
+  {
+    slug: 'michelada',
+    name: 'Michelada',
+    emoji: '🍻',
+    img:  '/drinks/michelada.jpg',
+    desc: 'Limón, sal, chamoy, fuego',
+    defaultPrice: 80,
+    category: 'Drinks',
+  },
 ]
 
-export function isFeaturedName(name) {
+const byNameLower = (name) => {
   const n = (name || '').trim().toLowerCase()
-  return FEATURED_DRINKS.some(d => d.name.toLowerCase() === n)
+  return FEATURED_DRINKS.find(d => d.name.toLowerCase() === n) || null
+}
+
+export function isFeaturedName(name) {
+  return !!byNameLower(name)
 }
 
 export function emojiFor(name) {
-  const n = (name || '').trim().toLowerCase()
-  return FEATURED_DRINKS.find(d => d.name.toLowerCase() === n)?.emoji || null
+  return byNameLower(name)?.emoji || null
+}
+
+export function imageFor(name) {
+  return byNameLower(name)?.img || null
+}
+
+export function descFor(name) {
+  return byNameLower(name)?.desc || null
 }

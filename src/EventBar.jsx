@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { imageFor, descFor } from './featuredDrinks'
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
@@ -280,19 +281,40 @@ function CustomerView({ event, menu, onOrderPlaced }) {
           const inCart = cart.find(c => c.item.id === item.id)
           return (
             <button key={item.id} onClick={() => addToCart(item)} style={{
-              background: C.card, border: `1px solid ${inCart ? C.goldDim : C.border}`,
-              borderRadius: '12px', padding: '1rem 0.8rem', cursor: 'pointer',
-              textAlign: 'left', transition: 'all 0.15s', position: 'relative', outline: 'none',
+              background: inCart ? '#1a1409' : C.card,
+              border: `1px solid ${inCart ? C.gold + '88' : C.border}`,
+              borderRadius: '14px', padding: 0, cursor: 'pointer',
+              textAlign: 'left', transition: 'border-color 0.15s, background 0.15s',
+              position: 'relative', outline: 'none', overflow: 'hidden',
+              fontFamily: 'inherit', color: 'inherit',
             }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>{item.emoji}</div>
-              <div style={{ color: C.text, fontWeight: '600', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{item.name}</div>
-              <div style={{ color: C.goldLight, fontWeight: '700', fontSize: '0.95rem' }}>{fmt(item.price, event.currency)}</div>
+              {item.img ? (
+                <img src={item.img} alt={item.name} style={{ width: '100%', height: '110px', objectFit: 'cover', display: 'block' }} />
+              ) : (
+                <div style={{
+                  width: '100%', height: '110px',
+                  background: 'linear-gradient(135deg, #1a1409, #0a0805)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '2.5rem',
+                }}>{item.emoji || '🥂'}</div>
+              )}
+              <div style={{ padding: '0.65rem 0.75rem 0.85rem' }}>
+                <div style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.1rem' }}>{item.name}</div>
+                {item.description && (
+                  <div style={{ color: C.textMid, fontSize: '0.7rem', lineHeight: 1.35, marginBottom: '0.45rem', height: '1.9em', overflow: 'hidden' }}>
+                    {item.description}
+                  </div>
+                )}
+                <div style={{ color: C.goldLight, fontWeight: '800', fontSize: '0.95rem' }}>{fmt(item.price, event.currency)}</div>
+              </div>
               {inCart && (
                 <div style={{
                   position: 'absolute', top: '0.5rem', right: '0.5rem',
                   background: C.gold, color: '#000', borderRadius: '99px',
-                  width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.7rem', fontWeight: '800',
+                  minWidth: '22px', height: '22px', padding: '0 0.4rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.72rem', fontWeight: '900',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
                 }}>
                   {inCart.qty}
                 </div>
@@ -861,6 +883,9 @@ export default function EventBar({ staffMode = false }) {
         ...it,
         price:    it.price != null ? it.price : (it.price_cents || 0) / 100,
         emoji:    it.emoji || '🥂',
+        img:      imageFor(it.name),
+        // Promoter description wins; fall back to featured-drink default
+        description: it.description || descFor(it.name) || '',
         category: it.category || 'all',
       })))
 

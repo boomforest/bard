@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { grailStore } from './grailStore'
-import { emojiFor } from './featuredDrinks'
+import { emojiFor, imageFor, descFor } from './featuredDrinks'
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const DOVE_TO_MXN = 1   // 1 Dove = 1 MXN (simple, intuitive)
@@ -414,37 +414,65 @@ function MenuScreen({ menu, cats, balance, cart, onAddToCart, onRemoveFromCart, 
               key={item.id}
               onClick={() => afford ? onAddToCart(item) : null}
               style={{
-                background: C.card,
-                border: `1px solid ${inCart ? C.goldDim : afford ? C.border : '#1a1a1a'}`,
-                borderRadius: '12px',
-                padding: '0.9rem 0.8rem',
+                background: inCart ? '#1a1409' : C.card,
+                border: `1px solid ${inCart ? C.gold + '88' : afford ? C.border : '#1a1a1a'}`,
+                borderRadius: '14px',
+                padding: 0,
                 cursor: afford ? 'pointer' : 'not-allowed',
                 textAlign: 'left',
                 position: 'relative',
                 opacity: afford ? 1 : 0.45,
                 outline: 'none',
+                overflow: 'hidden',
+                transition: 'border-color 0.15s, background 0.15s',
+                fontFamily: 'inherit',
+                color: 'inherit',
               }}
             >
-              <div style={{ fontSize: '1.8rem', marginBottom: '0.35rem' }}>{item.emoji}</div>
-              <div style={{ color: C.text, fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.15rem' }}>
-                {item.name}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <span style={{ color: C.goldLight, fontWeight: '700', fontSize: '0.88rem' }}>
-                  {item.doves}
-                </span>
-                <span style={{ color: C.goldDim, fontSize: '0.72rem' }}>🕊</span>
-              </div>
-              {!afford && (
-                <div style={{ fontSize: '0.62rem', color: C.red, marginTop: '0.1rem' }}>Not enough doves</div>
+              {item.img ? (
+                <img
+                  src={item.img}
+                  alt={item.name}
+                  style={{ width: '100%', height: '110px', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', height: '110px',
+                  background: 'linear-gradient(135deg, #1a1409, #0a0805)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '2.5rem',
+                }}>
+                  {item.emoji || '🍹'}
+                </div>
               )}
+              <div style={{ padding: '0.65rem 0.75rem 0.85rem' }}>
+                <div style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem', marginBottom: '0.1rem' }}>
+                  {item.name}
+                </div>
+                {item.desc && (
+                  <div style={{ color: C.textMid, fontSize: '0.7rem', lineHeight: 1.35, marginBottom: '0.45rem', height: '1.9em', overflow: 'hidden' }}>
+                    {item.desc}
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ color: C.goldLight, fontWeight: '800', fontSize: '0.95rem' }}>
+                    {item.doves}
+                  </span>
+                  <span style={{ color: C.goldDim, fontSize: '0.75rem' }}>🕊</span>
+                </div>
+                {!afford && (
+                  <div style={{ fontSize: '0.62rem', color: C.red, marginTop: '0.2rem' }}>Not enough doves</div>
+                )}
+              </div>
               {inCart && (
                 <div style={{
-                  position: 'absolute', top: '0.4rem', right: '0.4rem',
+                  position: 'absolute', top: '0.5rem', right: '0.5rem',
                   background: C.gold, color: '#000',
-                  borderRadius: '99px', width: '18px', height: '18px',
+                  borderRadius: '99px', minWidth: '22px', height: '22px',
+                  padding: '0 0.4rem',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.65rem', fontWeight: '800',
+                  fontSize: '0.72rem', fontWeight: '900',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
                 }}>
                   {inCart.qty}
                 </div>
@@ -665,7 +693,9 @@ export default function GrailDoves() {
         doves: (r.price_cents || 0) / 100,
         cat:   (r.category || 'drinks').toLowerCase(),
         emoji: emojiFor(r.name),
-        desc:  r.description || '',
+        img:   imageFor(r.name),
+        // Promoter's description wins; fall back to the featured-drink default
+        desc:  r.description || descFor(r.name) || '',
       }))
       setMenu(mapped)
       setMenuLoading(false)
