@@ -532,7 +532,7 @@ function WaitlistSignup({ eventId, eventName }) {
       .from('event_waitlist')
       .upsert(
         { event_id: eventId, email: email.trim().toLowerCase(), name: name.trim() || null },
-        { onConflict: 'event_id,email', ignoreDuplicates: false },
+        { onConflict: 'event_id,email', ignoreDuplicates: true },
       )
     setSubmitting(false)
     if (error) { setErr(error.message); return }
