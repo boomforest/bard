@@ -77,7 +77,6 @@ export async function createEventFromSetup(setupData, promoterId) {
       doors_time:      setupData.time || null,
       venue_hint:      setupData.venue || null,
       venue_address:   setupData.address || null,
-      address:         setupData.address || null,
       capacity:        Number(setupData.capacity) || 0,
       age_restriction: setupData.age || null,
       description:     setupData.description || null,
