@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { QRCode } from 'react-qrcode-logo'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
+import { useT } from './i18n'
+import LocaleToggle from './LocaleToggle'
 
 // ─── DEMO TICKET DATA ─────────────────────────────────────────────────────────
 const DEMO_TICKET = {
@@ -63,6 +65,7 @@ function NlnrQR({ code }) {
 const LOAD_PRESETS = [50, 100, 200, 500]
 
 function BarSheet({ onClose }) {
+  const t = useT()
   const [balance,   setBalance]   = useState(0)
   const [cart,      setCart]      = useState({})
   const [ordered,   setOrdered]   = useState(false)
@@ -136,20 +139,20 @@ function BarSheet({ onClose }) {
           allRedeemed ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 2rem', textAlign: 'center' }}>
               <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🕊</div>
-              <div style={{ color: BRAND.neon, fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.4rem' }}>All drinks handed over</div>
-              <div style={{ color: C.textMid, fontSize: '0.85rem', marginBottom: '2rem' }}>Enjoy the show, {name}.</div>
+              <div style={{ color: BRAND.neon, fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.4rem' }}>{t('barSheet.allDone')}</div>
+              <div style={{ color: C.textMid, fontSize: '0.85rem', marginBottom: '2rem' }}>{t('barSheet.enjoy', { name })}</div>
               <button onClick={onClose} style={{ background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px', padding: '0.8rem 2rem', fontWeight: '800', cursor: 'pointer', fontFamily: FONT }}>
-                Back to ticket
+                {t('barSheet.backToTicket')}
               </button>
             </div>
           ) : (
             <>
               <div style={{ padding: '0.9rem 1.2rem', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
                 <div style={{ ...eyebrowStyle(BRAND.pink), marginBottom: '0.15rem' }}>
-                  Hand this to the bartender
+                  {t('barSheet.handToBartender')}
                 </div>
                 <div style={{ color: C.text, fontWeight: '800', fontSize: '1rem' }}>
-                  {name}'s order · {totalRedeemed}/{orderItems.length} handed over
+                  {t('barSheet.orderHeader', { name, done: totalRedeemed, total: orderItems.length })}
                 </div>
               </div>
 
@@ -169,7 +172,11 @@ function BarSheet({ onClose }) {
                       <div style={{ flex: 1, padding: '0.5rem 0' }}>
                         <div style={{ fontWeight: '700', fontSize: '0.9rem', color: remaining === 0 ? BRAND.neon : C.text }}>{item.name}</div>
                         <div style={{ fontSize: '0.72rem', color: C.textMid, marginTop: '0.1rem' }}>
-                          {remaining === 0 ? 'All handed over' : `${done > 0 ? `${done} done · ` : ''}${remaining} remaining`}
+                          {remaining === 0
+                            ? t('barSheet.allHandedOver')
+                            : done > 0
+                              ? t('barSheet.itemDone', { done, remaining })
+                              : t('barSheet.itemRemaining', { remaining })}
                         </div>
                       </div>
                       <div style={{ padding: '0 1rem', flexShrink: 0 }}>
@@ -183,7 +190,7 @@ function BarSheet({ onClose }) {
                               whiteSpace: 'nowrap', fontFamily: FONT,
                             }}
                           >
-                            Redeem
+                            {t('barSheet.redeem')}
                           </button>
                         ) : (
                           <div style={{ color: BRAND.neon, fontSize: '1.2rem' }}>✓</div>
@@ -196,7 +203,7 @@ function BarSheet({ onClose }) {
 
               <div style={{ padding: '0.75rem 1.2rem 1.2rem', borderTop: `1px solid ${C.border}`, flexShrink: 0, textAlign: 'center' }}>
                 <div style={{ fontSize: '0.72rem', color: C.textMid }}>
-                  Bartender taps Redeem as each drink is handed over
+                  {t('barSheet.tapRedeem')}
                 </div>
               </div>
             </>
@@ -212,14 +219,14 @@ function BarSheet({ onClose }) {
             }}>
               <div>
                 <div style={{ ...eyebrowStyle(BRAND.pink), fontSize: '0.62rem', marginBottom: '0.1rem' }}>
-                  🕊 Dove Balance
+                  {t('barSheet.doveBalance')}
                 </div>
                 <div style={{ color: balance > 0 ? BRAND.neon : C.textMid, fontSize: '1.6rem', fontWeight: '900', lineHeight: 1, letterSpacing: '-0.02em' }}>
                   {balance}
-                  <span style={{ fontSize: '0.78rem', color: C.textMid, fontWeight: '600', marginLeft: '0.3rem' }}>doves</span>
+                  <span style={{ fontSize: '0.78rem', color: C.textMid, fontWeight: '600', marginLeft: '0.3rem' }}>{t('barSheet.dovesUnit')}</span>
                 </div>
                 <div style={{ color: C.textMid, fontSize: '0.68rem', marginTop: '0.1rem' }}>
-                  Charged now · unused doves refunded within 24 hours
+                  {t('home.refundNote')}
                 </div>
               </div>
               <button
@@ -231,7 +238,7 @@ function BarSheet({ onClose }) {
                   fontFamily: FONT,
                 }}
               >
-                + Load
+                {t('barSheet.load')}
               </button>
             </div>
 
@@ -239,12 +246,12 @@ function BarSheet({ onClose }) {
               <div style={{ background: '#0d0a14', borderBottom: `1px solid ${C.border}`, padding: '0.9rem 1.2rem', flexShrink: 0 }}>
                 {loadDone ? (
                   <div style={{ textAlign: 'center', color: BRAND.neon, fontWeight: '800', padding: '0.4rem 0' }}>
-                    {loadAmt} Doves loaded
+                    {t('barSheet.dovesLoaded', { n: loadAmt })}
                   </div>
                 ) : (
                   <>
                     <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.68rem', marginBottom: '0.55rem' }}>
-                      Select amount to load
+                      {t('barSheet.selectAmount')}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem', marginBottom: '0.7rem' }}>
                       {LOAD_PRESETS.map(p => (
@@ -260,15 +267,16 @@ function BarSheet({ onClose }) {
                         </button>
                       ))}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: C.textMid, marginBottom: '0.6rem' }}>
-                      Card charged <strong style={{ color: C.text }}>${loadAmt}</strong> now. Any unused doves are automatically refunded within 24 hours.
-                    </div>
+                    <div
+                      style={{ fontSize: '0.7rem', color: C.textMid, marginBottom: '0.6rem' }}
+                      dangerouslySetInnerHTML={{ __html: t('barSheet.chargeNow', { n: loadAmt }) }}
+                    />
                     <button onClick={handleLoad} style={{
                       width: '100%', background: BRAND.gradient, color: '#000', border: 'none',
                       borderRadius: '8px', padding: '0.7rem', fontWeight: '800', fontSize: '0.88rem', cursor: 'pointer',
                       fontFamily: FONT,
                     }}>
-                      Load ${loadAmt}
+                      {t('barSheet.loadAmt', { n: loadAmt })}
                     </button>
                   </>
                 )}
@@ -276,10 +284,10 @@ function BarSheet({ onClose }) {
             )}
 
             <div style={{ padding: '0.65rem 1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-              <div style={{ color: C.text, fontWeight: '800', fontSize: '0.95rem' }}>Rooftop Bar</div>
+              <div style={{ color: C.text, fontWeight: '800', fontSize: '0.95rem' }}>{t('barSheet.rooftopBar')}</div>
               {count > 0 && (
                 <div style={badgeStyle('live')}>
-                  {count} in cart · 🕊 {total}
+                  {t('barSheet.inCart', { count, total })}
                 </div>
               )}
             </div>
@@ -314,7 +322,7 @@ function BarSheet({ onClose }) {
                                 cursor: afford ? 'pointer' : 'not-allowed', fontFamily: FONT,
                               }}
                             >
-                              {afford ? 'ADD' : 'Load'}
+                              {afford ? t('barSheet.add') : t('barSheet.loadCta')}
                             </button>
                           ) : (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -325,7 +333,7 @@ function BarSheet({ onClose }) {
                           )}
                         </div>
                         {!afford && balance > 0 && (
-                          <div style={{ fontSize: '0.6rem', color: C.red, marginTop: '0.3rem' }}>Need {item.price - balance} more doves</div>
+                          <div style={{ fontSize: '0.6rem', color: C.red, marginTop: '0.3rem' }}>{t('barSheet.needMore', { n: item.price - balance })}</div>
                         )}
                       </div>
                     </div>
@@ -342,7 +350,7 @@ function BarSheet({ onClose }) {
                     value={name}
                     onChange={e => setName(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && place()}
-                    placeholder="Your name so the bartender can call you"
+                    placeholder={t('barSheet.namePh')}
                     style={{ ...INPUT, marginBottom: '0.6rem' }}
                   />
                 )}
@@ -359,12 +367,12 @@ function BarSheet({ onClose }) {
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   }}
                 >
-                  <span>{showName ? 'Place Order' : 'Order Now'}</span>
+                  <span>{showName ? t('barSheet.placeOrder') : t('barSheet.orderNow')}</span>
                   <span>🕊 {total}</span>
                 </button>
                 {balance < total && (
                   <div style={{ textAlign: 'center', fontSize: '0.75rem', color: C.red, marginTop: '0.5rem' }}>
-                    Load {total - balance} more doves to place this order
+                    {t('barSheet.loadMoreToOrder', { n: total - balance })}
                   </div>
                 )}
               </div>
@@ -378,6 +386,7 @@ function BarSheet({ onClose }) {
 
 // ─── FAN TICKET VIEW ─────────────────────────────────────────────────────────
 function FanView({ onBack }) {
+  const t = useT()
   const [barOpen, setBarOpen] = useState(false)
 
   return (
@@ -397,8 +406,11 @@ function FanView({ onBack }) {
         borderRadius: '8px', padding: '0.45rem 0.85rem', cursor: 'pointer',
         fontSize: '0.82rem', fontFamily: FONT, fontWeight: '600',
       }}>
-        ← Back
+        {t('common.back')}
       </button>
+      <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 10 }}>
+        <LocaleToggle />
+      </div>
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={LogoMark({ size: 72 })}>GRAIL</div>
       </div>
@@ -425,11 +437,11 @@ function FanView({ onBack }) {
         <div style={{ padding: '1rem 1.2rem 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.2rem' }}>Venue</div>
+              <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.2rem' }}>{t('home.venue')}</div>
               <div style={{ color: C.text, fontWeight: '700', fontSize: '0.88rem' }}>{DEMO_TICKET.venue}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.2rem' }}>Tier</div>
+              <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.2rem' }}>{t('home.tier')}</div>
               <div style={{ color: BRAND.pink, fontWeight: '700', fontSize: '0.88rem' }}>{DEMO_TICKET.tier}</div>
             </div>
           </div>
@@ -446,11 +458,11 @@ function FanView({ onBack }) {
             <NlnrQR code={DEMO_TICKET.code} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.3rem' }}>Ticket holder</div>
+            <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.3rem' }}>{t('home.holder')}</div>
             <div style={{ color: C.text, fontWeight: '700', fontSize: '0.95rem' }}>{DEMO_TICKET.holder}</div>
             <div style={{ fontSize: '0.65rem', color: C.textMid, marginTop: '0.5rem', letterSpacing: '0.08em', fontFamily: 'monospace' }}>{DEMO_TICKET.code}</div>
             <div style={{ marginTop: '0.5rem' }}>
-              <span style={badgeStyle('success')}>Doves active</span>
+              <span style={badgeStyle('success')}>{t('home.dovesActive')}</span>
             </div>
           </div>
         </div>
@@ -473,11 +485,11 @@ function FanView({ onBack }) {
           fontFamily: FONT,
         }}
       >
-        Order from the Bar
+        {t('home.orderFromBar')}
       </button>
 
       <div style={{ color: C.textMid, fontSize: '0.72rem', marginTop: '0.75rem', textAlign: 'center' }}>
-        Charged now · unused doves refunded within 24 hours
+        {t('home.refundNote')}
       </div>
 
       {barOpen && <BarSheet onClose={() => setBarOpen(false)} />}
@@ -518,6 +530,7 @@ function RoleCard({ label, desc, cta, onClick, accent, eyebrow }) {
 
 // ─── HOME LOGIN ───────────────────────────────────────────────────────────────
 function HomeLogin() {
+  const t = useT()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
@@ -545,12 +558,12 @@ function HomeLogin() {
   return (
     <div style={{ width: '100%', marginTop: '2rem', paddingTop: '2rem', borderTop: `1px solid ${C.border}` }}>
       <div style={{ color: C.textMid, fontSize: '0.75rem', textAlign: 'center', marginBottom: '1rem', letterSpacing: '0.05em' }}>
-        Already have an account?
+        {t('home.alreadyAccount')}
       </div>
       <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <input style={inp} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
-          <input style={inp} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
+          <input style={inp} type="email" placeholder={t('common.email')} value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+          <input style={inp} type="password" placeholder={t('common.password')} value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
         </div>
         {error && <div style={{ color: BRAND.orange, fontSize: '0.78rem' }}>{error}</div>}
         <button type="submit" disabled={loading} style={{
@@ -558,7 +571,7 @@ function HomeLogin() {
           borderRadius: '8px', padding: '0.65rem', cursor: 'pointer', fontSize: '0.85rem',
           fontFamily: FONT, fontWeight: '600',
         }}>
-          {loading ? '…' : 'Sign In'}
+          {loading ? '…' : t('home.signIn')}
         </button>
       </form>
     </div>
@@ -567,11 +580,13 @@ function HomeLogin() {
 
 // ─── SIGNUP FORM ──────────────────────────────────────────────────────────────
 function SignupForm({ role, onBack }) {
+  const t = useT()
   const [email, setEmail] = useState('')
   const [name,  setName]  = useState('')
   const [done,  setDone]  = useState(false)
 
   const accent = role === 'Promoter' ? BRAND.orange : BRAND.purple
+  const roleLabel = role === 'Promoter' ? t('home.role.promoter.eyebrow') : t('home.role.fan.eyebrow')
 
   const submit = e => {
     e.preventDefault()
@@ -581,12 +596,12 @@ function SignupForm({ role, onBack }) {
 
   if (done) return (
     <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-      <div style={{ color: C.text, fontWeight: '800', fontSize: '1.2rem', marginBottom: '0.4rem', letterSpacing: '-0.01em' }}>You're on the list</div>
+      <div style={{ color: C.text, fontWeight: '800', fontSize: '1.2rem', marginBottom: '0.4rem', letterSpacing: '-0.01em' }}>{t('signup.done.title')}</div>
       <div style={{ color: C.textMid, fontSize: '0.88rem', marginBottom: '1.5rem' }}>
-        We'll reach out when {role === 'Promoter' ? 'GRAIL is ready for your first event' : 'your first show is live'}.
+        {role === 'Promoter' ? t('signup.done.promoterBody') : t('signup.done.fanBody')}
       </div>
       <button onClick={onBack} style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid, borderRadius: '8px', padding: '0.65rem 1.4rem', cursor: 'pointer', fontSize: '0.85rem', fontFamily: FONT }}>
-        ← Back
+        {t('common.back')}
       </button>
     </div>
   )
@@ -594,24 +609,24 @@ function SignupForm({ role, onBack }) {
   return (
     <div>
       <button onClick={onBack} style={{ background: 'transparent', border: 'none', color: C.textMid, cursor: 'pointer', fontSize: '0.82rem', marginBottom: '1.2rem', padding: 0, display: 'flex', alignItems: 'center', gap: '0.3rem', fontFamily: FONT }}>
-        ← Back
+        {t('common.back')}
       </button>
-      <div style={eyebrowStyle(accent)}>{role} Signup</div>
+      <div style={eyebrowStyle(accent)}>{t('signup.role', { role: roleLabel })}</div>
       <div style={{ color: C.text, fontWeight: '800', fontSize: '1.3rem', marginBottom: '1.5rem', letterSpacing: '-0.02em' }}>
-        {role === 'Promoter' ? 'Get early access.' : 'Get notified when shows go live.'}
+        {role === 'Promoter' ? t('signup.promoter.title') : t('signup.fan.title')}
       </div>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="Name" style={INPUT} />
-        <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" style={INPUT} />
+        <input value={name} onChange={e => setName(e.target.value)} placeholder={t('signup.namePh')} style={INPUT} />
+        <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder={t('common.email')} style={INPUT} />
         {role === 'Promoter' && (
-          <input placeholder="Your city / market" style={INPUT} />
+          <input placeholder={t('signup.cityPh')} style={INPUT} />
         )}
         <button type="submit" style={{
           background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
           padding: '0.95rem', fontSize: '1rem', fontWeight: '800', cursor: 'pointer',
           marginTop: '0.25rem', fontFamily: FONT,
         }}>
-          Join the waitlist
+          {t('signup.cta')}
         </button>
       </form>
     </div>
@@ -620,6 +635,7 @@ function SignupForm({ role, onBack }) {
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 export default function GrailHome() {
+  const t = useT()
   const navigate = useNavigate()
   const [view, setView] = useState('home')
 
@@ -644,38 +660,41 @@ export default function GrailHome() {
       }} />
 
       <div style={{ width: '100%', maxWidth: '480px', position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ position: 'absolute', top: 0, right: 0 }}>
+          <LocaleToggle />
+        </div>
         <div style={{ marginBottom: '1.2rem' }}>
           <div style={LogoMark({ size: 72 })}>GRAIL</div>
         </div>
         <div style={{ color: C.textMid, fontSize: '0.9rem', textAlign: 'center', marginBottom: '3rem', lineHeight: 1.6, maxWidth: '300px' }}>
-          Event infrastructure built by musicians.<br />
-          <span style={{ color: C.text, fontWeight: '700' }}>2% flat. No lock-in.</span>
+          {t('home.tagline.line1')}<br />
+          <span style={{ color: C.text, fontWeight: '700' }}>{t('home.tagline.line2')}</span>
         </div>
 
         {view === 'home' && (
           <>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <RoleCard
-                eyebrow="Promoter"
-                label="I'm throwing an event"
-                desc="Build your event contract, sell tickets, manage the bar, and settle with your partners — all in one place."
-                cta="Request access"
+                eyebrow={t('home.role.promoter.eyebrow')}
+                label={t('home.role.promoter.label')}
+                desc={t('home.role.promoter.desc')}
+                cta={t('home.role.promoter.cta')}
                 accent={BRAND.orange}
                 onClick={() => navigate('/request-access')}
               />
               <RoleCard
-                eyebrow="Fan"
-                label="I'm going to shows"
-                desc="See your ticket, order drinks from your phone, and pay after the show. No app download required."
-                cta="See how it works"
+                eyebrow={t('home.role.fan.eyebrow')}
+                label={t('home.role.fan.label')}
+                desc={t('home.role.fan.desc')}
+                cta={t('home.role.fan.cta')}
                 accent={BRAND.purple}
                 onClick={() => setView('fan')}
               />
               <RoleCard
-                eyebrow="Walkthrough"
-                label="Show me a demo"
-                desc="Walk through a full event — contract, bar, door, and settlement."
-                cta="Open the demo"
+                eyebrow={t('home.role.demo.eyebrow')}
+                label={t('home.role.demo.label')}
+                desc={t('home.role.demo.desc')}
+                cta={t('home.role.demo.cta')}
                 accent={BRAND.blue}
                 onClick={() => navigate('/demo')}
               />
@@ -684,7 +703,7 @@ export default function GrailHome() {
             <HomeLogin />
 
             <div style={{ marginTop: '1.5rem', color: C.textDim, fontSize: '0.72rem', textAlign: 'center' }}>
-              A musician-run nonprofit · 2% on tickets and bar
+              {t('home.footer')}
             </div>
           </>
         )}
