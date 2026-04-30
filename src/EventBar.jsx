@@ -27,8 +27,12 @@ const C = {
   textDim:  '#4a4038',
 }
 
+// Preserves up to 2 decimal places — without this, 0.10-MXN test prices
+// collapse to "$0" in the menu/cart display.
 function fmt(n, currency = 'MXN') {
-  return currency === 'USD' ? `$${n}` : `$${Math.round(n)}`
+  const num = Number(n) || 0
+  const rounded = Number.isInteger(num) ? num : Math.round(num * 100) / 100
+  return `$${rounded.toLocaleString()}`
 }
 function fmtTime(iso) {
   const d = new Date(iso)
