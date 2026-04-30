@@ -48,6 +48,20 @@ export async function uploadFlyer(file, slug) {
   return data?.publicUrl || null
 }
 
+// Upload a custom drink photo to the bar-photos bucket. Bucket must
+// exist (create via Supabase dashboard if not). Returns public URL.
+export async function uploadBarPhoto(file, slugOrId) {
+  if (!file) return null
+  const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase()
+  const path = `${slugOrId}-${Date.now()}.${ext}`
+  const { error } = await supabase.storage
+    .from('bar-photos')
+    .upload(path, file, { upsert: true, contentType: file.type })
+  if (error) throw error
+  const { data } = supabase.storage.from('bar-photos').getPublicUrl(path)
+  return data?.publicUrl || null
+}
+
 // ─── Save event from GrailSetup data ──────────────────────────────────────────
 
 export async function createEventFromSetup(setupData, promoterId) {
@@ -133,6 +147,7 @@ export async function createEventFromSetup(setupData, promoterId) {
       price_cents: Math.round(Number(b.price) * 100),
       category:    b.category || 'Drinks',
       description: b.desc || null,
+      image_url:   b.imageUrl || null,
       sort_order:  i,
       active:      true,
     }))
@@ -205,6 +220,7 @@ export async function loadEventForEdit(slug) {
       price:    String((b.price_cents || 0) / 100),
       category: b.category || 'Drinks',
       desc:     b.description || '',
+      imageUrl: b.image_url || null,
       featured: FEATURED_NAMES.includes((b.name || '').toLowerCase()),
     })),
 
@@ -336,6 +352,7 @@ export async function updateEventFromSetup(setupData, eventId) {
       price_cents: Math.round(Number(b.price) * 100),
       category:    b.category || 'Drinks',
       description: b.desc || null,
+      image_url:   b.imageUrl || null,
       sort_order:  i,
       active:      true,
     }))
@@ -348,6 +365,7 @@ export async function updateEventFromSetup(setupData, eventId) {
       price_cents: Math.round(Number(b.price) * 100),
       category:    b.category || 'Drinks',
       description: b.desc || null,
+      image_url:   b.imageUrl || null,
       sort_order:  i,
       active:      true,
     }))

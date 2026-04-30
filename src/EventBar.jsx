@@ -1026,7 +1026,8 @@ export default function EventBar({ staffMode = false }) {
         ...it,
         price:    it.price != null ? it.price : (it.price_cents || 0) / 100,
         emoji:    it.emoji || '🥂',
-        img:      imageFor(it.name),
+        // Promoter's uploaded photo wins; fall back to featured template
+        img:      it.image_url || imageFor(it.name),
         // Promoter description wins; fall back to featured-drink default
         description: it.description || descFor(it.name) || '',
         category: it.category || 'all',

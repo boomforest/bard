@@ -693,8 +693,8 @@ export default function GrailDoves() {
         doves: (r.price_cents || 0) / 100,
         cat:   (r.category || 'drinks').toLowerCase(),
         emoji: emojiFor(r.name),
-        img:   imageFor(r.name),
-        // Promoter's description wins; fall back to the featured-drink default
+        // Promoter's uploaded photo wins; fall back to featured template
+        img:   r.image_url || imageFor(r.name),
         desc:  r.description || descFor(r.name) || '',
       }))
       setMenu(mapped)

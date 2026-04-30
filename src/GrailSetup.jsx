@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
-import { createEventFromSetup, loadEventForEdit, updateEventFromSetup } from './eventService'
+import { createEventFromSetup, loadEventForEdit, updateEventFromSetup, uploadBarPhoto } from './eventService'
 import { FEATURED_DRINKS } from './featuredDrinks'
 import { CURRENCIES, DEFAULT_CURRENCY, fmtPrice } from './currencies'
 
@@ -569,6 +569,21 @@ function StepBar({ data, setData, onBack, onNext }) {
   const items      = data.barItems || []
   const barEnabled = data.barEnabled !== false
   const [whyOpen, setWhyOpen] = useState(false)
+  const [photoUploadingId, setPhotoUploadingId] = useState(null)
+  const [photoErr, setPhotoErr] = useState('')
+
+  const onPhotoFile = async (id, file) => {
+    if (!file) return
+    setPhotoErr('')
+    setPhotoUploadingId(id)
+    try {
+      const url = await uploadBarPhoto(file, `barpic-${id}`)
+      if (url) updateItem(id, 'imageUrl', url)
+    } catch (e) {
+      setPhotoErr(e.message || 'Photo upload failed')
+    }
+    setPhotoUploadingId(null)
+  }
 
   const addItem = () => setData(d => ({
     ...d,
@@ -724,6 +739,46 @@ function StepBar({ data, setData, onBack, onNext }) {
                       <Input value={item.desc} onChange={e => updateItem(item.id, 'desc', e.target.value)} placeholder="Short tagline" />
                     </div>
                   </div>
+
+                  {/* Photo upload — replaces gradient placeholder on the
+                      consumer card with the uploaded image. */}
+                  <div style={{ marginTop: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name || 'photo'}
+                        style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '56px', height: '56px', borderRadius: '8px',
+                        background: 'linear-gradient(135deg, #1a0a2e, #0a0d2e)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '1.2rem', flexShrink: 0,
+                      }}>🍹</div>
+                    )}
+                    <label
+                      htmlFor={`barphoto-${item.id}`}
+                      style={{
+                        flex: 1, background: 'transparent', border: `1px dashed ${C.border}`,
+                        color: C.textMid, borderRadius: '8px', padding: '0.55rem 0.85rem',
+                        fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
+                        textAlign: 'center', display: 'block',
+                      }}
+                    >
+                      {photoUploadingId === item.id
+                        ? 'Uploading…'
+                        : item.imageUrl ? 'Replace photo' : '+ Add photo (optional)'}
+                    </label>
+                    <input
+                      id={`barphoto-${item.id}`}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={e => onPhotoFile(item.id, e.target.files?.[0])}
+                    />
+                  </div>
+                  {photoErr && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.4rem' }}>{photoErr}</div>}
                 </>
               )}
             </div>
