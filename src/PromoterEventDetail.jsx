@@ -44,6 +44,10 @@ export default function PromoterEventDetail() {
   const [pinSaved, setPinSaved] = useState(false)
   const [emailSweepStatus, setEmailSweepStatus] = useState(null)  // { sent, total, errors }
   const [sweeping, setSweeping] = useState(false)
+  const [attendeeMsg, setAttendeeMsg] = useState('')
+  const [attendeeSubject, setAttendeeSubject] = useState('')
+  const [attendeeBlasting, setAttendeeBlasting] = useState(false)
+  const [attendeeResult, setAttendeeResult] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
@@ -209,6 +213,44 @@ export default function PromoterEventDetail() {
     }
     setEmailSweepStatus({ sent, total: groups.size, errors })
     setSweeping(false)
+  }
+
+  const handleAttendeeBlast = async () => {
+    const msg = attendeeMsg.trim()
+    if (!msg) { alert('Write a message first.'); return }
+    const liveCount = tickets.filter(t => !t.refunded && t.email).length
+    if (liveCount === 0) { alert('No live attendees to email.'); return }
+    if (!confirm(`Send this message to all ticket holders for ${event.name || event.artist_name}?\n\nGroups by buyer email, so a buyer with multiple tickets gets one email.`)) return
+
+    setAttendeeBlasting(true)
+    setAttendeeResult(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Sign in expired — please reload.')
+      const res = await fetch('/.netlify/functions/send-attendee-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          event_id: event.id,
+          subject:  attendeeSubject.trim() || null,
+          message:  msg,
+          origin:   window.location.origin,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Send failed')
+      setAttendeeResult(json)
+      // Clear message body on success so an accidental double-click
+      // doesn't re-send. Keep subject in case the promoter wants to
+      // edit + resend with the same line.
+      if (json.sent > 0) setAttendeeMsg('')
+    } catch (err) {
+      setAttendeeResult({ error: err.message })
+    }
+    setAttendeeBlasting(false)
   }
 
   const copyAttendeeEmails = () => {
@@ -659,6 +701,83 @@ export default function PromoterEventDetail() {
               >
                 {sweeping ? 'Sending…' : 'Resend ticket emails to all'}
               </button>
+            </div>
+          )}
+
+          {/* Message all attendees — for "doors moved", "bring a sweater",
+              etc. Free-form subject + body, sent per-recipient-language. */}
+          {tickets.filter(t => !t.refunded && t.email).length > 0 && (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', padding: '1rem 1.2rem', marginBottom: '0.85rem' }}>
+              <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.5rem' }}>
+                Message all attendees
+              </div>
+              <input
+                value={attendeeSubject}
+                onChange={e => setAttendeeSubject(e.target.value)}
+                placeholder="Subject (optional — defaults to event-name)"
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: '#0d0d14', border: `1px solid ${C.border}`,
+                  borderRadius: '10px', padding: '0.55rem 0.85rem',
+                  color: C.text, fontFamily: FONT, fontSize: '0.85rem',
+                  marginBottom: '0.5rem',
+                }}
+              />
+              <textarea
+                value={attendeeMsg}
+                onChange={e => setAttendeeMsg(e.target.value)}
+                placeholder="Doors moved to 11pm. Bring a jacket — it's cold tonight."
+                rows={4}
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: '#0d0d14', border: `1px solid ${C.border}`,
+                  borderRadius: '10px', padding: '0.7rem 0.85rem',
+                  color: C.text, fontFamily: FONT, fontSize: '0.88rem',
+                  resize: 'vertical', marginBottom: '0.6rem',
+                }}
+              />
+              <div style={{ color: C.textDim, fontSize: '0.72rem', marginBottom: '0.6rem' }}>
+                Each recipient gets a "View your ticket" link in their language.
+                Buyers with multiple tickets get one email.
+              </div>
+              <button
+                onClick={handleAttendeeBlast}
+                disabled={attendeeBlasting || !attendeeMsg.trim()}
+                style={{
+                  background: attendeeBlasting || !attendeeMsg.trim() ? '#1a1a24' : BRAND.gradient,
+                  color: attendeeBlasting || !attendeeMsg.trim() ? C.textMid : '#000',
+                  border: 'none', borderRadius: '10px',
+                  padding: '0.7rem 1.1rem', fontSize: '0.85rem', fontWeight: '800',
+                  cursor: attendeeBlasting || !attendeeMsg.trim() ? 'not-allowed' : 'pointer',
+                  fontFamily: FONT, opacity: attendeeBlasting ? 0.6 : 1,
+                }}
+              >
+                {attendeeBlasting ? 'Sending…' : 'Send to all attendees'}
+              </button>
+            </div>
+          )}
+
+          {attendeeResult && (
+            <div style={{
+              background: attendeeResult.error || (attendeeResult.errors?.length > 0)
+                ? 'rgba(240,112,32,0.08)'
+                : 'rgba(170,255,0,0.06)',
+              border: `1px solid ${(attendeeResult.error || attendeeResult.errors?.length > 0) ? BRAND.orange : BRAND.neon}44`,
+              borderRadius: '10px', padding: '0.7rem 1rem',
+              color: (attendeeResult.error || attendeeResult.errors?.length > 0) ? BRAND.orange : BRAND.neon,
+              fontSize: '0.82rem', marginBottom: '0.75rem',
+            }}>
+              {attendeeResult.error
+                ? attendeeResult.error
+                : `✓ Sent message to ${attendeeResult.sent} of ${attendeeResult.total}`}
+              {attendeeResult.errors?.length > 0 && (
+                <div style={{ marginTop: '0.4rem', fontSize: '0.76rem' }}>
+                  {attendeeResult.errors.length} failed:{' '}
+                  {attendeeResult.errors.map((e, i) => (
+                    <span key={i}>{e.email} ({e.error}){i < attendeeResult.errors.length - 1 ? ', ' : ''}</span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

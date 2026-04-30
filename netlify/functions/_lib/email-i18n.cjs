@@ -43,6 +43,13 @@ const DICTS = {
     'newEvent.body':           '{promoter} just announced a new event. Here are the details:',
     'newEvent.cta':            'See event & buy tickets →',
     'newEvent.footer':         "You're getting this because you subscribed to {promoter}'s announcements.",
+
+    // ─── Promoter → attendee blast (send-attendee-message) ──────────────
+    'attendeeMsg.subject':     '{event} — message from {promoter}',
+    'attendeeMsg.eyebrow':     'Update from the promoter',
+    'attendeeMsg.greeting':    'Hi {name},',
+    'attendeeMsg.viewTicket':  'View your ticket →',
+    'attendeeMsg.footer':      "You're getting this because you bought a ticket to {event}.",
   },
   es: {
     // ─── Event ticket confirmation ───────────────────────────────────────
@@ -80,6 +87,13 @@ const DICTS = {
     'newEvent.body':           '{promoter} acaba de anunciar un nuevo evento. Aquí están los detalles:',
     'newEvent.cta':            'Ver evento y comprar boletos →',
     'newEvent.footer':         'Recibes esto porque te suscribiste a los avisos de {promoter}.',
+
+    // ─── Promoter → attendee blast ───────────────────────────────────────
+    'attendeeMsg.subject':     '{event} — mensaje de {promoter}',
+    'attendeeMsg.eyebrow':     'Mensaje del promotor',
+    'attendeeMsg.greeting':    'Hola {name},',
+    'attendeeMsg.viewTicket':  'Ver tu boleto →',
+    'attendeeMsg.footer':      'Recibes esto porque compraste un boleto para {event}.',
   },
 }
 
