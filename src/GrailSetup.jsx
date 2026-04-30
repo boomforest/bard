@@ -75,6 +75,41 @@ function Input({ value, onChange, placeholder, type = 'text', style = {} }) {
   )
 }
 
+// PriceInput — number input with the event's currency code locked to the
+// right edge so promoters always know what unit they're typing in.
+// Fixes the ambiguity where "50" could be 50 MXN or 50 USD or 50 EUR.
+function PriceInput({ value, onChange, placeholder, currency }) {
+  const code = (currency || 'mxn').toUpperCase()
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'stretch',
+      background: '#111', border: `1px solid ${C.border}`,
+      borderRadius: '10px', overflow: 'hidden',
+    }}>
+      <input
+        type="number"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        style={{
+          flex: 1, minWidth: 0,
+          background: 'transparent', border: 'none', outline: 'none',
+          color: C.text, padding: '0.75rem 0.9rem', fontSize: '0.9rem',
+          fontFamily: 'inherit',
+        }}
+      />
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '0 0.85rem', background: 'rgba(255,255,255,0.04)',
+        color: C.textMid, fontSize: '0.72rem', fontWeight: '700',
+        letterSpacing: '0.06em', borderLeft: `1px solid ${C.border}`,
+      }}>
+        {code}
+      </div>
+    </div>
+  )
+}
+
 function Textarea({ value, onChange, placeholder, rows = 3 }) {
   return (
     <textarea
@@ -451,8 +486,8 @@ function StepTickets({ data, setData, onBack, onNext }) {
               <Input value={tier.name} onChange={e => updateTier(tier.id, 'name', e.target.value)} placeholder="General Admission" />
             </div>
             <div>
-              <Label>Price ($)</Label>
-              <Input type="number" value={tier.price} onChange={e => updateTier(tier.id, 'price', e.target.value)} placeholder="25" />
+              <Label>Price</Label>
+              <PriceInput value={tier.price} onChange={e => updateTier(tier.id, 'price', e.target.value)} placeholder="25" currency={data.currency} />
             </div>
             <div>
               <Label>Qty</Label>
@@ -503,6 +538,7 @@ function StepTickets({ data, setData, onBack, onNext }) {
 function StepBar({ data, setData, onBack, onNext }) {
   const items      = data.barItems || []
   const barEnabled = data.barEnabled !== false
+  const [whyOpen, setWhyOpen] = useState(false)
 
   const addItem = () => setData(d => ({
     ...d,
@@ -522,36 +558,83 @@ function StepBar({ data, setData, onBack, onNext }) {
     <div>
       <SectionHeader title="Bar Menu" sub="What are you selling? Set items and prices. Fans order from their phone." />
 
-      {/* Bar on/off toggle */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: '#111', border: `1px solid ${C.border}`, borderRadius: '12px',
-        padding: '0.9rem 1rem', marginBottom: '1.2rem',
-      }}>
-        <div>
-          <div style={{ fontWeight: '700', color: C.text, fontSize: '0.9rem' }}>Enable bar ordering</div>
-          <div style={{ fontSize: '0.75rem', color: C.textMid, marginTop: '0.1rem' }}>Fans order and pay from their phone</div>
+      {/* Bar on/off — checkbox so opt-out is unmissable */}
+      <button
+        type="button"
+        onClick={() => setData(d => ({ ...d, barEnabled: !barEnabled }))}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.85rem', width: '100%',
+          background: '#111', border: `1px solid ${barEnabled ? C.gold + '55' : C.border}`,
+          borderRadius: '12px', padding: '0.95rem 1rem', marginBottom: '1.2rem',
+          cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+          transition: 'border-color 0.2s',
+        }}
+      >
+        <div style={{
+          width: '22px', height: '22px', borderRadius: '6px',
+          background: barEnabled ? C.gold : 'transparent',
+          border: `2px solid ${barEnabled ? C.gold : C.textDim}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, transition: 'all 0.15s',
+        }}>
+          {barEnabled && (
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2.5 7L5.5 10L11.5 4" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
         </div>
-        <button
-          onClick={() => setData(d => ({ ...d, barEnabled: !barEnabled }))}
-          style={{
-            width: '48px', height: '26px', borderRadius: '99px',
-            background: barEnabled ? C.gold : C.border,
-            border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0,
-            transition: 'background 0.2s',
-          }}
-        >
-          <div style={{
-            width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
-            position: 'absolute', top: '3px',
-            left: barEnabled ? '25px' : '3px',
-            transition: 'left 0.2s',
-          }} />
-        </button>
-      </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: '700', color: C.text, fontSize: '0.92rem' }}>
+            {barEnabled ? 'Bar ordering enabled' : 'Bar ordering disabled'}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: C.textMid, marginTop: '0.15rem' }}>
+            {barEnabled
+              ? 'Uncheck to skip the bar entirely for this event.'
+              : 'Check to let fans order and pay from their phone.'}
+          </div>
+        </div>
+      </button>
 
       {barEnabled && (
         <>
+          {/* "Why these drinks?" explainer — collapsed by default */}
+          {items.some(it => it.featured) && (
+            <div style={{
+              background: '#0d0d0d', border: `1px solid ${C.border}`,
+              borderRadius: '12px', marginBottom: '0.9rem', overflow: 'hidden',
+            }}>
+              <button
+                type="button"
+                onClick={() => setWhyOpen(o => !o)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  width: '100%', padding: '0.75rem 1rem',
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: C.goldLight, fontSize: '0.82rem', fontWeight: '700',
+                  fontFamily: 'inherit', textAlign: 'left',
+                }}
+              >
+                <span>Why these four drinks?</span>
+                <span style={{ color: C.textMid, fontSize: '0.78rem' }}>{whyOpen ? '−' : '+'}</span>
+              </button>
+              {whyOpen && (
+                <div style={{
+                  padding: '0 1rem 0.95rem', color: C.textMid,
+                  fontSize: '0.82rem', lineHeight: 1.55,
+                }}>
+                  In our research, these four are a sweet spot: high profit margin,
+                  fast to make, and they keep your audience hydrated and in a good
+                  vibe. They share the same basic ingredients — mezcal, beer, mineral
+                  water, limes, chamoy — so stocking is simple.
+                  <br /><br />
+                  Tip: get large cups for sueros. Costs almost nothing more, feels
+                  like real value to the buyer, and one big suero can hydrate 4–5
+                  people on the dancefloor.
+                </div>
+              )}
+            </div>
+          )}
+
           {items.map((item, i) => (
             <div key={item.id} style={{
               background: '#111', border: `1px solid ${item.featured ? C.gold + '44' : C.border}`,
@@ -578,8 +661,8 @@ function StepBar({ data, setData, onBack, onNext }) {
                     <Input value={item.name} disabled style={{ opacity: 0.7 }} />
                   </div>
                   <div>
-                    <Label>Price (🕊)</Label>
-                    <Input type="number" value={item.price} onChange={e => updateItem(item.id, 'price', e.target.value)} />
+                    <Label>Price</Label>
+                    <PriceInput value={item.price} onChange={e => updateItem(item.id, 'price', e.target.value)} currency={data.currency} />
                   </div>
                 </div>
               ) : (
@@ -590,8 +673,8 @@ function StepBar({ data, setData, onBack, onNext }) {
                       <Input value={item.name} onChange={e => updateItem(item.id, 'name', e.target.value)} placeholder="Michelada" />
                     </div>
                     <div>
-                      <Label>Price (🕊)</Label>
-                      <Input type="number" value={item.price} onChange={e => updateItem(item.id, 'price', e.target.value)} placeholder="8" />
+                      <Label>Price</Label>
+                      <PriceInput value={item.price} onChange={e => updateItem(item.id, 'price', e.target.value)} placeholder="8" currency={data.currency} />
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
