@@ -31,6 +31,7 @@ import PromoterEventEdit from './PromoterEventEdit'
 import ResetPassword from './ResetPassword'
 import ErrorBoundary from './ErrorBoundary'
 import { installGlobalErrorHandlers } from './errorReporter'
+import { I18nProvider } from './i18n'
 import './index.css'
 
 // Catches anything that escapes React's render cycle — promise
@@ -40,6 +41,7 @@ installGlobalErrorHandlers()
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
+    <I18nProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<GrailHome />} />
@@ -93,6 +95,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/:handle"         element={<HandleRedirect />} />
       </Routes>
     </BrowserRouter>
+    </I18nProvider>
     </ErrorBoundary>
   </React.StrictMode>
 )
