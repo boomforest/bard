@@ -49,6 +49,22 @@ exports.handler = async (event) => {
     if (evErr || !ev) throw new Error('Event not found')
     if (ev.promoter_id !== user.id) throw new Error('Not authorized to close out this event')
 
+    // force_platform_balance moves money from the platform's own Stripe
+    // balance to the buyer, which leaves a reconciliation hole the
+    // platform owner has to clean up later. Only platform admins
+    // (users.is_admin = true) are allowed to trigger that path —
+    // promoters can't dump the float onto the platform on their own.
+    if (force_platform_balance) {
+      const { data: caller } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (!caller?.is_admin) {
+        throw new Error('Platform-balance refund is restricted to platform admins.')
+      }
+    }
+
     const { data: balances, error: bErr } = await supabase
       .from('bar_tabs')
       .select('*')

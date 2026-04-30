@@ -22,6 +22,7 @@ export default function PromoterEventDetail() {
   const navigate = useNavigate()
 
   const [session, setSession] = useState(undefined)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [event, setEvent]     = useState(null)
   const [tiers, setTiers]     = useState([])
   const [tickets, setTickets] = useState([])
@@ -63,16 +64,18 @@ export default function PromoterEventDetail() {
       }
       setEvent(ev)
 
-      const [{ data: tierRows }, { data: ticketRows }, { data: balanceRows }] = await Promise.all([
+      const [{ data: tierRows }, { data: ticketRows }, { data: balanceRows }, { data: callerRow }] = await Promise.all([
         supabase.from('ticket_tiers').select('*').eq('event_id', ev.id).order('sort_order'),
         supabase.from('tickets').select('id, ticket_number, name, email, tier_id, tier_name, torn, torn_at, refunded, created_at, stripe_payment_intent_id').eq('event_id', ev.id).order('created_at', { ascending: false }),
         supabase.from('bar_tabs').select('*').eq('event_id', ev.id).order('created_at', { ascending: false }),
+        supabase.from('users').select('is_admin').eq('id', session.user.id).maybeSingle(),
       ])
 
       if (cancelled) return
       setTiers(tierRows || [])
       setTickets(ticketRows || [])
       setDoveBalances(balanceRows || [])
+      setIsAdmin(!!callerRow?.is_admin)
       setLoading(false)
     }
     load()
@@ -449,23 +452,25 @@ export default function PromoterEventDetail() {
                         ))}
                         {hasInsufficientFunds && (
                           <div style={{ marginTop: '0.7rem', paddingTop: '0.6rem', borderTop: `1px solid ${BRAND.orange}33` }}>
-                            <div style={{ color: C.text, fontSize: '0.78rem', lineHeight: 1.5, marginBottom: '0.5rem' }}>
+                            <div style={{ color: C.text, fontSize: '0.78rem', lineHeight: 1.5, marginBottom: isAdmin ? '0.5rem' : 0 }}>
                               <strong style={{ color: BRAND.orange }}>If your Stripe account is still under review</strong>, incoming charges sit in pending balance and can't be refunded immediately — Stripe needs them cleared before reversing the transfer. This usually clears within 2–7 days of account verification.
                               <br /><br />
-                              You can either refund from your platform balance now (you'll absorb the cost until the bar's funds clear and you reconcile), <strong>or do nothing</strong> — the platform retries the refund automatically once a day, and after 7 days will fall back to the platform-balance method on its own.
+                              <strong>You don't need to do anything</strong> — the platform retries the refund automatically once a day, and after 7 days the platform owner will close it out from their own balance if your funds still haven't cleared. Buyers always get refunded eventually.
                             </div>
-                            <button
-                              onClick={() => handleCloseOut({ forcePlatformBalance: true })}
-                              disabled={closingOut}
-                              style={{
-                                background: BRAND.gradient, color: '#000', border: 'none',
-                                borderRadius: '8px', padding: '0.5rem 0.9rem',
-                                fontSize: '0.8rem', fontWeight: '800', cursor: closingOut ? 'wait' : 'pointer',
-                                fontFamily: FONT, opacity: closingOut ? 0.6 : 1,
-                              }}
-                            >
-                              {closingOut ? 'Refunding…' : 'Refund from platform balance'}
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleCloseOut({ forcePlatformBalance: true })}
+                                disabled={closingOut}
+                                style={{
+                                  background: BRAND.gradient, color: '#000', border: 'none',
+                                  borderRadius: '8px', padding: '0.5rem 0.9rem',
+                                  fontSize: '0.8rem', fontWeight: '800', cursor: closingOut ? 'wait' : 'pointer',
+                                  fontFamily: FONT, opacity: closingOut ? 0.6 : 1,
+                                }}
+                              >
+                                {closingOut ? 'Refunding…' : 'Refund from platform balance (admin)'}
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
