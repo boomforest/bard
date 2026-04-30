@@ -38,9 +38,9 @@ export default function HandleRedirect() {
 
       const { data: rows } = await supabase
         .from('events')
-        .select('slug, event_date, show_date')
+        .select('slug, show_date')
         .eq('promoter_id', user.id)
-        .order('event_date', { ascending: false })
+        .order('show_date', { ascending: false })
         .limit(20)
 
       if (cancelled) return

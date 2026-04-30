@@ -36,7 +36,7 @@ export default function ProfilePage() {
     const userEmail = session.user.email
 
     const [ticketsRes, profileRes, userRes] = await Promise.all([
-      supabase.from('tickets').select('*, events(artist_name, event_date, flyer_url)').eq('email', userEmail),
+      supabase.from('tickets').select('*, events(artist_name, show_date, flyer_url)').eq('email', userEmail),
       supabase.from('profiles').select('*').eq('id', session.user.id).single(),
       supabase.from('users').select('user_type, handle').eq('id', session.user.id).maybeSingle(),
     ])

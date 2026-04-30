@@ -53,7 +53,7 @@ exports.handler = async (event) => {
 
     const { data: ev, error: evErr } = await supabase
       .from('events')
-      .select('id, slug, name, artist_name, show_date, event_date, doors_time, venue_hint, venue_address, flyer_url')
+      .select('id, slug, name, artist_name, show_date, doors_time, venue_hint, venue_address, flyer_url')
       .eq('id', event_id)
       .maybeSingle()
     if (evErr || !ev) throw new Error('Event not found')

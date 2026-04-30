@@ -114,7 +114,6 @@ export default function PromoterEventEdit() {
           name,
           artist_name:     name,
           show_date:       showDateIso,
-          event_date:      showDateIso,
           doors_time:      time || null,
           venue_hint:      venue || null,
           venue_address:   address || null,

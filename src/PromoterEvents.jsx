@@ -22,7 +22,7 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
       setLoading(true)
       const { data } = await supabase
         .from('events')
-        .select('id, name, artist_name, slug, show_date, event_date, capacity, tickets_sold, status, flyer_url')
+        .select('id, name, artist_name, slug, show_date, capacity, tickets_sold, status, flyer_url')
         .eq('promoter_id', promoterId)
         .order('created_at', { ascending: false })
       if (!cancelled) {

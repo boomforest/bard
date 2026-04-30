@@ -73,7 +73,6 @@ export async function createEventFromSetup(setupData, promoterId) {
       slug,
       artist_name:     setupData.name,           // legacy field, mirror name
       show_date:       showDateIso,
-      event_date:      showDateIso,              // legacy alias used in some queries
       doors_time:      setupData.time || null,
       venue_hint:      setupData.venue || null,
       venue_address:   setupData.address || null,
