@@ -159,6 +159,26 @@ export default function ProfilePage() {
             <button type="submit" style={{ ...PRIMARY_BTN, marginTop: '0.25rem' }} disabled={authLoading}>
               {authLoading ? '…' : authMode === 'login' ? 'Sign In' : 'Create Account'}
             </button>
+            {authMode === 'login' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!email.trim()) { setAuthError('Enter your email above first.'); return }
+                  setAuthError('')
+                  const { error: rErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                    redirectTo: `${window.location.origin}/reset-password`,
+                  })
+                  setAuthError(rErr ? rErr.message : 'Reset link sent — check your email.')
+                }}
+                style={{
+                  background: 'transparent', border: 'none', color: C.textMid,
+                  fontSize: '0.78rem', cursor: 'pointer', padding: '0.2rem 0',
+                  fontFamily: FONT,
+                }}
+              >
+                Forgot password?
+              </button>
+            )}
           </form>
         </div>
       </div>

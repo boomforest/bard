@@ -42,6 +42,24 @@ function LoginForm() {
           <button type="submit" disabled={loading} style={{ ...PRIMARY_BTN, marginTop: '0.5rem' }}>
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!email.trim()) { setError('Enter your email above first.'); return }
+              setError('')
+              const { error: rErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                redirectTo: `${window.location.origin}/reset-password`,
+              })
+              setError(rErr ? rErr.message : 'Reset link sent — check your email.')
+            }}
+            style={{
+              background: 'transparent', border: 'none', color: C.textMid,
+              fontSize: '0.78rem', cursor: 'pointer', padding: '0.2rem 0',
+              fontFamily: FONT,
+            }}
+          >
+            Forgot password?
+          </button>
         </form>
       </div>
     </div>

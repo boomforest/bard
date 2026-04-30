@@ -28,6 +28,7 @@ import PromoterRequestPage from './PromoterRequestPage'
 import PlatformAdmin from './PlatformAdmin'
 import PromoterEventDetail from './PromoterEventDetail'
 import PromoterEventEdit from './PromoterEventEdit'
+import ResetPassword from './ResetPassword'
 import ErrorBoundary from './ErrorBoundary'
 import { installGlobalErrorHandlers } from './errorReporter'
 import './index.css'
@@ -63,6 +64,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         {/* Unified join / onboarding flow */}
         <Route path="/join" element={<JoinPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         {/* Public event page */}
         <Route path="/e/:slug" element={<EventPage />} />
         {/* Stripe Connect return URL */}

@@ -215,6 +215,26 @@ export default function JoinPage() {
         }}>
           {loading ? '…' : authMode === 'login' ? 'Sign In' : 'Create Account'}
         </button>
+        {authMode === 'login' && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!email.trim()) { setError('Enter your email above first.'); return }
+              setError('')
+              const { error: rErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                redirectTo: `${window.location.origin}/reset-password`,
+              })
+              setError(rErr ? rErr.message : 'Reset link sent — check your email.')
+            }}
+            style={{
+              background: 'transparent', border: 'none', color: C.textMid,
+              fontSize: '0.78rem', cursor: 'pointer', padding: '0.2rem 0',
+              fontFamily: FONT,
+            }}
+          >
+            Forgot password?
+          </button>
+        )}
       </form>
       <button onClick={() => navigate('/')} style={{ display: 'block', margin: '1.5rem auto 0', background: 'transparent', border: 'none', color: C.textMid, cursor: 'pointer', fontSize: '0.82rem', fontFamily: FONT }}>
         ← Back
