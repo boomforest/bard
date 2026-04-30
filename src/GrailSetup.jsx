@@ -559,7 +559,23 @@ function StepTickets({ data, setData, onBack, onNext }) {
         </div>
       )}
 
-      <NavButtons onBack={onBack} onNext={onNext} nextDisabled={tiers.length === 0 || tiers.some(t => !t.name || !t.price || !t.qty)} />
+      {/* Free-event prevention: every tier must have a positive price.
+          Stripe blocks $0 PaymentIntents anyway, but catching it here
+          means the promoter sees the problem at setup, not the buyer at
+          checkout. */}
+      {tiers.some(t => t.price && Number(t.price) <= 0) && (
+        <div style={{ color: C.red, fontSize: '0.82rem', marginTop: '0.5rem' }}>
+          Tier prices must be greater than 0. Free events aren't supported.
+        </div>
+      )}
+      <NavButtons
+        onBack={onBack}
+        onNext={onNext}
+        nextDisabled={
+          tiers.length === 0 ||
+          tiers.some(t => !t.name || !t.price || !t.qty || Number(t.price) <= 0 || Number(t.qty) <= 0)
+        }
+      />
     </div>
   )
 }
