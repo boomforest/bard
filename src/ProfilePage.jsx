@@ -10,6 +10,7 @@ export default function ProfilePage() {
   const [tab, setTab] = useState('Tickets')
   const [tickets, setTickets] = useState([])
   const [profile, setProfile] = useState(null)
+  const [userRow, setUserRow] = useState(null)   // users table row — for user_type
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState(false)
   const navigate = useNavigate()
@@ -34,13 +35,15 @@ export default function ProfilePage() {
     setLoading(true)
     const userEmail = session.user.email
 
-    const [ticketsRes, profileRes] = await Promise.all([
+    const [ticketsRes, profileRes, userRes] = await Promise.all([
       supabase.from('tickets').select('*, events(artist_name, event_date, flyer_url)').eq('email', userEmail),
-      supabase.from('profiles').select('*').eq('id', session.user.id).single()
+      supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+      supabase.from('users').select('user_type, handle').eq('id', session.user.id).maybeSingle(),
     ])
 
     setTickets(ticketsRes.data || [])
     setProfile(profileRes.data || null)
+    setUserRow(userRes.data || null)
     setLoading(false)
   }
 
@@ -201,18 +204,37 @@ export default function ProfilePage() {
           background: C.card,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
         }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ ...eyebrowStyle(), marginBottom: '0.4rem' }}>For Promoters</div>
-            <div style={{ fontSize: '1rem', color: C.text, fontWeight: '700', marginBottom: '0.3rem' }}>Throwing an event?</div>
-            <div style={{ fontSize: '0.82rem', color: C.textMid, lineHeight: '1.5' }}>Switch to a promoter account to sell tickets and manage your bar.</div>
-          </div>
-          <button onClick={handleBecomePromoter} disabled={upgrading} style={{
-            background: BRAND.gradient, color: '#000', border: 'none',
-            borderRadius: '8px', padding: '0.65rem 1.2rem', fontSize: '0.85rem',
-            fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: FONT,
-          }}>
-            {upgrading ? '…' : 'Apply →'}
-          </button>
+          {userRow?.user_type === 'promoter' ? (
+            <>
+              <div style={{ flex: 1 }}>
+                <div style={{ ...eyebrowStyle(), marginBottom: '0.4rem' }}>Promoter</div>
+                <div style={{ fontSize: '1rem', color: C.text, fontWeight: '700', marginBottom: '0.3rem' }}>Your dashboard</div>
+                <div style={{ fontSize: '0.82rem', color: C.textMid, lineHeight: '1.5' }}>Create a new event, manage tickets, run the bar.</div>
+              </div>
+              <button onClick={() => navigate('/promoter')} style={{
+                background: BRAND.gradient, color: '#000', border: 'none',
+                borderRadius: '8px', padding: '0.65rem 1.2rem', fontSize: '0.85rem',
+                fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: FONT,
+              }}>
+                + New Event
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ flex: 1 }}>
+                <div style={{ ...eyebrowStyle(), marginBottom: '0.4rem' }}>For Promoters</div>
+                <div style={{ fontSize: '1rem', color: C.text, fontWeight: '700', marginBottom: '0.3rem' }}>Throwing an event?</div>
+                <div style={{ fontSize: '0.82rem', color: C.textMid, lineHeight: '1.5' }}>Switch to a promoter account to sell tickets and manage your bar.</div>
+              </div>
+              <button onClick={handleBecomePromoter} disabled={upgrading} style={{
+                background: BRAND.gradient, color: '#000', border: 'none',
+                borderRadius: '8px', padding: '0.65rem 1.2rem', fontSize: '0.85rem',
+                fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: FONT,
+              }}>
+                {upgrading ? '…' : 'Apply →'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
