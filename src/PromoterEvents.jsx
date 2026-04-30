@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, PAGE, eyebrowStyle, badgeStyle } from './theme'
+import { validateHandle } from './handleUtils'
 
 const fmtDate = (iso) => {
   if (!iso) return ''
@@ -56,6 +57,9 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
             + New Event
           </button>
         </div>
+
+        {/* Promoter handle */}
+        <HandleCard promoterId={promoterId} />
 
         {/* Stripe status banner */}
         {stripeReady === false && (
@@ -188,6 +192,138 @@ export default function PromoterEvents({ promoterId, onNew, onCheckStripe, strip
         )}
 
       </div>
+    </div>
+  )
+}
+
+// ─── HANDLE CARD ──────────────────────────────────────────────────────────────
+// Lets a promoter claim a vanity handle (grail.mx/{handle}) that resolves
+// to their most recent upcoming event. Once claimed, shows the live link
+// with a copy button. No edit-after-claim for MVP — they live with what
+// they pick. (Future: add a rename flow that releases the old handle.)
+function HandleCard({ promoterId }) {
+  const [handle, setHandle]   = useState('')        // current saved handle, or ''
+  const [input, setInput]     = useState('')
+  const [busy, setBusy]       = useState(false)
+  const [error, setError]     = useState('')
+  const [copied, setCopied]   = useState(false)
+  const [loaded, setLoaded]   = useState(false)
+
+  useEffect(() => {
+    if (!promoterId) return
+    let cancelled = false
+    async function load() {
+      const { data } = await supabase
+        .from('users')
+        .select('handle')
+        .eq('id', promoterId)
+        .maybeSingle()
+      if (!cancelled) {
+        setHandle(data?.handle || '')
+        setLoaded(true)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [promoterId])
+
+  const claim = async (e) => {
+    e?.preventDefault()
+    setError('')
+    const v = validateHandle(input)
+    if (!v.ok) { setError(v.reason); return }
+    setBusy(true)
+    try {
+      // Upsert in case the user row doesn't exist yet (rare; usually it does)
+      const { error: upErr } = await supabase
+        .from('users')
+        .update({ handle: v.handle })
+        .eq('id', promoterId)
+      if (upErr) {
+        // Unique-violation is the expected "already taken" path
+        if (upErr.code === '23505') throw new Error('That handle is already taken.')
+        throw upErr
+      }
+      setHandle(v.handle)
+      setInput('')
+    } catch (err) {
+      setError(err.message)
+    }
+    setBusy(false)
+  }
+
+  const copyLink = () => {
+    const url = `${window.location.origin}/${handle}`
+    navigator.clipboard?.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  if (!loaded) return null
+
+  // Claimed state — show the live link
+  if (handle) {
+    const url = `${window.location.origin}/${handle}`
+    return (
+      <div style={{
+        background: C.card, border: `1px solid ${C.border}`,
+        borderRadius: '12px', padding: '0.85rem 1.1rem', marginBottom: '1.5rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem',
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ ...eyebrowStyle(), marginBottom: '0.25rem' }}>Your handle</div>
+          <div style={{ color: C.text, fontWeight: '700', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {url} <span style={{ color: C.textMid, fontSize: '0.78rem', fontWeight: '500' }}>→ your latest event</span>
+          </div>
+        </div>
+        <button onClick={copyLink} style={{
+          background: 'transparent', color: C.text, border: `1px solid ${C.border}`,
+          borderRadius: '8px', padding: '0.5rem 0.85rem', fontSize: '0.78rem', fontWeight: '700',
+          cursor: 'pointer', fontFamily: FONT, flexShrink: 0,
+        }}>
+          {copied ? '✓ Copied' : 'Copy'}
+        </button>
+      </div>
+    )
+  }
+
+  // Unclaimed state — show input
+  return (
+    <div style={{
+      background: C.card, border: `1px solid ${C.border}`,
+      borderRadius: '12px', padding: '1rem 1.1rem', marginBottom: '1.5rem',
+    }}>
+      <div style={{ ...eyebrowStyle(), marginBottom: '0.4rem' }}>Claim your handle</div>
+      <div style={{ color: C.textMid, fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '0.7rem' }}>
+        Pick a short link like <span style={{ color: C.text, fontWeight: '700' }}>grail.mx/your-name</span> that always points to your latest event.
+      </div>
+      <form onSubmit={claim} style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', flex: 1,
+          background: '#0d0d0d', border: `1px solid ${C.border}`, borderRadius: '8px',
+          paddingLeft: '0.7rem',
+        }}>
+          <span style={{ color: C.textMid, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>grail.mx /</span>
+          <input
+            value={input}
+            onChange={e => { setInput(e.target.value.toLowerCase()); setError('') }}
+            placeholder="your-name"
+            style={{
+              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              color: C.text, padding: '0.6rem 0.5rem', fontSize: '0.85rem', fontFamily: FONT,
+            }}
+          />
+        </div>
+        <button type="submit" disabled={busy || !input.trim()} style={{
+          background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '8px',
+          padding: '0.55rem 1.1rem', fontSize: '0.82rem', fontWeight: '800',
+          cursor: (busy || !input.trim()) ? 'not-allowed' : 'pointer', fontFamily: FONT,
+          opacity: (busy || !input.trim()) ? 0.5 : 1,
+        }}>
+          {busy ? '…' : 'Claim'}
+        </button>
+      </form>
+      {error && <div style={{ color: BRAND.orange, fontSize: '0.78rem', marginTop: '0.45rem' }}>{error}</div>}
     </div>
   )
 }

@@ -12,6 +12,7 @@ import GrailBar from './GrailBar'
 import GrailAdmin from './GrailAdmin'
 import GrailDoor from './GrailDoor'
 import GrailDoves from './GrailDoves'
+import HandleRedirect from './HandleRedirect'
 import AlleycatDemo from './AlleycatDemo'
 import GrailDemo from './GrailDemo'
 import SimpleBar from './SimpleBar'
@@ -76,6 +77,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/:slug/bar"       element={<EventBar staffMode={false} />} />
         <Route path="/:slug/bar/staff" element={<EventBar staffMode={true}  />} />
         <Route path="/:slug/doves"     element={<GrailDoves />} />
+        {/* Promoter handle (must be last — catch-all for unknown top-level paths) */}
+        <Route path="/:handle"         element={<HandleRedirect />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
