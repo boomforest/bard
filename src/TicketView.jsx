@@ -200,7 +200,7 @@ export default function TicketView() {
             position: 'relative', zIndex: 1, fontFamily: FONT,
           }}
         >
-          🥂 Order from the bar →
+          Order from the bar →
         </a>
       )}
 
