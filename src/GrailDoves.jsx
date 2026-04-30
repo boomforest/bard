@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { grailStore } from './grailStore'
 import { emojiFor } from './featuredDrinks'
@@ -595,6 +595,7 @@ function CartScreen({ cart, balance, onAddToCart, onRemoveFromCart, onConfirm, o
 // ─── MAIN ──────────────────────────────────────────────────────────────────────
 export default function GrailDoves() {
   const { slug }        = useParams()
+  const navigate        = useNavigate()
   const eventSlug       = slug || LEGACY_EVENT_SLUG
   const [event,        setEvent]        = useState(null)       // { id, slug, name }
   const [menu,         setMenu]         = useState([])         // bar_menu_items mapped to UI shape
@@ -619,7 +620,31 @@ export default function GrailDoves() {
         .eq('slug', eventSlug)
         .maybeSingle()
       if (cancelled) return
-      if (!ev) { setMenuLoading(false); return }
+      if (!ev) {
+        // Fallback: maybe it's a promoter handle — redirect to latest event's doves
+        const { data: user } = await supabase
+          .from('users')
+          .select('id')
+          .eq('handle', eventSlug)
+          .maybeSingle()
+        if (cancelled) return
+        if (user) {
+          const { data: rows } = await supabase
+            .from('events')
+            .select('slug, event_date, show_date')
+            .eq('promoter_id', user.id)
+            .order('event_date', { ascending: false })
+            .limit(20)
+          if (cancelled) return
+          const list = rows || []
+          const now = Date.now()
+          const dateOf = (e) => new Date(e.event_date || e.show_date || 0).getTime()
+          const upcoming = list.filter(e => dateOf(e) >= now).sort((a, b) => dateOf(a) - dateOf(b))
+          const target = upcoming[0] || list[0]
+          if (target?.slug) { navigate(`/${target.slug}/doves`, { replace: true }); return }
+        }
+        setMenuLoading(false); return
+      }
       setEvent(ev)
       const { data: rows } = await supabase
         .from('bar_menu_items')

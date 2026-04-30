@@ -792,6 +792,7 @@ function StaffPinGate({ pin: correctPin, onUnlock }) {
 // ─── MAIN: EVENT BAR ──────────────────────────────────────────────────────────
 export default function EventBar({ staffMode = false }) {
   const { slug } = useParams()
+  const navigate = useNavigate()
   const [event,    setEvent]   = useState(null)
   const [menu,     setMenu]    = useState([])
   const [orders,   setOrders]  = useState([])
@@ -801,6 +802,8 @@ export default function EventBar({ staffMode = false }) {
   const channelRef = useRef(null)
 
   // ── fetch event + menu ────────────────────────────────────────────────────────
+  // Supports either an event slug OR a promoter handle. Handle hits redirect
+  // to the canonical event-slug URL so deep-links and shares stay clean.
   useEffect(() => {
     async function load() {
       setLoading(true)
@@ -812,7 +815,33 @@ export default function EventBar({ staffMode = false }) {
         .eq('active', true)
         .single()
 
-      if (evErr || !ev) { setNotFound(true); setLoading(false); return }
+      if (evErr || !ev) {
+        // Not an event slug — try as a promoter handle
+        const { data: user } = await supabase
+          .from('users')
+          .select('id')
+          .eq('handle', slug)
+          .maybeSingle()
+        if (user) {
+          const { data: rows } = await supabase
+            .from('events')
+            .select('slug, event_date, show_date')
+            .eq('promoter_id', user.id)
+            .order('event_date', { ascending: false })
+            .limit(20)
+          const list = rows || []
+          const now = Date.now()
+          const dateOf = (e) => new Date(e.event_date || e.show_date || 0).getTime()
+          const upcoming = list.filter(e => dateOf(e) >= now).sort((a, b) => dateOf(a) - dateOf(b))
+          const target = upcoming[0] || list[0]
+          if (target?.slug) {
+            const tail = staffMode ? '/bar/staff' : '/bar'
+            navigate(`/${target.slug}${tail}`, { replace: true })
+            return
+          }
+        }
+        setNotFound(true); setLoading(false); return
+      }
       setEvent(ev)
 
       const { data: items } = await supabase

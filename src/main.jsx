@@ -73,10 +73,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/alleycat" element={<AlleycatDemo />} />
         {/* Simple bar demo */}
         <Route path="/bar" element={<SimpleBar />} />
-        {/* Multi-tenant event bar */}
+        {/* Multi-tenant event bar / scan / doves — slug here can be either an
+            event slug or a promoter handle; the components fall back to handle
+            resolution and redirect to the canonical event-slug URL */}
         <Route path="/:slug/bar"       element={<EventBar staffMode={false} />} />
         <Route path="/:slug/bar/staff" element={<EventBar staffMode={true}  />} />
         <Route path="/:slug/doves"     element={<GrailDoves />} />
+        <Route path="/:slug/scan"      element={<ScanPage />} />
         {/* Promoter handle (must be last — catch-all for unknown top-level paths) */}
         <Route path="/:handle"         element={<HandleRedirect />} />
       </Routes>

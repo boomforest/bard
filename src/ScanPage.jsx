@@ -25,7 +25,7 @@ export default function ScanPage() {
   const handledRef  = useRef(false)
   const eventIdRef  = useRef(null)
 
-  // ─── Load event by slug ──────────────────────────────────────────────────
+  // ─── Load event by slug (or promoter handle, redirected) ────────────────
   useEffect(() => {
     if (!slug) { setEventErr('No event specified.'); return }
     let cancelled = false
@@ -36,13 +36,38 @@ export default function ScanPage() {
         .eq('slug', slug)
         .maybeSingle()
       if (cancelled) return
-      if (error || !data) { setEventErr('Event not found.'); return }
-      setEvent(data)
-      eventIdRef.current = data.id
+      if (data) {
+        setEvent(data)
+        eventIdRef.current = data.id
+        return
+      }
+      // Fallback: try as promoter handle → redirect to latest event's scan
+      const { data: user } = await supabase
+        .from('users')
+        .select('id')
+        .eq('handle', slug)
+        .maybeSingle()
+      if (cancelled) return
+      if (user) {
+        const { data: rows } = await supabase
+          .from('events')
+          .select('slug, event_date, show_date')
+          .eq('promoter_id', user.id)
+          .order('event_date', { ascending: false })
+          .limit(20)
+        if (cancelled) return
+        const list = rows || []
+        const now = Date.now()
+        const dateOf = (e) => new Date(e.event_date || e.show_date || 0).getTime()
+        const upcoming = list.filter(e => dateOf(e) >= now).sort((a, b) => dateOf(a) - dateOf(b))
+        const target = upcoming[0] || list[0]
+        if (target?.slug) { navigate(`/${target.slug}/scan`, { replace: true }); return }
+      }
+      setEventErr('Event not found.')
     }
     load()
     return () => { cancelled = true }
-  }, [slug])
+  }, [slug, navigate])
 
   // ─── Camera + scan loop ─────────────────────────────────────────────────
   const startScanner = async () => {
