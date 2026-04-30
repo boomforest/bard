@@ -85,18 +85,24 @@ export default function PromoterEventDetail() {
     setTimeout(() => setCopied(''), 1500)
   }
 
-  const handleCloseOut = async () => {
-    const activeBalances = doveBalances.filter(b => b.status === 'active')
-    const unspentTotal = activeBalances.reduce((s, b) => s + (b.loaded_cents - b.spent_cents), 0)
-    if (!confirm(
-      `Close out the bar?\n\n` +
-      `${activeBalances.length} active balance${activeBalances.length === 1 ? '' : 's'}\n` +
-      `${fmtPriceCents(unspentTotal, event?.currency)} in unspent Doves will be refunded to buyers.\n\n` +
-      `The 2% Grail fee on the original load is non-refundable.`
+  const handleCloseOut = async ({ forcePlatformBalance = false } = {}) => {
+    if (!forcePlatformBalance) {
+      const activeBalances = doveBalances.filter(b => b.status === 'active')
+      const unspentTotal = activeBalances.reduce((s, b) => s + (b.loaded_cents - b.spent_cents), 0)
+      if (!confirm(
+        `Close out the bar?\n\n` +
+        `${activeBalances.length} active balance${activeBalances.length === 1 ? '' : 's'}\n` +
+        `${fmtPriceCents(unspentTotal, event?.currency)} in unspent Doves will be refunded to buyers.\n\n` +
+        `The 2% Grail fee on the original load is non-refundable.`
+      )) return
+    } else if (!confirm(
+      `Force refund from your platform balance?\n\n` +
+      `Stripe usually pulls refunds from the bar's incoming charges, but those funds are still pending settlement.\n\n` +
+      `This will refund the buyers immediately from your own balance — you'll absorb the cost until the bar's pending funds clear (2–7 days).`
     )) return
 
     setClosingOut(true)
-    setCloseOutResult(null)
+    if (!forcePlatformBalance) setCloseOutResult(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) throw new Error('Sign in expired — please reload.')
@@ -106,7 +112,7 @@ export default function PromoterEventDetail() {
           'Content-Type':  'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ event_id: event.id }),
+        body: JSON.stringify({ event_id: event.id, force_platform_balance: forcePlatformBalance }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Close-out failed')
@@ -420,28 +426,51 @@ export default function PromoterEventDetail() {
                   </div>
                 )}
               </div>
-              {closeOutResult && !closeOutResult.error && (
-                <div style={{ background: 'rgba(170,255,0,0.06)', border: `1px solid ${BRAND.neon}44`, borderRadius: '10px', padding: '0.75rem 1rem', color: BRAND.neon, fontSize: '0.82rem' }}>
-                  ✓ Closed out {closeOutResult.refunded} balance{closeOutResult.refunded === 1 ? '' : 's'} — refunded {fmtPriceCents(closeOutResult.total_refunded_cents || 0, event?.currency)}
-                  {closeOutResult.errors?.length > 0 && (
-                    <div style={{ color: BRAND.orange, marginTop: '0.6rem', borderTop: `1px solid ${BRAND.orange}33`, paddingTop: '0.6rem' }}>
-                      <div style={{ fontWeight: '700', marginBottom: '0.3rem' }}>
-                        {closeOutResult.errors.length} balance{closeOutResult.errors.length === 1 ? '' : 's'} couldn't refund:
-                      </div>
-                      {closeOutResult.errors.map((err, i) => (
-                        <div key={i} style={{ fontSize: '0.78rem', lineHeight: 1.45, marginBottom: '0.25rem' }}>
-                          • {err.error || 'Unknown error'}
-                          {err.balance_id && (
-                            <span style={{ color: C.textDim, marginLeft: '0.4rem' }}>
-                              ({String(err.balance_id).slice(0, 8)}…)
-                            </span>
-                          )}
+              {closeOutResult && !closeOutResult.error && (() => {
+                const hasInsufficientFunds = (closeOutResult.errors || [])
+                  .some(e => /sufficient funds|sufficient funds in|reverse this amount/i.test(e.error || ''))
+                return (
+                  <div style={{ background: 'rgba(170,255,0,0.06)', border: `1px solid ${BRAND.neon}44`, borderRadius: '10px', padding: '0.75rem 1rem', color: BRAND.neon, fontSize: '0.82rem' }}>
+                    ✓ Closed out {closeOutResult.refunded} balance{closeOutResult.refunded === 1 ? '' : 's'} — refunded {fmtPriceCents(closeOutResult.total_refunded_cents || 0, event?.currency)}
+                    {closeOutResult.errors?.length > 0 && (
+                      <div style={{ color: BRAND.orange, marginTop: '0.6rem', borderTop: `1px solid ${BRAND.orange}33`, paddingTop: '0.6rem' }}>
+                        <div style={{ fontWeight: '700', marginBottom: '0.3rem' }}>
+                          {closeOutResult.errors.length} balance{closeOutResult.errors.length === 1 ? '' : 's'} couldn't refund:
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                        {closeOutResult.errors.map((err, i) => (
+                          <div key={i} style={{ fontSize: '0.78rem', lineHeight: 1.45, marginBottom: '0.25rem' }}>
+                            • {err.error || 'Unknown error'}
+                            {err.balance_id && (
+                              <span style={{ color: C.textDim, marginLeft: '0.4rem' }}>
+                                ({String(err.balance_id).slice(0, 8)}…)
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                        {hasInsufficientFunds && (
+                          <div style={{ marginTop: '0.7rem', paddingTop: '0.6rem', borderTop: `1px solid ${BRAND.orange}33` }}>
+                            <div style={{ color: C.text, fontSize: '0.78rem', lineHeight: 1.5, marginBottom: '0.5rem' }}>
+                              Stripe holds new charges in pending balance for 2–7 days before they're available for refund. You can either wait, or refund from your platform balance now and reconcile when the bar's funds clear.
+                            </div>
+                            <button
+                              onClick={() => handleCloseOut({ forcePlatformBalance: true })}
+                              disabled={closingOut}
+                              style={{
+                                background: BRAND.gradient, color: '#000', border: 'none',
+                                borderRadius: '8px', padding: '0.5rem 0.9rem',
+                                fontSize: '0.8rem', fontWeight: '800', cursor: closingOut ? 'wait' : 'pointer',
+                                fontFamily: FONT, opacity: closingOut ? 0.6 : 1,
+                              }}
+                            >
+                              {closingOut ? 'Refunding…' : 'Refund from platform balance'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
               {closeOutResult?.error && (
                 <div style={{ background: 'rgba(240,112,32,0.08)', border: `1px solid ${BRAND.orange}55`, borderRadius: '10px', padding: '0.75rem 1rem', color: BRAND.orange, fontSize: '0.82rem' }}>
                   {closeOutResult.error}

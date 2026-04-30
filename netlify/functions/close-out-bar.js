@@ -27,7 +27,7 @@ exports.handler = async (event) => {
     const token = authHeader && authHeader.replace(/^Bearer /i, '')
     if (!token) throw new Error('Missing auth token')
 
-    const { event_id } = JSON.parse(event.body || '{}')
+    const { event_id, force_platform_balance } = JSON.parse(event.body || '{}')
     if (!event_id) throw new Error('event_id required')
 
     const stripe = Stripe(process.env.STRIPE_SECRET_KEY)
@@ -64,16 +64,28 @@ exports.handler = async (event) => {
       try {
         let refundResult = null
         if (unspent > 0) {
+          // Default path: reverse_transfer pulls funds back from the
+          // connected (promoter) account before crediting the buyer's
+          // card. Fails with "insufficient funds" if the connected
+          // account's charges are still in pending balance (Stripe holds
+          // new charges 2–7+ days before they're available for refund).
+          //
+          // force_platform_balance path: refund directly from the platform
+          // balance — promoter keeps the original transfer, platform
+          // absorbs the refund. Used as a manual override when the
+          // standard path fails and the promoter wants to settle
+          // immediately. Reconcile the platform's exposure later.
           refundResult = await stripe.refunds.create({
             payment_intent:         b.stripe_payment_intent_id,
             amount:                 unspent,
             refund_application_fee: false,
-            reverse_transfer:       true,
+            reverse_transfer:       force_platform_balance ? false : true,
             metadata: {
               kind:           'dove_closeout',
               balance_id:     b.id,
               event_id,
               refunded_by:    user.id,
+              source:         force_platform_balance ? 'platform_balance' : 'connected_account',
             },
           })
         }
