@@ -62,6 +62,22 @@ export async function uploadBarPhoto(file, slugOrId) {
   return data?.publicUrl || null
 }
 
+// ─── Grail subscribers (platform-level "secret events" list) ─────────────
+// Idempotent on email. Anon RLS allows insert only; on conflict we do
+// nothing (a re-opt-in keeps the original row's lang/source). Quiet on
+// failure — never block the parent form on this side-effect.
+export async function subscribeToGrail({ email, name, lang, source }) {
+  if (!email) return
+  const clean = String(email).trim().toLowerCase()
+  if (!/^\S+@\S+\.\S+$/.test(clean)) return
+  await supabase
+    .from('grail_subscribers')
+    .upsert(
+      { email: clean, name: name?.trim() || null, lang: lang || 'es', source: source || null },
+      { onConflict: 'email', ignoreDuplicates: true },
+    )
+}
+
 // ─── Save event from GrailSetup data ──────────────────────────────────────────
 
 export async function createEventFromSetup(setupData, promoterId) {

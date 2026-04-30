@@ -7,6 +7,8 @@ import { imageFor, descFor } from './featuredDrinks'
 import { BRAND } from './theme'
 import { useT, useLocale } from './i18n'
 import LocaleToggle from './LocaleToggle'
+import GrailOptIn from './GrailOptIn'
+import { subscribeToGrail } from './eventService'
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
@@ -648,6 +650,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
   const [loading, setLoading] = useState(false)
   const [err, setErr]       = useState('')
   const [clientSecret, setClientSecret] = useState(null)
+  const [grailOptIn, setGrailOptIn] = useState(false)
 
   const proceed = async (e) => {
     e?.preventDefault()
@@ -669,6 +672,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
       })
       const json = await res.json()
       if (!res.ok || !json.clientSecret) throw new Error(json.error || t('load.startError'))
+      if (grailOptIn) subscribeToGrail({ email, name, lang: locale, source: 'dove_load' })
       setClientSecret(json.clientSecret)
       setStage('pay')
     } catch (e) {
@@ -777,6 +781,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
                   fontSize: '0.95rem', outline: 'none',
                 }}
               />
+              <GrailOptIn checked={grailOptIn} onChange={setGrailOptIn} />
               {err && <div style={{ color: C.red, fontSize: '0.82rem' }}>{err}</div>}
               <button type="submit" disabled={loading} style={{
                 background: loading ? '#1a1a1a' : C.gold, color: '#000', border: 'none', borderRadius: '10px',

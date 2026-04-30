@@ -338,6 +338,9 @@ export default {
   'signup.done.promoterBody':   'Te contactamos cuando GRAIL esté listo para tu primer evento.',
   'signup.done.fanBody':        'Te avisamos cuando tu primer show salga al aire.',
 
+  // ─── Grail subscriber opt-in ─────────────────────────────────────────────
+  'grailOptIn.label':           'Avísenme de eventos exclusivos y secretos de Grail',
+
   // ─── Promoter follower ───────────────────────────────────────────────────
   'follow.cta':                 'Recibe avisos de {promoter}',
   'follow.body':                'Déjanos tu correo y te avisamos cuando este promotor anuncie shows nuevos cerca de ti.',
