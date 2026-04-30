@@ -72,8 +72,6 @@ function CustomerView({ event, menu, onOrderPlaced }) {
   const [name,      setName]      = useState('')
   const [showName,  setShowName]  = useState(false)
   const [placing,   setPlacing]   = useState(false)
-  const [payOpen,   setPayOpen]   = useState(false)
-  const [clientSecret, setClientSecret] = useState(null)
   const [payErr,    setPayErr]    = useState('')
 
   const orderKey = `bar-last-order-${event.id}`
@@ -229,92 +227,46 @@ function CustomerView({ event, menu, onOrderPlaced }) {
   }
 
   // Step 1: if Doves balance is loaded, debit it; otherwise open card checkout.
+  // Bar is doves-only — customer must load a balance before ordering.
+  // No per-drink card checkout (intentionally, to keep the flow fast and
+  // refunds simple).
   const submitOrder = async () => {
     if (!name.trim()) {
       setPayErr('Add your name so the bartender can call you.')
       return
     }
+    if (!balance || balance.status !== 'active') {
+      setPayErr('Load a doves balance first to place an order.')
+      setLoadOpen(true)
+      return
+    }
     setPlacing(true)
     setPayErr('')
 
-    // Doves path
-    if (balance && balance.status === 'active') {
-      try {
-        const cartCents = Math.round(cartTotal * 100)
-        if (cartCents > balanceRemaining) {
-          throw new Error(`Need $${(cartCents / 100).toFixed(2)}, balance has $${(balanceRemaining / 100).toFixed(2)}. Tap "Top up" or remove items.`)
-        }
-        const res = await fetch('/.netlify/functions/spend-doves', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token:         balance.token,
-            customer_name: name.trim(),
-            items:         cart.map(c => ({ menu_item_id: c.item.id, qty: c.qty })),
-          }),
-        })
-        const json = await res.json()
-        if (!res.ok) throw new Error(json.error || 'Order failed')
-        setBalance(json.balance)
-        onOrderPlaced(json.order)
-        stashOrder(json.order)
-        setCart([]); setCartOpen(false); setName(''); setShowName(false)
-      } catch (err) {
-        setPayErr(err.message)
-      }
-      setPlacing(false)
-      return
-    }
-
-    // Fallback: per-order card payment
     try {
-      const res = await fetch('/.netlify/functions/create-bar-payment-intent', {
+      const cartCents = Math.round(cartTotal * 100)
+      if (cartCents > balanceRemaining) {
+        throw new Error(`Need $${(cartCents / 100).toFixed(2)}, balance has $${(balanceRemaining / 100).toFixed(2)}. Top up or remove items.`)
+      }
+      const res = await fetch('/.netlify/functions/spend-doves', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          event_id:      event.id,
+          token:         balance.token,
           customer_name: name.trim(),
           items:         cart.map(c => ({ menu_item_id: c.item.id, qty: c.qty })),
         }),
       })
       const json = await res.json()
-      if (!res.ok || !json.clientSecret) throw new Error(json.error || 'Could not start checkout')
-      setClientSecret(json.clientSecret)
-      setPayOpen(true)
+      if (!res.ok) throw new Error(json.error || 'Order failed')
+      setBalance(json.balance)
+      onOrderPlaced(json.order)
+      stashOrder(json.order)
+      setCart([]); setCartOpen(false); setName(''); setShowName(false)
     } catch (err) {
       setPayErr(err.message)
     }
     setPlacing(false)
-  }
-
-  // Step 2: Stripe confirms → write the order → confirmation screen
-  const onPaymentSuccess = async (paymentIntent) => {
-    const orderId = genOrderId()
-    const order = {
-      id:            orderId,
-      event_id:      event.id,
-      customer_name: name.trim(),
-      items:         cart.map(c => ({ id: c.item.id, name: c.item.name, emoji: c.item.emoji, price: c.item.price, qty: c.qty })),
-      total:         cartTotal,
-      subtotal_cents:        Math.round(cartTotal * 100),
-      stripe_payment_intent_id: paymentIntent.id,
-      paid_at:               new Date().toISOString(),
-      status:        'pending',
-    }
-    const { error } = await supabase.from('bar_orders').insert(order)
-    if (error) {
-      // Payment went through; surface what's needed for manual reconciliation
-      alert(`Payment succeeded (${paymentIntent.id}) but order failed to save: ${error.message}. Show this screen to the bartender.`)
-      return
-    }
-    onOrderPlaced(order)
-    stashOrder(order)
-    setCart([])
-    setCartOpen(false)
-    setName('')
-    setShowName(false)
-    setPayOpen(false)
-    setClientSecret(null)
   }
 
   if (currentOrder) {
@@ -475,7 +427,7 @@ function CustomerView({ event, menu, onOrderPlaced }) {
         <div>
           <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#e8e0d0' }}>{event.name}</div>
           <div style={{ fontSize: '0.72rem', color: '#8a8098' }}>
-            {balance ? `Spending Doves · faster ordering` : 'Card per order · or load Doves to skip card prompts'}
+            {balance ? 'Spending doves · order in one tap' : 'Load doves to start ordering'}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -602,20 +554,12 @@ function CustomerView({ event, menu, onOrderPlaced }) {
               fontFamily: 'inherit',
             }}
           >
-            <span>{placing ? 'Placing…' : 'Place Order'}</span>
+            <span>
+              {placing ? 'Placing…' : balance ? 'Place Order' : 'Load doves to order'}
+            </span>
             <span>{fmt(cartTotal, event.currency)}</span>
           </button>
         </div>
-      )}
-
-      {payOpen && clientSecret && stripePromise && (
-        <BarCheckoutModal
-          clientSecret={clientSecret}
-          total={cartTotal}
-          currency={event.currency}
-          onClose={() => { setPayOpen(false); setClientSecret(null) }}
-          onSuccess={onPaymentSuccess}
-        />
       )}
 
       {loadOpen && (
@@ -630,48 +574,14 @@ function CustomerView({ event, menu, onOrderPlaced }) {
           }}
         />
       )}
-
-      {payOpen && !stripePromise && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '2rem' }}>
-          <div style={{ background: C.card, borderRadius: '14px', padding: '2rem', maxWidth: '360px', textAlign: 'center', color: C.red }}>
-            Stripe not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.
-            <button onClick={() => { setPayOpen(false); setClientSecret(null) }} style={{ display: 'block', margin: '1rem auto 0', background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid, borderRadius: '8px', padding: '0.5rem 1rem', cursor: 'pointer' }}>Close</button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-// ─── BAR CHECKOUT MODAL ───────────────────────────────────────────────────────
-function BarCheckoutModal({ clientSecret, total, currency, onClose, onSuccess }) {
-  return (
-    <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 60,
-      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: '#0f0f0f', width: '100%', maxWidth: '480px',
-        borderRadius: '22px 22px 0 0', borderTop: `1px solid ${C.border}`,
-        maxHeight: '90vh', overflow: 'auto', padding: '1.5rem 1.5rem 2rem',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <div>
-            <div style={{ fontSize: '0.65rem', color: C.goldLight, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700' }}>Pay</div>
-            <div style={{ color: C.text, fontSize: '1.4rem', fontWeight: '900', letterSpacing: '-0.02em' }}>
-              {fmt(total, currency)}
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: C.textMid, fontSize: '1.6rem', cursor: 'pointer', lineHeight: 1 }}>×</button>
-        </div>
-        <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
-          <BarPaymentStep onSuccess={onSuccess} />
-        </Elements>
-      </div>
-    </div>
-  )
-}
+// BarCheckoutModal removed: per-drink card checkout was deprecated in
+// favor of a doves-only flow (load a balance once, debit per order). The
+// netlify/functions/create-bar-payment-intent.js function is now unused
+// and can be deleted in a follow-up.
 
 function BarPaymentStep({ onSuccess }) {
   const stripe   = useStripe()
@@ -797,7 +707,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
         {stage === 'amount' && (
           <>
             <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.55, marginBottom: '1rem' }}>
-              Card is charged once now. Whatever you don't spend gets refunded after the show closes — no card prompt per drink.
+              Card is charged once now. Whatever you don't spend gets refunded after the show closes — no card prompt per drink. Refunds usually arrive instantly when the bar closes out, but Stripe can take up to 7 days in rare cases.
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '0.85rem' }}>
               {LOAD_PRESETS.map(p => (
@@ -861,7 +771,7 @@ function LoadDovesModal({ event, onClose, onLoaded }) {
                 {loading ? 'Loading…' : `Continue — load $${amount}`}
               </button>
               <div style={{ textAlign: 'center', color: C.textDim, fontSize: '0.7rem', marginTop: '0.25rem' }}>
-                Unspent Doves auto-refunded after the show closes.
+                Unspent doves refunded to your card when the bar closes out — usually instant, up to 7 days in rare cases.
               </div>
             </form>
           </>
