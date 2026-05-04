@@ -1,16 +1,22 @@
-// Scheduled function — runs daily and tries the standard refund flow on
-// any bar_tabs still active after their event has happened.
+// Scheduled function — runs daily and tries the standard refund flow
+// on any bar_tabs that have been active for more than 12 hours.
 //
 // Cadence (per netlify.toml):  0 12 * * *   (noon UTC, daily)
 //
+// Eligibility: status='active' AND created_at < now() - 12 hours.
+// We don't tie this to event.show_date anymore. Rationale: a buyer
+// who loaded $X for a Friday show doesn't need to keep that balance
+// alive into Saturday — if they come back for a multi-day event, they
+// can reload. The 12h floor protects same-day shows: a tab loaded at
+// 8 PM doesn't get refunded at noon (16h later, edge case) — it'd
+// take until the *next* noon (28h+) to refund.
+//
 // Logic per tab:
-//   1. If event.show_date is in the past, attempt a normal refund
-//      (reverse_transfer:true). Succeeds the moment the bar's Connect
-//      account has cleared funds available — typically a few days after
-//      the event, depending on Stripe's payout schedule for that
-//      account.
-//   2. If reverse_transfer fails, log it to the /admin Errors inbox
-//      and move on. Tomorrow's run will try again.
+//   1. Attempt a normal refund (reverse_transfer:true). Succeeds once
+//      the bar's Connect account has cleared funds — typically a few
+//      days after the charge, depending on Stripe's payout schedule.
+//   2. If reverse_transfer fails, log to /admin Errors inbox and move
+//      on. Tomorrow's run will try again.
 //   3. Tabs with status='active' and no unspent balance just get
 //      marked 'depleted' (no refund needed).
 //
@@ -22,6 +28,8 @@
 //
 // SHOW/BAR ECONOMY — refunds go back to the buyer's original card via
 // Stripe. DO NOT WRITE to profiles.dov_balance from here.
+
+const STALE_THRESHOLD_HOURS = 12
 
 const Stripe = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
@@ -35,13 +43,13 @@ exports.handler = async () => {
     { auth: { persistSession: false } },
   )
 
-  const nowIso = new Date().toISOString()
+  const cutoffIso = new Date(Date.now() - STALE_THRESHOLD_HOURS * 60 * 60 * 1000).toISOString()
 
   const { data: tabs, error: tabsErr } = await supabase
     .from('bar_tabs')
-    .select('id, event_id, email, loaded_cents, spent_cents, stripe_payment_intent_id, events!inner(show_date, name, artist_name, currency)')
+    .select('id, event_id, email, lang, loaded_cents, spent_cents, stripe_payment_intent_id, events(name, artist_name, currency)')
     .eq('status', 'active')
-    .lt('events.show_date', nowIso)
+    .lt('created_at', cutoffIso)
 
   if (tabsErr) {
     console.error('auto-close-bar: failed to fetch tabs', tabsErr)
