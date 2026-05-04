@@ -32,6 +32,11 @@ export default {
   'event.soldOut':              'Agotado',
   'event.fewLeft':              '· quedan {count}',
   'event.checkout':             'Pagar →',
+  'event.addToCalendar':        'Agendar',
+  'checkout.promoPh':           'Código promocional (opcional)',
+  'checkout.promoApplied':      'Código {code} aplicado',
+  'checkout.discount':          'Descuento',
+  'checkout.subtotal':          'Subtotal',
   'event.ticketCount.one':      '{count} boleto',
   'event.ticketCount.many':     '{count} boletos',
 

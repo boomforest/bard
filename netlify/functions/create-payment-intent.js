@@ -47,11 +47,14 @@ exports.handler = async (event) => {
     }
 
     // ── Multi-event Connect path ───────────────────────────────────────────
-    const { event_id, items, buyer_email, buyer_name, lang } = body
+    const { event_id, items, buyer_email, buyer_name, lang, promo_code, source } = body
     if (!event_id || !Array.isArray(items) || items.length === 0) {
       throw new Error('event_id and items[] required')
     }
     const buyerLang = lang === 'en' ? 'en' : 'es'
+    const cleanCode = (promo_code || '').trim().toLowerCase()
+    // Source: short alphanumeric/dash slug, max 32 chars. Drop anything weird.
+    const cleanSource = (source || '').toString().trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '').slice(0, 32) || null
 
     const stripe = Stripe(process.env.STRIPE_SECRET_KEY)
     const supabase = createClient(
@@ -86,7 +89,11 @@ exports.handler = async (event) => {
       .eq('event_id', event_id)
     if (tierErr) throw tierErr
 
-    let totalCents = 0
+    // Re-price each line at full price first; promo code (if any) is applied
+    // after, so we can validate the code against tier scope and quantity.
+    const lines = []   // { tier, qty, full_cents_per, discount_per }
+    let subtotalCents = 0
+    let totalQty = 0
     const lineSummary = []
     for (const item of items) {
       const tier = tiers.find(t => t.id === item.tier_id)
@@ -94,10 +101,72 @@ exports.handler = async (event) => {
       const qty = Math.max(1, Math.floor(Number(item.qty) || 0))
       const remaining = tier.qty - (tier.sold || 0)
       if (qty > remaining) throw new Error(`${tier.name}: only ${remaining} left`)
-      totalCents += tier.price_cents * qty
+      lines.push({ tier, qty, full_cents_per: tier.price_cents, discount_per: 0 })
+      subtotalCents += tier.price_cents * qty
+      totalQty += qty
       lineSummary.push(`${qty}x ${tier.name}`)
     }
-    if (totalCents <= 0) throw new Error('Cart total is zero')
+    if (subtotalCents <= 0) throw new Error('Cart total is zero')
+
+    // ── Promo code validation + per-line discount calc ─────────────────────
+    // Server-side only — never trust the client's price math.
+    let appliedPromo = null
+    let totalDiscountCents = 0
+    if (cleanCode) {
+      const { data: pc, error: pcErr } = await supabase
+        .from('promo_codes')
+        .select('id, code, kind, amount_cents, max_uses, used_count, expires_at, tier_id, active')
+        .eq('event_id', event_id)
+        .ilike('code', cleanCode)
+        .maybeSingle()
+      if (pcErr) throw pcErr
+      if (!pc) throw new Error(`Promo code "${cleanCode}" not valid`)
+      if (!pc.active) throw new Error('That promo code has been disabled')
+      if (pc.expires_at && new Date(pc.expires_at) < new Date()) {
+        throw new Error('That promo code has expired')
+      }
+      if (pc.max_uses != null && pc.used_count + totalQty > pc.max_uses) {
+        const left = Math.max(0, pc.max_uses - pc.used_count)
+        throw new Error(left === 0
+          ? 'That promo code is fully redeemed'
+          : `That promo code only has ${left} use${left === 1 ? '' : 's'} left`)
+      }
+
+      // Apply per-line discount, scoped to a tier if one is set on the code.
+      for (const ln of lines) {
+        if (pc.tier_id && pc.tier_id !== ln.tier.id) continue
+        let perTicketDiscount = 0
+        if (pc.kind === 'percent') {
+          // amount_cents = basis points (1000 = 10%)
+          perTicketDiscount = Math.floor(ln.full_cents_per * pc.amount_cents / 10000)
+        } else if (pc.kind === 'fixed') {
+          perTicketDiscount = Math.min(ln.full_cents_per, pc.amount_cents)
+        } else if (pc.kind === 'override') {
+          // Override sets the *price* to amount_cents, so discount = full - override
+          perTicketDiscount = Math.max(0, ln.full_cents_per - pc.amount_cents)
+        }
+        ln.discount_per = perTicketDiscount
+        totalDiscountCents += perTicketDiscount * ln.qty
+      }
+      if (totalDiscountCents === 0) {
+        throw new Error('That promo code does not apply to anything in your cart')
+      }
+      appliedPromo = { code: pc.code, kind: pc.kind, amount_cents: pc.amount_cents, id: pc.id }
+    }
+
+    const totalCents = Math.max(0, subtotalCents - totalDiscountCents)
+    if (totalCents <= 0) {
+      // Free total → guest-list flow, not Stripe (Stripe rejects $0 PIs).
+      throw new Error('That promo code makes the order free — use the guest list instead')
+    }
+
+    // Per-tier discount/qty/applied-promo summary for finalize step. Tight
+    // string so we don't blow Stripe's 500-char metadata limit.
+    const itemsMeta = lines.map(ln => ({
+      tier_id:        ln.tier.id,
+      qty:            ln.qty,
+      discount_each:  ln.discount_per,
+    }))
 
     const applicationFeeCents = applicationFeeFor(totalCents)
     const currency = (ev.currency || 'mxn').toLowerCase()
@@ -115,8 +184,10 @@ exports.handler = async (event) => {
         buyer_email: buyer_email || '',
         buyer_name:  buyer_name || '',
         buyer_lang:  buyerLang,
-        items:       JSON.stringify(items),
+        items:       JSON.stringify(itemsMeta),
         summary:     lineSummary.join(', '),
+        ...(appliedPromo ? { promo_code: appliedPromo.code, promo_id: appliedPromo.id, discount_total_cents: String(totalDiscountCents) } : {}),
+        ...(cleanSource ? { source: cleanSource } : {}),
       },
     })
 
@@ -124,11 +195,14 @@ exports.handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify({
         clientSecret:           paymentIntent.client_secret,
+        subtotal_cents:         subtotalCents,
+        discount_cents:         totalDiscountCents,
         total_cents:            totalCents,
         currency,
         application_fee_cents:  applicationFeeCents,
         promoter_account:       promoter.stripe_account_id,
         event_slug:             ev.slug,
+        promo_applied:          appliedPromo ? { code: appliedPromo.code } : null,
       }),
     }
   } catch (err) {

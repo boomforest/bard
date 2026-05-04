@@ -34,6 +34,52 @@ const fmtTime = (timeStr) => {
 // Use fmtPriceCents from currencies.js — keeps the currency code visible
 // so $50 MXN never gets confused with $50 USD.
 
+// Build an RFC-5545 .ics file in memory and trigger a download. Apple/Google
+// Calendar both consume this; this saves the buyer typing the date in.
+// Defaults end-time to 6h after start since most shows don't publish one.
+function downloadIcs(event, locale = 'en') {
+  const start = event?.show_date || event?.event_date
+  if (!start) return
+  const startDate = new Date(start)
+  const endDate = new Date(startDate.getTime() + 6 * 60 * 60 * 1000)
+  const fmt = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+  const fold = (s) => s.replace(/(.{72})/g, '$1\r\n ')
+  const esc  = (s) => (s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;')
+  const name = event.name || event.artist_name || 'Event'
+  const where = event.venue_hint || event.venue_address || event.address || ''
+  const uid = `${event.id || event.slug}-${fmt(startDate)}@grail.mx`
+  const url = typeof window !== 'undefined' ? `${window.location.origin}/e/${event.slug}` : ''
+  const desc = [event.description || '', url].filter(Boolean).join('\\n\\n')
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Grail//Tickets//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${fmt(new Date())}`,
+    `DTSTART:${fmt(startDate)}`,
+    `DTEND:${fmt(endDate)}`,
+    fold(`SUMMARY:${esc(name)}`),
+    where ? fold(`LOCATION:${esc(where)}`) : null,
+    desc ? fold(`DESCRIPTION:${desc}`) : null,
+    url ? `URL:${url}` : null,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n')
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
+  const href = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = href
+  a.download = `${event.slug || 'event'}.ics`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(href)
+}
+
 export default function EventPage() {
   const { slug } = useParams()
   const navigate = useNavigate()
@@ -47,6 +93,29 @@ export default function EventPage() {
   const [error, setError]     = useState('')
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [purchase, setPurchase] = useState(null) // { tickets, event_slug } when complete
+
+  // ── Source attribution ─────────────────────────────────────────────────
+  // Promoters share grail.mx/e/foo?ref=ig — first read of that param wins
+  // for the buyer's session, so the eventual purchase carries it through
+  // even if the URL gets bookmarked / cleaned up later. Same idea as UTM.
+  // Allow `?code=FOO` to deep-link a promo code into the checkout. Caches
+  // it for the slug so refresh doesn't drop it.
+  const [pendingCode, setPendingCode] = useState('')
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const ref = params.get('ref') || params.get('src') || params.get('utm_source')
+    if (ref) {
+      try { sessionStorage.setItem(`grail.ref.${slug}`, ref.slice(0, 32)) } catch {}
+    }
+    const code = params.get('code')
+    if (code) {
+      try { sessionStorage.setItem(`grail.code.${slug}`, code.slice(0, 40)) } catch {}
+      setPendingCode(code.slice(0, 40))
+    } else {
+      try { setPendingCode(sessionStorage.getItem(`grail.code.${slug}`) || '') } catch {}
+    }
+  }, [slug])
 
   useEffect(() => {
     let cancelled = false
@@ -183,11 +252,25 @@ export default function EventPage() {
                 {event.venue_hint || event.venue_address || event.address}
               </div>
             )}
-            {event.age_restriction && (
-              <div style={{ marginTop: '0.75rem' }}>
+            <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              {event.age_restriction && (
                 <span style={badgeStyle('neutral')}>{event.age_restriction}</span>
-              </div>
-            )}
+              )}
+              {!showEnded && (
+                <button
+                  onClick={() => downloadIcs(event, locale)}
+                  style={{
+                    background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
+                    borderRadius: '99px', padding: '0.3rem 0.75rem',
+                    fontSize: '0.74rem', fontWeight: '700', cursor: 'pointer', fontFamily: FONT,
+                    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                  }}
+                >
+                  <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>+</span>
+                  {t('event.addToCalendar')}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -343,6 +426,7 @@ export default function EventPage() {
           tiers={tiers}
           qty={qty}
           totalCents={totalCents}
+          initialPromoCode={pendingCode}
           onClose={() => setCheckoutOpen(false)}
           onSuccess={(result) => { setPurchase(result); setCheckoutOpen(false); setQty({}) }}
         />
@@ -360,7 +444,7 @@ export default function EventPage() {
 }
 
 // ─── CHECKOUT MODAL ───────────────────────────────────────────────────────────
-function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
+function CheckoutModal({ event, tiers, qty, totalCents, initialPromoCode = '', onClose, onSuccess }) {
   const t = useT()
   const { locale } = useLocale()
   const [stage, setStage] = useState('details')   // details | pay
@@ -372,6 +456,11 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
   const [grailOptIn, setGrailOptIn] = useState(false)
   const [grailZip, setGrailZip] = useState('')
   const [grailRadius, setGrailRadius] = useState(25)
+  // Promo code is "draft" until validated by the server. We send it through
+  // on Continue and let create-payment-intent return the validated price.
+  const [promoCode, setPromoCode]   = useState(initialPromoCode || '')
+  const [appliedDiscount, setAppliedDiscount] = useState(0)
+  const [appliedCode, setAppliedCode]         = useState('')
 
   const items = tiers
     .filter(ti => qty[ti.id] > 0)
@@ -384,6 +473,10 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
     if (!/^\S+@\S+\.\S+$/.test(email))  { setError(t('checkout.emailInvalid'));  return }
     setLoading(true)
     try {
+      // Pull the captured ?ref= for this event slug, if any.
+      let source = null
+      try { source = sessionStorage.getItem(`grail.ref.${event.slug}`) || null } catch {}
+
       const res = await fetch('/.netlify/functions/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -393,6 +486,8 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
           buyer_email: email,
           buyer_name:  name,
           lang:        locale,
+          promo_code:  promoCode.trim() || null,
+          source,
         }),
       })
       const json = await res.json()
@@ -404,6 +499,8 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
           lang: locale, source: 'checkout',
         })
       }
+      setAppliedDiscount(json.discount_cents || 0)
+      setAppliedCode(json.promo_applied?.code || '')
       setClientSecret(json.clientSecret)
       setStage('pay')
     } catch (err) {
@@ -442,9 +539,24 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
               <span style={{ color: BRAND.pink, fontWeight: '700' }}>{fmtPriceCents(i.qty * i.price_cents, event.currency)}</span>
             </div>
           ))}
+          {appliedDiscount > 0 && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: C.textMid, marginTop: '0.4rem' }}>
+                <span>{t('checkout.subtotal')}</span>
+                <span>{fmtPriceCents(totalCents, event.currency)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: BRAND.neon, marginTop: '0.2rem' }}>
+                <span>
+                  {t('checkout.discount')}
+                  {appliedCode && <span style={{ color: C.textMid, marginLeft: '0.4rem', fontFamily: 'ui-monospace, monospace', fontSize: '0.74rem' }}>{appliedCode.toUpperCase()}</span>}
+                </span>
+                <span>− {fmtPriceCents(appliedDiscount, event.currency)}</span>
+              </div>
+            </>
+          )}
           <div style={{ borderTop: `1px solid ${C.border}`, marginTop: '0.5rem', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', color: C.text, fontWeight: '800' }}>
             <span>{t('checkout.total')}</span>
-            <span style={{ color: BRAND.neon }}>{fmtPriceCents(totalCents, event.currency)}</span>
+            <span style={{ color: BRAND.neon }}>{fmtPriceCents(Math.max(0, totalCents - appliedDiscount), event.currency)}</span>
           </div>
         </div>
 
@@ -452,6 +564,14 @@ function CheckoutModal({ event, tiers, qty, totalCents, onClose, onSuccess }) {
           <form onSubmit={handleProceed} style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
             <input style={INPUT} type="text" placeholder={t('checkout.namePh')} value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
             <input style={INPUT} type="email" placeholder={t('common.email')} value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+            <input
+              style={{ ...INPUT, fontFamily: 'ui-monospace, monospace', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+              type="text"
+              placeholder={t('checkout.promoPh')}
+              value={promoCode}
+              onChange={e => setPromoCode(e.target.value)}
+              autoComplete="off"
+            />
             <GrailOptIn
               checked={grailOptIn} onChange={setGrailOptIn}
               zip={grailZip} setZip={setGrailZip}
