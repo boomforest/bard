@@ -68,7 +68,6 @@ exports.handler = async (event) => {
     for (const item of items) {
       const qty = Math.max(1, Math.floor(Number(item.qty) || 0))
 
-      // Bump tier sold count first
       const { data: tier, error: tierErr } = await supabase
         .from('ticket_tiers')
         .select('id, sold, qty, name')
@@ -76,16 +75,14 @@ exports.handler = async (event) => {
         .maybeSingle()
       if (tierErr || !tier) throw new Error(`Tier ${item.tier_id} not found`)
 
-      await supabase
-        .from('ticket_tiers')
-        .update({ sold: (tier.sold || 0) + qty })
-        .eq('id', tier.id)
-
       // Per-line discount captured at PI-creation time so refunds can show
       // the actual price the buyer paid, not the tier's nominal price.
       const discountEach = Math.max(0, Math.floor(Number(item.discount_each) || 0))
 
-      // Write one ticket row per seat
+      // Insert ticket rows first; bump tier.sold atomically afterwards by the
+      // count actually inserted. Avoids the inflated-counter case when an
+      // insert fails partway through the loop.
+      let insertedThisTier = 0
       for (let i = 0; i < qty; i++) {
         runningTicketsSold += 1
         const { data: ticket, error: insertErr } = await supabase
@@ -108,6 +105,11 @@ exports.handler = async (event) => {
           .single()
         if (insertErr) throw insertErr
         inserted.push(ticket)
+        insertedThisTier += 1
+      }
+
+      if (insertedThisTier > 0) {
+        await supabase.rpc('bump_tier_sold', { p_tier_id: tier.id, p_delta: insertedThisTier })
       }
     }
 
@@ -129,10 +131,9 @@ exports.handler = async (event) => {
       }
     }
 
-    await supabase
-      .from('events')
-      .update({ tickets_sold: runningTicketsSold })
-      .eq('id', event_id)
+    if (inserted.length > 0) {
+      await supabase.rpc('bump_event_tickets_sold', { p_event_id: event_id, p_delta: inserted.length })
+    }
 
     // Fire confirmation email — best-effort, never blocks success
     if (email && inserted.length > 0) {
