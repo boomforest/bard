@@ -370,9 +370,33 @@ export default function PromoterEventDetail() {
     const tier = tiers.find(x => x.id === t.tier_id)
     return sum + (tier?.price_cents || 0)
   }, 0)
+  const ticketRefundedCents = tickets.reduce((sum, t) => {
+    if (!t.refunded) return sum
+    const tier = tiers.find(x => x.id === t.tier_id)
+    return sum + (tier?.price_cents || 0)
+  }, 0)
   const platformFeeCents = Math.round(grossCents * 0.02)
   const netCents = grossCents - platformFeeCents
   const admittedCount = tickets.filter(t => t.torn && !t.refunded).length
+
+  // ── End-of-night rollup (combines tickets + bar) ────────────────────────
+  // Bar economics: 2% Grail fee on the LOAD, non-refundable. So the
+  // promoter's bar take = barLoaded * 0.98 − barRefunded. Tickets:
+  // 2% on each sale, non-refundable, so refunds cost the promoter 2%
+  // of the refunded amount. Combined net is what the promoter has on
+  // their Connect account from this event (before Stripe processing
+  // fees, which are passed through and not visible here).
+  const barLoadedCents    = doveBalances.reduce((s, b) => s + b.loaded_cents, 0)
+  const barRefundedCents  = doveBalances.reduce((s, b) => s + (b.refunded_amount_cents || 0), 0)
+  const barUnspentCents   = doveBalances
+    .filter(b => b.status === 'active')
+    .reduce((s, b) => s + (b.loaded_cents - b.spent_cents), 0)
+  const ticketNetCents    = Math.round(grossCents * 0.98) - Math.round(ticketRefundedCents * 0.02)
+  const barNetCents       = Math.round(barLoadedCents * 0.98) - barRefundedCents
+  const totalGrossCents   = grossCents + ticketRefundedCents + barLoadedCents
+  const totalRefundedCents= ticketRefundedCents + barRefundedCents
+  const totalNetCents     = ticketNetCents + barNetCents
+  const pendingCents      = barUnspentCents
 
   const eventLink = `${window.location.origin}/e/${event.slug}`
   const scanLink  = `${window.location.origin}/scan/${event.slug}`
@@ -425,6 +449,49 @@ export default function PromoterEventDetail() {
             </div>
           </div>
         </div>
+
+        {/* Tonight's totals — combined tickets + bar rollup. Only shows
+            once there's something to summarize (avoid empty card on a
+            brand-new event with no sales yet). */}
+        {(totalGrossCents > 0) && (
+          <div style={{
+            background: `linear-gradient(135deg, ${C.card}, #160b1f)`,
+            border: `1px solid ${BRAND.pink}33`,
+            borderRadius: '14px', padding: '1.25rem 1.4rem',
+            marginBottom: '1.25rem',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+              <div style={{ ...eyebrowStyle(BRAND.pink), fontSize: '0.62rem' }}>Tonight's take</div>
+              <div style={{ color: C.textDim, fontSize: '0.7rem' }}>before Stripe processing fees</div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '1rem' }}>
+              <div style={{ color: BRAND.neon, fontSize: '2rem', fontWeight: '900', letterSpacing: '-0.03em', lineHeight: 1 }}>
+                {fmtPriceCents(totalNetCents, event?.currency)}
+              </div>
+              <div style={{ color: C.textMid, fontSize: '0.78rem' }}>net to you</div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.6rem', fontSize: '0.78rem' }}>
+              <Breakdown label="Tickets gross"  value={fmtPriceCents(grossCents + ticketRefundedCents, event?.currency)} sub={`${sold} sold · ${admittedCount} admitted`} />
+              <Breakdown label="Bar loaded"     value={fmtPriceCents(barLoadedCents, event?.currency)}                  sub={`${doveBalances.length} tab${doveBalances.length === 1 ? '' : 's'}`} />
+              <Breakdown label="Refunded"       value={fmtPriceCents(totalRefundedCents, event?.currency)}              sub={ticketRefundedCents > 0 || barRefundedCents > 0 ? `${ticketRefundedCents > 0 ? 'tickets ' + fmtPriceCents(ticketRefundedCents, event?.currency) : ''}${ticketRefundedCents > 0 && barRefundedCents > 0 ? ' · ' : ''}${barRefundedCents > 0 ? 'bar ' + fmtPriceCents(barRefundedCents, event?.currency) : ''}` : 'none'} dim />
+            </div>
+
+            {pendingCents > 0 && (
+              <div style={{
+                marginTop: '0.85rem', padding: '0.6rem 0.85rem',
+                background: 'rgba(240,112,32,0.08)',
+                border: `1px solid ${BRAND.orange}33`,
+                borderRadius: '10px',
+                color: BRAND.orange, fontSize: '0.78rem',
+              }}>
+                <strong>{fmtPriceCents(pendingCents, event?.currency)}</strong> in active bar tabs
+                — refunds to buyers will subtract this from your take when close-out runs.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
@@ -998,6 +1065,16 @@ function Stat({ label, value, accent }) {
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px', padding: '0.85rem 1rem' }}>
       <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.62rem', marginBottom: '0.35rem' }}>{label}</div>
       <div style={{ color: accent, fontSize: '1.25rem', fontWeight: '900', letterSpacing: '-0.02em', lineHeight: 1 }}>{value}</div>
+    </div>
+  )
+}
+
+function Breakdown({ label, value, sub, dim }) {
+  return (
+    <div>
+      <div style={{ ...eyebrowStyle(C.textMid), fontSize: '0.58rem', marginBottom: '0.2rem' }}>{label}</div>
+      <div style={{ color: dim ? C.textMid : C.text, fontWeight: '800', fontSize: '0.95rem', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{value}</div>
+      {sub && <div style={{ color: C.textDim, fontSize: '0.66rem', marginTop: '0.15rem' }}>{sub}</div>}
     </div>
   )
 }
