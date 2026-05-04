@@ -79,12 +79,10 @@ exports.handler = async (event) => {
       throw new Error(`${tier.name}: only ${remaining} left`)
     }
 
-    // Bump sold first so tier counts stay consistent if email send fails later.
-    await supabase
-      .from('ticket_tiers')
-      .update({ sold: (tier.sold || 0) + qty })
-      .eq('id', tier.id)
-
+    // Insert tickets first; only bump counters after each row lands. If an
+    // insert fails mid-loop the counters reflect what's actually in the table,
+    // not the intended quantity. Counter writes use atomic SQL via RPC so two
+    // concurrent callers can't lose increments.
     let runningTicketsSold = ev.tickets_sold || 0
     const inserted = []
     for (let i = 0; i < qty; i++) {
@@ -111,10 +109,10 @@ exports.handler = async (event) => {
       inserted.push(ticket)
     }
 
-    await supabase
-      .from('events')
-      .update({ tickets_sold: runningTicketsSold })
-      .eq('id', event_id)
+    if (inserted.length > 0) {
+      await supabase.rpc('bump_tier_sold',         { p_tier_id: tier.id,     p_delta: inserted.length })
+      await supabase.rpc('bump_event_tickets_sold', { p_event_id: event_id,  p_delta: inserted.length })
+    }
 
     // Best-effort confirmation email — same template paid buyers get.
     let emailSent = false
