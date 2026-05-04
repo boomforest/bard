@@ -1,4 +1,4 @@
-# Event To-Do — Maddix 50 / Posse Europe Going Away
+# Event To-Do — Posse Europe Going Away
 **Date created:** 2026-04-07
 
 ---
@@ -65,7 +65,7 @@
 
 ## PROMO
 - [x] Permanent story on IG ✓
-- [x] Story on Maddix's 50 + Europe going away ✓
+- [x] Story on Europe going away ✓
 - [x] Send message to Marcario crew ✓ — MARCARIO code shared
 - [x] Message to Carla ✓ — day party crew notified, 5 list spots offered
 - [ ] Last-minute promo push list (TBD — add names/channels here)

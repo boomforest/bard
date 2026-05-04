@@ -414,7 +414,7 @@ export function GuestListCard({ event, tiers, tickets, onMinted }) {
           <div style={{ display: 'grid', gap: '0.6rem', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
             <div>
               <Label>Name</Label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="Maddix" style={INPUT} />
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="Guest name" style={INPUT} />
             </div>
             <div>
               <Label>Email</Label>
