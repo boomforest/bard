@@ -8,3 +8,6 @@ dist/
 
 # Supabase CLI working dir
 supabase/.temp/
+
+# Personal Claude Code settings (per-developer)
+.claude/settings.local.json
