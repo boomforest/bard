@@ -49,6 +49,9 @@ exports.handler = async (event) => {
     const email    = meta.buyer_email || ''
     const name     = meta.buyer_name  || ''
     const lang     = meta.buyer_lang === 'en' ? 'en' : 'es'
+    const promoCode = meta.promo_code || null
+    const promoId   = meta.promo_id || null
+    const source    = meta.source || null
 
     if (!event_id || !items.length) throw new Error('PaymentIntent missing event metadata')
 
@@ -78,6 +81,10 @@ exports.handler = async (event) => {
         .update({ sold: (tier.sold || 0) + qty })
         .eq('id', tier.id)
 
+      // Per-line discount captured at PI-creation time so refunds can show
+      // the actual price the buyer paid, not the tier's nominal price.
+      const discountEach = Math.max(0, Math.floor(Number(item.discount_each) || 0))
+
       // Write one ticket row per seat
       for (let i = 0; i < qty; i++) {
         runningTicketsSold += 1
@@ -93,11 +100,32 @@ exports.handler = async (event) => {
             tier_id:                  tier.id,
             tier_name:                tier.name,
             lang,
+            source,
+            promo_code:               promoCode,
+            discount_cents:           discountEach,
           })
           .select('id, ticket_number')
           .single()
         if (insertErr) throw insertErr
         inserted.push(ticket)
+      }
+    }
+
+    // Bump the promo code's used_count by the total tickets in this purchase.
+    // Best-effort — a failure here doesn't void the sale; a max_uses overrun
+    // is also caught at next-buyer validation time.
+    if (promoId && inserted.length > 0) {
+      try {
+        const { data: pc } = await supabase
+          .from('promo_codes').select('used_count').eq('id', promoId).maybeSingle()
+        if (pc) {
+          await supabase
+            .from('promo_codes')
+            .update({ used_count: (pc.used_count || 0) + inserted.length })
+            .eq('id', promoId)
+        }
+      } catch (e) {
+        console.warn('promo used_count bump failed (non-fatal):', e.message)
       }
     }
 
@@ -109,7 +137,9 @@ exports.handler = async (event) => {
     // Fire confirmation email — best-effort, never blocks success
     if (email && inserted.length > 0) {
       const host = event?.headers?.host || 'grail.mx'
-      const proto = (event?.headers?.['x-forwarded-proto'] || 'https')
+      const proto = host.startsWith('localhost') || host.startsWith('127.')
+        ? 'http'
+        : event?.headers?.['x-forwarded-proto'] || 'https'
       const origin = `${proto}://${host}`
       try {
         await fetch(`${origin}/.netlify/functions/send-event-confirmation`, {

@@ -32,6 +32,11 @@ export default {
   'event.soldOut':              'Sold Out',
   'event.fewLeft':              '· {count} left',
   'event.checkout':             'Checkout →',
+  'event.addToCalendar':        'Add to calendar',
+  'checkout.promoPh':           'Promo code (optional)',
+  'checkout.promoApplied':      'Code {code} applied',
+  'checkout.discount':          'Discount',
+  'checkout.subtotal':          'Subtotal',
   'event.ticketCount.one':      '{count} ticket',
   'event.ticketCount.many':     '{count} tickets',
 

@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { fmtPriceCents } from './currencies'
 import { BRAND, C, FONT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
+import { HeroOverview, SalesChart, TierBars, BuyerInsights, LanguageBreakdown, EventQRCard, ActivityFeed, TopSourcesCard } from './PromoterInsights'
+import { PromoCodesCard, GuestListCard } from './PromoterPromoAndComps'
 
 const fmtDate = (iso) => {
   if (!iso) return ''
@@ -76,7 +78,7 @@ export default function PromoterEventDetail() {
 
       const [{ data: tierRows }, { data: ticketRows }, { data: balanceRows }, { data: callerRow }, { data: waitlistRows }] = await Promise.all([
         supabase.from('ticket_tiers').select('*').eq('event_id', ev.id).order('sort_order'),
-        supabase.from('tickets').select('id, ticket_number, name, email, tier_id, tier_name, torn, torn_at, refunded, created_at, stripe_payment_intent_id').eq('event_id', ev.id).order('created_at', { ascending: false }),
+        supabase.from('tickets').select('id, ticket_number, name, email, tier_id, tier_name, torn, torn_at, refunded, created_at, stripe_payment_intent_id, lang, is_comp, source, promo_code, discount_cents').eq('event_id', ev.id).order('created_at', { ascending: false }),
         supabase.from('bar_tabs').select('*').eq('event_id', ev.id).order('created_at', { ascending: false }),
         supabase.from('users').select('is_admin').eq('id', session.user.id).maybeSingle(),
         supabase.from('event_waitlist').select('id, email, name, notified_at, created_at').eq('event_id', ev.id).order('created_at', { ascending: false }),
@@ -261,6 +263,36 @@ export default function PromoterEventDetail() {
     setTimeout(() => setCopied(''), 1500)
   }
 
+  const downloadAttendeeCsv = () => {
+    if (tickets.length === 0) { alert('No attendees to export.'); return }
+    const esc = (v) => {
+      const s = (v ?? '').toString()
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    }
+    const header = ['ticket_number', 'name', 'email', 'tier', 'status', 'lang', 'purchased_at']
+    const rows = [...tickets]
+      .sort((a, b) => (a.ticket_number || 0) - (b.ticket_number || 0))
+      .map(t => [
+        t.ticket_number,
+        t.name,
+        t.email,
+        t.tier_name || '',
+        t.refunded ? 'refunded' : t.torn ? 'admitted' : 'waiting',
+        t.lang || '',
+        t.created_at,
+      ].map(esc).join(','))
+    const csv = '﻿' + [header.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `attendees-${event.slug}-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   const copyWaitlistEmails = () => {
     const list = [...new Set(waitlist.map(w => w.email).filter(Boolean))]
     if (list.length === 0) { alert('Waitlist is empty.'); return }
@@ -365,19 +397,26 @@ export default function PromoterEventDetail() {
   const sold = event.tickets_sold || 0
   const cap  = event.capacity || 0
 
-  const grossCents = tickets.reduce((sum, t) => {
-    if (t.refunded) return sum
+  // Revenue helpers — comps are excluded (no charge), and any per-ticket
+  // promo discount is subtracted so net reflects what actually came in.
+  const linePriceFor = (t) => {
+    if (t.is_comp) return 0
     const tier = tiers.find(x => x.id === t.tier_id)
-    return sum + (tier?.price_cents || 0)
+    const full = tier?.price_cents || 0
+    return Math.max(0, full - (t.discount_cents || 0))
+  }
+  const grossCents = tickets.reduce((sum, t) => {
+    if (t.refunded || t.is_comp) return sum
+    return sum + linePriceFor(t)
   }, 0)
   const ticketRefundedCents = tickets.reduce((sum, t) => {
-    if (!t.refunded) return sum
-    const tier = tiers.find(x => x.id === t.tier_id)
-    return sum + (tier?.price_cents || 0)
+    if (!t.refunded || t.is_comp) return sum
+    return sum + linePriceFor(t)
   }, 0)
   const platformFeeCents = Math.round(grossCents * 0.02)
   const netCents = grossCents - platformFeeCents
   const admittedCount = tickets.filter(t => t.torn && !t.refunded).length
+  const compCount     = tickets.filter(t => t.is_comp && !t.refunded).length
 
   // ── End-of-night rollup (combines tickets + bar) ────────────────────────
   // Bar economics: 2% Grail fee on the LOAD, non-refundable. So the
@@ -450,6 +489,17 @@ export default function PromoterEventDetail() {
           </div>
         </div>
 
+        {/* At-a-glance hero — capacity ring + countdown + net headline.
+            Renders even with zero sales so the promoter sees the room
+            shape immediately on a brand-new event. */}
+        <HeroOverview
+          event={event}
+          sold={sold}
+          cap={cap}
+          totalNetCents={totalNetCents}
+          admittedCount={admittedCount}
+        />
+
         {/* Tonight's totals — combined tickets + bar rollup. Only shows
             once there's something to summarize (avoid empty card on a
             brand-new event with no sales yet). */}
@@ -501,6 +551,15 @@ export default function PromoterEventDetail() {
           <Stat label="Net (after 2%)" value={fmtPriceCents(netCents, event?.currency)} accent={BRAND.pink} />
         </div>
 
+        {/* Sales velocity — cumulative tickets/day with sellout projection.
+            Self-hides when there's not enough data (single sale or none). */}
+        <SalesChart
+          tickets={tickets}
+          capacity={cap}
+          currency={event?.currency}
+          event={event}
+        />
+
         {/* Quick actions */}
         <div style={{
           background: C.card, border: `1px solid ${C.border}`,
@@ -515,6 +574,11 @@ export default function PromoterEventDetail() {
           <Divider />
           <ActionBtn label={copied === 'scan' ? '✓ Copied' : 'Copy scanner link'} onClick={() => copy(scanLink, 'scan')} accent={copied === 'scan' ? BRAND.neon : null} />
         </div>
+
+        {/* QR for the public ticket page — promoter scans/screenshots
+            for door walk-ups or paste into IG stories without a separate
+            QR generator. */}
+        <EventQRCard url={eventLink} label="Ticket page" />
 
         {/* Bar links — only show when bar is enabled */}
         {event.bar_enabled !== false && (
@@ -706,35 +770,40 @@ export default function PromoterEventDetail() {
           )
         })()}
 
-        {/* Tier breakdown */}
-        {tiers.length > 0 && (
-          <div style={{ marginBottom: '1.75rem' }}>
-            <div style={eyebrowStyle()}>Tier breakdown</div>
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', overflow: 'hidden' }}>
-              {tiers.map((t, i) => {
-                const remaining = t.qty - (t.sold || 0)
-                const tierGross = (t.sold || 0) * t.price_cents
-                return (
-                  <div key={t.id} style={{
-                    padding: '0.85rem 1.2rem',
-                    borderTop: i === 0 ? 'none' : `1px solid ${C.border}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  }}>
-                    <div>
-                      <div style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem' }}>{t.name}</div>
-                      <div style={{ color: C.textMid, fontSize: '0.78rem', marginTop: '0.15rem' }}>
-                        {fmtPriceCents(t.price_cents, event?.currency)} · {t.sold || 0}/{t.qty} sold · {remaining} left
-                      </div>
-                    </div>
-                    <div style={{ color: BRAND.pink, fontWeight: '800', fontSize: '0.95rem' }}>
-                      {fmtPriceCents(tierGross, event?.currency)}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
+        {/* Promo codes — create / disable / track usage */}
+        <PromoCodesCard eventId={event.id} tiers={tiers} currency={event?.currency} />
+
+        {/* Guest list — comp tickets minted directly without payment */}
+        <GuestListCard
+          event={event}
+          tiers={tiers}
+          tickets={tickets}
+          onMinted={async () => {
+            // Refresh tickets so the new comp shows up immediately
+            const { data: refreshed } = await supabase
+              .from('tickets')
+              .select('id, ticket_number, name, email, tier_id, tier_name, torn, torn_at, refunded, created_at, stripe_payment_intent_id, lang, is_comp, source, promo_code, discount_cents')
+              .eq('event_id', event.id)
+              .order('created_at', { ascending: false })
+            setTickets(refreshed || [])
+          }}
+        />
+
+        {/* Tier breakdown — visual progress bars per tier, with sold-out
+            celebration when a tier is fully booked. */}
+        <TierBars tiers={tiers} currency={event?.currency} />
+
+        {/* Live activity — recent purchases ticker */}
+        <ActivityFeed tickets={tickets} tiers={tiers} currency={event?.currency} />
+
+        {/* Buyer insights — unique buyers, group sizes, top crews */}
+        <BuyerInsights tickets={tickets} currency={event?.currency} tiers={tiers} />
+
+        {/* Buyer language split — only when audience is multilingual */}
+        <LanguageBreakdown tickets={tickets} />
+
+        {/* Where buyers came from — only renders if there's attribution data */}
+        <TopSourcesCard tickets={tickets} />
 
         {/* Attendee list */}
         <div>
@@ -754,6 +823,17 @@ export default function PromoterEventDetail() {
                 }}
               >
                 {copied === 'attendee-emails' ? '✓ Copied' : 'Copy all emails'}
+              </button>
+              <button
+                onClick={downloadAttendeeCsv}
+                style={{
+                  background: 'transparent', color: C.text,
+                  border: `1px solid ${C.border}`, borderRadius: '8px',
+                  padding: '0.5rem 0.85rem', fontSize: '0.78rem', fontWeight: '700',
+                  cursor: 'pointer', fontFamily: FONT,
+                }}
+              >
+                ↓ CSV
               </button>
               <button
                 onClick={handleEmailSweep}
