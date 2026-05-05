@@ -340,7 +340,7 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
           ) : (
             <>
               <SubText>
-                Run this after the show ends. It transfers each co-producer their share from your Stripe balance using the splits above. The 5% built into the math covers the rough cost of Stripe processing + the GRAIL platform fee — actual numbers may differ by a few percent.
+                Run this after the show ends and the bar has closed out. It transfers each co-producer their share of (ticket revenue + bar revenue − fixed costs) from your Stripe balance, using the splits above. The 5% built into the math covers Stripe processing + the GRAIL platform fee — actual numbers may differ by a few percent.
               </SubText>
               {event.promoter_id === currentUserId && (
                 <button
