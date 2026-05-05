@@ -24,16 +24,18 @@ export default function PromoterRequestPage() {
     }
     setLoading(true)
     try {
-      const { error: insertErr } = await supabase
+      const { data: inserted, error: insertErr } = await supabase
         .from('promoter_requests')
         .insert({ name, email, city: city || null, description: desc })
+        .select('id')
+        .single()
       if (insertErr) throw insertErr
 
       // Best-effort notification email — don't block on it.
       fetch('/.netlify/functions/notify-promoter-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, city, description: desc }),
+        body: JSON.stringify({ request_id: inserted.id, name, email, city, description: desc }),
       }).catch(() => {})
 
       setDone(true)
