@@ -5,6 +5,7 @@ import { fmtPriceCents } from './currencies'
 import { BRAND, C, FONT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
 import { HeroOverview, SalesChart, TierBars, BuyerInsights, LanguageBreakdown, EventQRCard, ActivityFeed, TopSourcesCard } from './PromoterInsights'
 import { PromoCodesCard, GuestListCard } from './PromoterPromoAndComps'
+import EventContractCard from './EventContractCard'
 
 const fmtDate = (iso) => {
   if (!iso) return ''
@@ -769,6 +770,17 @@ export default function PromoterEventDetail() {
             </div>
           )
         })()}
+
+        {/* Multi-producer contract — costs, splits, Greenlight signing */}
+        <EventContractCard
+          event={event}
+          tiers={tiers}
+          currentUserId={session.user.id}
+          onUpdate={async () => {
+            const { data: ev } = await supabase.from('events').select('*').eq('id', event.id).maybeSingle()
+            if (ev) setEvent(ev)
+          }}
+        />
 
         {/* Promo codes — create / disable / track usage */}
         <PromoCodesCard eventId={event.id} tiers={tiers} currency={event?.currency} />
