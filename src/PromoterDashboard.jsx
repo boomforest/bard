@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import GrailSetup from './GrailSetup'
 import PromoterEvents from './PromoterEvents'
+import OnboardingWizard from './OnboardingWizard'
 import { BRAND, C, FONT, INPUT, PRIMARY_BTN, PAGE, eyebrowStyle, LogoMark } from './theme'
 
 function LoginForm() {
@@ -168,6 +169,13 @@ export default function PromoterDashboard() {
 
       {view === 'events' && (
         <>
+          <OnboardingWizard
+            key={refreshKey}
+            promoterId={session.user.id}
+            stripeReady={stripeReady}
+            onConnectStripe={startStripeOnboarding}
+            onCreateEvent={() => setView('new')}
+          />
           <FollowersStrip promoterId={session.user.id} />
           <PromoterEvents
             key={refreshKey}
