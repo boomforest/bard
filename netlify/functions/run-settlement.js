@@ -170,6 +170,31 @@ exports.handler = async (event) => {
         .eq('id', event_id)
     }
 
+    // Best-effort receipt emails (per-producer + lead summary). Never
+    // blocks the success response.
+    if (results.length > 0 || skipped.length > 0) {
+      const host = event?.headers?.host || 'grail.mx'
+      const proto = host.startsWith('localhost') || host.startsWith('127.')
+        ? 'http'
+        : event?.headers?.['x-forwarded-proto'] || 'https'
+      const origin = `${proto}://${host}`
+      try {
+        await fetch(`${origin}/.netlify/functions/send-settlement-receipt`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            event_id,
+            transfers: results,
+            skipped,
+            currency,
+            complete:  stillOwed.length === 0,
+          }),
+        })
+      } catch (e) {
+        console.warn('settlement receipt email failed (non-fatal):', e.message)
+      }
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({

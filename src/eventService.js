@@ -85,6 +85,26 @@ export async function subscribeToLists({ email, name, zip, radiusMiles, lang, so
   await supabase
     .from('subscribers')
     .upsert(rows, { onConflict: 'list,email', ignoreDuplicates: true })
+
+  // Geocode the zip in the background so future radius-filtered blasts
+  // can narrow recipients. Best-effort — never blocks the parent form.
+  if (zip?.trim()) {
+    fetch('/.netlify/functions/geocode-zip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:   JSON.stringify({ zip: zip.trim(), country: 'mx' }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(async geo => {
+        if (geo?.lat != null && geo?.lng != null) {
+          await supabase
+            .from('subscribers')
+            .update({ lat: geo.lat, lng: geo.lng })
+            .eq('email', clean)
+        }
+      })
+      .catch(() => {})
+  }
 }
 
 // ─── Save event from GrailSetup data ──────────────────────────────────────────
