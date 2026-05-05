@@ -2,9 +2,11 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PRIMARY_BTN, PAGE, eyebrowStyle, LogoMark } from './theme'
+import { useT } from './i18n'
 
 export default function PromoterRequestPage() {
   const navigate = useNavigate()
+  const t = useT()
   const [name,  setName]  = useState('')
   const [email, setEmail] = useState('')
   const [city,  setCity]  = useState('')
@@ -17,7 +19,7 @@ export default function PromoterRequestPage() {
     e.preventDefault()
     setError('')
     if (!name.trim() || !email.trim() || !desc.trim()) {
-      setError('Name, email, and a quick note about your events are required.')
+      setError(t('request.errMissing'))
       return
     }
     setLoading(true)
@@ -36,7 +38,7 @@ export default function PromoterRequestPage() {
 
       setDone(true)
     } catch (err) {
-      setError(err.message || 'Could not submit. Try again.')
+      setError(err.message || t('request.errSubmit'))
     }
     setLoading(false)
   }
@@ -57,7 +59,7 @@ export default function PromoterRequestPage() {
             borderRadius: '8px', padding: '0.4rem 0.85rem', fontSize: '0.82rem',
             cursor: 'pointer', fontFamily: FONT, fontWeight: '600',
           }}>
-            ← Back
+            {t('common.back')}
           </button>
           <div style={LogoMark({ size: 32 })}>GRAIL</div>
         </div>
@@ -65,33 +67,33 @@ export default function PromoterRequestPage() {
         {done ? (
           <div style={{ textAlign: 'center', padding: '2rem 0' }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕊</div>
-            <div style={{ ...eyebrowStyle(BRAND.neon) }}>Received</div>
+            <div style={{ ...eyebrowStyle(BRAND.neon) }}>{t('request.done.eyebrow')}</div>
             <div style={{ color: C.text, fontSize: '1.5rem', fontWeight: '900', letterSpacing: '-0.02em', marginBottom: '0.6rem' }}>
-              Thanks, {name.split(' ')[0]}.
+              {t('request.done.heading', { first: name.split(' ')[0] })}
             </div>
             <div style={{ color: C.textMid, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-              JP gets your note as soon as you hit submit. If it's a fit, you'll get an invite link by email.
+              {t('request.done.body')}
             </div>
             <button onClick={() => navigate('/')} style={{ ...PRIMARY_BTN }}>
-              Back to home
+              {t('request.done.cta')}
             </button>
           </div>
         ) : (
           <>
-            <div style={eyebrowStyle()}>Request Access</div>
+            <div style={eyebrowStyle()}>{t('request.eyebrow')}</div>
             <div style={{ color: C.text, fontSize: '1.6rem', fontWeight: '900', letterSpacing: '-0.02em', marginBottom: '0.6rem', lineHeight: 1.2 }}>
-              Tell us about your event.
+              {t('request.heading')}
             </div>
             <div style={{ color: C.textMid, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '1.75rem' }}>
-              GRAIL is invite-only while we onboard partners. Send a short note — JP reads every one.
+              {t('request.body')}
             </div>
 
             <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <input style={INPUT} type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
-              <input style={INPUT} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
-              <input style={INPUT} type="text" placeholder="City (optional)" value={city} onChange={e => setCity(e.target.value)} />
+              <input style={INPUT} type="text" placeholder={t('request.namePh')} value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
+              <input style={INPUT} type="email" placeholder={t('common.email')} value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+              <input style={INPUT} type="text" placeholder={t('request.cityPh')} value={city} onChange={e => setCity(e.target.value)} />
               <textarea
-                placeholder="What kind of events do you throw? Frequency, size, the vibe…"
+                placeholder={t('request.descPh')}
                 value={desc}
                 onChange={e => setDesc(e.target.value)}
                 rows={5}
@@ -100,7 +102,7 @@ export default function PromoterRequestPage() {
               />
               {error && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{error}</div>}
               <button type="submit" disabled={loading} style={{ ...PRIMARY_BTN, marginTop: '0.5rem', opacity: loading ? 0.6 : 1 }}>
-                {loading ? 'Sending…' : 'Send request'}
+                {loading ? t('request.sending') : t('request.cta')}
               </button>
             </form>
           </>
