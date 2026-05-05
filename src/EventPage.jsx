@@ -785,7 +785,7 @@ function FollowPromoter({ promoter }) {
     setErr('')
     if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) { setErr(t('follow.invalidEmail')); return }
     setSubmitting(true)
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from('promoter_followers')
       .upsert(
         {
@@ -798,8 +798,31 @@ function FollowPromoter({ promoter }) {
         },
         { onConflict: 'promoter_id,email', ignoreDuplicates: true },
       )
+      .select('id')
     setSubmitting(false)
     if (error) { setErr(error.message); return }
+
+    // Geocode the zip in the background so future blasts can filter by
+    // radius. Best-effort — never blocks the success state.
+    if (zip.trim()) {
+      const followerId = inserted?.[0]?.id
+      fetch('/.netlify/functions/geocode-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zip: zip.trim(), country: 'mx' }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(async geo => {
+          if (geo?.lat != null && geo?.lng != null && followerId) {
+            await supabase
+              .from('promoter_followers')
+              .update({ lat: geo.lat, lng: geo.lng })
+              .eq('id', followerId)
+          }
+        })
+        .catch(() => {})
+    }
+
     if (grailOptIn) subscribeToLists({
       email, name, zip, radiusMiles: radius,
       lang: locale, source: 'follow_promoter',

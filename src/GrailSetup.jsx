@@ -1204,6 +1204,31 @@ export default function GrailSetup() {
   const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1))
   const back = () => setStep(s => Math.max(s - 1, 0))
 
+  // Geocode the event's venue so the new-event blast can filter by
+  // follower radius. Fire-and-forget — the event is already saved and
+  // the blast falls back to all-followers if venue_lat/lng stays null.
+  // Tries the full address first, falls back to just the venue name.
+  async function geocodeEventVenueInBackground(eventId, formData) {
+    const address = [formData.address, formData.venue].filter(Boolean).join(', ').trim()
+    if (!address) return
+    try {
+      const res = await fetch('/.netlify/functions/geocode-zip', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ address, country: 'mx' }),
+      })
+      if (!res.ok) return
+      const json = await res.json()
+      if (json?.lat == null || json?.lng == null) return
+      await supabase
+        .from('events')
+        .update({ venue_lat: json.lat, venue_lng: json.lng })
+        .eq('id', eventId)
+    } catch (err) {
+      console.warn('venue geocode failed (non-fatal):', err.message)
+    }
+  }
+
   const handleLaunch = async () => {
     setLaunching(true)
     setLaunchError('')
@@ -1212,27 +1237,29 @@ export default function GrailSetup() {
       if (!session?.user?.id) throw new Error('Sign in to continue.')
       if (isEdit) {
         await updateEventFromSetup(data, editEventId)
-        // Stay on the page with a "saved" indicator. The Review step's
-        // launchedSlug branch handles the success UI; for edit we send
-        // it the existing slug so the "view event" link works.
         setLaunchedSlug(editSlug)
+        geocodeEventVenueInBackground(editEventId, data)
       } else {
         const event = await createEventFromSetup(data, session.user.id)
         setLaunchedSlug(event.slug)
-        // Fire-and-forget follower blast. Failure here doesn't block
-        // the launch — the event is created either way and the promoter
-        // can manually re-trigger from the dashboard if needed.
-        fetch('/.netlify/functions/send-new-event-notification', {
-          method: 'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            event_id: event.id,
-            origin:   window.location.origin,
-          }),
-        }).catch(err => console.warn('follower blast failed (non-fatal):', err.message))
+
+        // Geocode the venue first, then send the blast — the blast filter
+        // needs venue_lat/lng to narrow recipients by radius. We still
+        // don't await on geocode failure; if it can't resolve, the blast
+        // falls back to all-followers (filter function checks for null).
+        geocodeEventVenueInBackground(event.id, data).finally(() => {
+          fetch('/.netlify/functions/send-new-event-notification', {
+            method: 'POST',
+            headers: {
+              'Content-Type':  'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              event_id: event.id,
+              origin:   window.location.origin,
+            }),
+          }).catch(err => console.warn('follower blast failed (non-fatal):', err.message))
+        })
       }
     } catch (err) {
       setLaunchError(err.message || (isEdit ? 'Could not save changes.' : 'Could not launch the event.'))
