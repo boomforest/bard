@@ -21,3 +21,9 @@
 # auto-close-bar so any close-out refunds have already landed.
 [functions."auto-settle"]
   schedule = "0 13 * * *"
+
+# Daily reminder to producers who haven't Greenlit yet on contracts
+# whose show is within 7 days. Throttled to one email per producer
+# every 48h (last_reminded_at on event_producers).
+[functions."remind-pending-greenlight"]
+  schedule = "0 15 * * *"
