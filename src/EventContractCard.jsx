@@ -16,6 +16,7 @@ import { BRAND, C, FONT, INPUT } from './theme'
 
 export default function EventContractCard({ event, tiers, currentUserId, onUpdate }) {
   const [producers, setProducers] = useState([])
+  const [breakdownByProducer, setBreakdownByProducer] = useState({})  // producer_id -> { share_cents, settled_at, settled_amount, stripe_transfer_id }
   const [costs,     setCosts]     = useState(event?.fixed_costs || [])
   const [costsDirty,setCostsDirty]= useState(false)
   const [costsSaving,setCostsSaving] = useState(false)
@@ -24,23 +25,36 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
   const [posting,   setPosting]   = useState(false)
   const [error,     setError]     = useState('')
   const [signing,   setSigning]   = useState(null)
+  const [settling,  setSettling]  = useState(false)
+  const [settleResult, setSettleResult] = useState(null)
 
   const greenlit = !!event?.greenlit_at
+  const settled  = !!event?.settled_at
 
-  useEffect(() => { loadProducers() }, [event?.id])
+  useEffect(() => { loadAll() }, [event?.id])
   useEffect(() => { setCosts(event?.fixed_costs || []); setCostsDirty(false) }, [event?.id])
 
-  async function loadProducers() {
+  async function loadAll() {
     if (!event?.id) return
-    const { data } = await supabase
-      .from('event_producers')
-      .select('id, name, role, split_pct, signed, signed_at, email, user_id')
-      .eq('event_id', event.id)
-      .order('created_at', { ascending: true })
-    setProducers(data || [])
+    const [{ data: rows }, { data: breakdown }] = await Promise.all([
+      supabase.from('event_producers')
+        .select('id, name, role, split_pct, signed, signed_at, email, user_id')
+        .eq('event_id', event.id)
+        .order('created_at', { ascending: true }),
+      supabase.rpc('settlement_breakdown', { p_event_id: event.id }),
+    ])
+    setProducers(rows || [])
+    const map = {}
+    for (const b of (breakdown || [])) map[b.producer_id] = b
+    setBreakdownByProducer(map)
   }
 
   // ─── Revenue + cost math ───────────────────────────────────────────────
+  // ticketRevCents here is the FULL gross (qty × price), used as a UI-side
+  // quick reference. The settlement_breakdown RPC does the real math —
+  // gross from actual sold tickets, minus refunds, minus 5% combined fee
+  // estimate, minus fixed_costs. Producer share_cents always comes from
+  // the RPC, never computed locally.
   const ticketRevCents = (tiers || []).reduce((s, t) => s + (t.qty || 0) * (t.price_cents || 0), 0)
   const fixedCostsCents = costs.reduce((s, c) => s + (Number(c.amount_cents) || 0), 0)
   const netCents = Math.max(0, ticketRevCents - fixedCostsCents)
@@ -106,8 +120,30 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
       .eq('user_id', currentUserId)   // belt + RLS suspenders
     setSigning(null)
     if (e) { setError(e.message); return }
-    await loadProducers()
+    await loadAll()
     onUpdate?.()
+  }
+
+  // ─── Settle (lead-promoter only) ───────────────────────────────────────
+  const runSettlement = async () => {
+    if (!confirm('Run settlement now?\n\nThis will transfer each co-producer their share via Stripe. The amounts come out of your Stripe Connect balance. This cannot be undone.')) return
+    setSettling(true); setError(''); setSettleResult(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/.netlify/functions/run-settlement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ event_id: event.id }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || `Settlement failed (${res.status})`)
+      setSettleResult(json)
+      await loadAll()
+      onUpdate?.()
+    } catch (err) {
+      setError(err.message)
+    }
+    setSettling(false)
   }
 
   // ─── Render ────────────────────────────────────────────────────────────
@@ -144,7 +180,9 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
         ) : (
           producers.map(p => {
             const isMine    = p.user_id === currentUserId
-            const payoutCents = Math.round(netCents * (p.split_pct / 100))
+            const bd        = breakdownByProducer[p.id]
+            const payoutCents = bd?.share_cents ?? Math.round(netCents * (p.split_pct / 100))
+            const isSettled = !!bd?.settled_at
             return (
               <div key={p.id} style={{
                 display: 'flex', alignItems: 'center', gap: '0.75rem',
@@ -158,7 +196,10 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
                     {p.name}{isMine && <span style={{ color: C.textMid, fontWeight: '500', marginLeft: '0.4rem' }}>(you)</span>}
                   </div>
                   <div style={{ color: C.textMid, fontSize: '0.72rem' }}>
-                    {p.split_pct}% · est. {fmtPriceCents(payoutCents, event?.currency)}{p.email ? ` · ${p.email}` : ''}
+                    {p.split_pct}% · {isSettled
+                      ? <span style={{ color: BRAND.neon }}>✓ paid {fmtPriceCents(bd.settled_amount, event?.currency)}</span>
+                      : <>est. {fmtPriceCents(payoutCents, event?.currency)}</>
+                    }{p.email ? ` · ${p.email}` : ''}
                   </div>
                 </div>
                 {p.signed ? (
@@ -265,6 +306,53 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
           </form>
         )}
       </Section>
+
+      {/* Settlement — only after greenlit. Lead promoter sees the button;
+          everyone else just sees the breakdown / settled status. */}
+      {greenlit && (
+        <Section title={settled ? 'Settlement complete' : 'Settlement'}>
+          {settled ? (
+            <div style={{ color: C.textMid, fontSize: '0.82rem', lineHeight: 1.5 }}>
+              Settled on {new Date(event.settled_at).toLocaleDateString()}. Each co-producer got their share via Stripe; you keep the remainder in your balance.
+            </div>
+          ) : (
+            <>
+              <SubText>
+                Run this after the show ends. It transfers each co-producer their share from your Stripe balance using the splits above. The 5% built into the math covers the rough cost of Stripe processing + the GRAIL platform fee — actual numbers may differ by a few percent.
+              </SubText>
+              {event.promoter_id === currentUserId && (
+                <button
+                  onClick={runSettlement}
+                  disabled={settling}
+                  type="button"
+                  style={{
+                    background: BRAND.neon, color: '#000', border: 'none',
+                    borderRadius: '8px', padding: '0.55rem 1.1rem',
+                    fontSize: '0.88rem', fontWeight: '800', cursor: 'pointer',
+                    opacity: settling ? 0.5 : 1,
+                  }}
+                >
+                  {settling ? 'Running settlement…' : 'Run settlement'}
+                </button>
+              )}
+            </>
+          )}
+          {settleResult && (
+            <div style={{ marginTop: '0.7rem', fontSize: '0.78rem', color: C.textMid, lineHeight: 1.6 }}>
+              {settleResult.transfers?.length > 0 && (
+                <div>Transferred to {settleResult.transfers.length} producer{settleResult.transfers.length === 1 ? '' : 's'} ({fmtPriceCents(settleResult.transferred_cents, event?.currency)}).</div>
+              )}
+              {settleResult.skipped?.length > 0 && (
+                <ul style={{ margin: '0.3rem 0 0 1rem', padding: 0 }}>
+                  {settleResult.skipped.map((s, i) => (
+                    <li key={i} style={{ color: BRAND.orange }}>{s.name}: {s.reason}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </Section>
+      )}
 
       {error && <div style={{ marginTop: '0.6rem', color: BRAND.orange, fontSize: '0.82rem' }}>{error}</div>}
     </div>
