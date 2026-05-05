@@ -9,3 +9,8 @@
 # verification delay never leaves a buyer permanently un-refunded.
 [functions."auto-close-bar"]
   schedule = "0 12 * * *"
+
+# Weekly Supabase JSON snapshot — calls backup_all_tables() and PUTs the
+# result to boomforest/bard-backups (private). Sundays 06:00 UTC.
+[functions."weekly-backup"]
+  schedule = "0 6 * * 0"
