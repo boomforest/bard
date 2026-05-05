@@ -233,41 +233,62 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
 
       {/* Fixed costs editor */}
       <Section title="Fixed costs">
-        {costs.length === 0 && (
+        {costs.length === 0 && !greenlit && (
           <div style={{ color: C.textMid, fontSize: '0.82rem', padding: '0.4rem 0' }}>No costs yet. Add the DJ, venue, sound, security, etc. — anything that gets paid before splits.</div>
         )}
-        {costs.map((c, i) => (
-          <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem' }}>
-            <input value={c.name} onChange={e => updateCost(i, 'name', e.target.value)} placeholder="DJ / Venue / Sound" style={{ ...INPUT, flex: 2 }} />
-            <input
-              type="number" min="0" step="any"
-              value={c.amount_cents > 0 ? c.amount_cents / 100 : ''}
-              onChange={e => updateCost(i, 'amount_cents', e.target.value)}
-              placeholder="0"
-              style={{ ...INPUT, flex: 1, maxWidth: '120px' }}
-            />
-            <button onClick={() => removeCost(i)} type="button" style={{
-              background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
-              borderRadius: '7px', padding: '0 0.7rem', cursor: 'pointer', fontSize: '0.85rem',
-            }}>×</button>
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
-          <button onClick={addCost} type="button" style={{
-            background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
-            borderRadius: '7px', padding: '0.4rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600',
-          }}>+ Add cost</button>
-          {costsDirty && (
-            <button onClick={saveCosts} disabled={costsSaving} type="button" style={{
-              background: BRAND.neon, color: '#000', border: 'none',
-              borderRadius: '7px', padding: '0.4rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '700',
-              opacity: costsSaving ? 0.5 : 1,
-            }}>{costsSaving ? 'Saving…' : 'Save costs'}</button>
-          )}
-        </div>
+        {greenlit ? (
+          // Locked read-only view: just show the costs as plain rows.
+          costs.length === 0 ? (
+            <div style={{ color: C.textMid, fontSize: '0.82rem', padding: '0.4rem 0' }}>No fixed costs.</div>
+          ) : costs.map((c, i) => (
+            <div key={i} style={{
+              display: 'flex', justifyContent: 'space-between',
+              padding: '0.45rem 0.7rem', marginBottom: '0.3rem',
+              background: C.surface, border: `1px solid ${C.border}`, borderRadius: '7px',
+              fontSize: '0.85rem',
+            }}>
+              <span style={{ color: C.text }}>{c.name}</span>
+              <span style={{ color: C.red }}>−{fmtPriceCents(Number(c.amount_cents) || 0, event?.currency)}</span>
+            </div>
+          ))
+        ) : (
+          <>
+            {costs.map((c, i) => (
+              <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                <input value={c.name} onChange={e => updateCost(i, 'name', e.target.value)} placeholder="DJ / Venue / Sound" style={{ ...INPUT, flex: 2 }} />
+                <input
+                  type="number" min="0" step="any"
+                  value={c.amount_cents > 0 ? c.amount_cents / 100 : ''}
+                  onChange={e => updateCost(i, 'amount_cents', e.target.value)}
+                  placeholder="0"
+                  style={{ ...INPUT, flex: 1, maxWidth: '120px' }}
+                />
+                <button onClick={() => removeCost(i)} type="button" style={{
+                  background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
+                  borderRadius: '7px', padding: '0 0.7rem', cursor: 'pointer', fontSize: '0.85rem',
+                }}>×</button>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
+              <button onClick={addCost} type="button" style={{
+                background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
+                borderRadius: '7px', padding: '0.4rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600',
+              }}>+ Add cost</button>
+              {costsDirty && (
+                <button onClick={saveCosts} disabled={costsSaving} type="button" style={{
+                  background: BRAND.neon, color: '#000', border: 'none',
+                  borderRadius: '7px', padding: '0.4rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '700',
+                  opacity: costsSaving ? 0.5 : 1,
+                }}>{costsSaving ? 'Saving…' : 'Save costs'}</button>
+              )}
+            </div>
+          </>
+        )}
       </Section>
 
-      {/* Add co-producer */}
+      {/* Add co-producer — hidden once greenlit (the trigger would reject
+          the insert anyway; the UI matches that). */}
+      {!greenlit && (
       <Section title="Add co-producer">
         {!adding ? (
           <button onClick={() => setAdding(true)} type="button" style={{
@@ -306,6 +327,7 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
           </form>
         )}
       </Section>
+      )}
 
       {/* Settlement — only after greenlit. Lead promoter sees the button;
           everyone else just sees the breakdown / settled status. */}
