@@ -14,3 +14,10 @@
 # result to boomforest/bard-backups (private). Sundays 06:00 UTC.
 [functions."weekly-backup"]
   schedule = "0 6 * * 0"
+
+# Daily auto-settlement — finds greenlit, unsettled events whose show
+# ended >24h ago and whose bar tabs are all closed, then runs the
+# Stripe Connect transfers per the agreed splits. 1pm UTC = 1h after
+# auto-close-bar so any close-out refunds have already landed.
+[functions."auto-settle"]
+  schedule = "0 13 * * *"
