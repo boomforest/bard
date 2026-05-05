@@ -57,6 +57,25 @@ exports.handler = async () => {
 
         const result = await settleOne(stripe, supabase, ev)
         summary.push({ event: ev.slug || ev.id, status: result.complete ? 'settled' : 'partial', ...result })
+
+        // Receipt emails (per-producer + lead summary). Best-effort.
+        if (result.transfers.length > 0 || result.skipped.length > 0) {
+          try {
+            await fetch('https://grail.mx/.netlify/functions/send-settlement-receipt', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({
+                event_id:  ev.id,
+                transfers: result.transfers,
+                skipped:   result.skipped,
+                currency:  ev.currency || 'mxn',
+                complete:  result.complete,
+              }),
+            })
+          } catch (e) {
+            console.warn(`receipt email failed for ${ev.slug}:`, e.message)
+          }
+        }
       } catch (err) {
         console.error(`auto-settle event ${ev.id} failed:`, err.message)
         summary.push({ event: ev.slug || ev.id, status: 'error', error: err.message })
@@ -146,7 +165,7 @@ async function settleOne(stripe, supabase, ev) {
         })
         .eq('id', p.producer_id)
 
-      transfers.push({ name: p.name, amount_cents: p.share_cents, transfer_id: transfer.id })
+      transfers.push({ producer_id: p.producer_id, name: p.name, amount_cents: p.share_cents, transfer_id: transfer.id })
       transferredCents += p.share_cents
     } catch (transferErr) {
       console.error(`auto-settle transfer failed for ${p.name}:`, transferErr.message)
