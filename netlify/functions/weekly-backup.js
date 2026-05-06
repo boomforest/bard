@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js')
+const { reportServerError } = require('./_lib/server-error-report.cjs')
 
 // Weekly Supabase snapshot. Calls public.backup_all_tables() — a Postgres
 // function that returns one JSONB object keyed by table name — and PUTs the
@@ -62,6 +63,11 @@ exports.handler = async () => {
     }
   } catch (err) {
     console.error('weekly-backup error:', err)
+    await reportServerError({
+      message: `weekly-backup failed: ${err.message}`,
+      stack:   err.stack,
+      context: { fn: 'weekly-backup', cadence: '0 6 * * 0' },
+    })
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) }
   }
 }
