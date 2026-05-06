@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js')
+const { reportServerError } = require('./_lib/server-error-report.cjs')
 
 // Daily nudge to producers who haven't Greenlit yet on contracts whose
 // show is approaching. Throttled to one email per producer every 48h.
@@ -80,6 +81,11 @@ exports.handler = async () => {
     }
   } catch (err) {
     console.error('remind-pending-greenlight error:', err)
+    await reportServerError({
+      message: `remind-pending-greenlight failed: ${err.message}`,
+      stack:   err.stack,
+      context: { fn: 'remind-pending-greenlight', cadence: '0 15 * * *' },
+    })
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) }
   }
 }
