@@ -1,5 +1,6 @@
 const Stripe = require('stripe')
 const { createClient } = require('@supabase/supabase-js')
+const { reportServerError } = require('./_lib/server-error-report.cjs')
 
 // Scheduled settlement. Runs daily after auto-close-bar so any event that's
 // (a) finished, (b) had its bar closed, and (c) has a fully greenlit
@@ -92,6 +93,11 @@ exports.handler = async () => {
     }
   } catch (err) {
     console.error('auto-settle error:', err)
+    await reportServerError({
+      message: `auto-settle failed: ${err.message}`,
+      stack:   err.stack,
+      context: { fn: 'auto-settle', cadence: '0 13 * * *' },
+    })
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) }
   }
 }
