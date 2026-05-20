@@ -20,6 +20,8 @@ import EventBar from './EventBar'
 import GrailHome from './GrailHome'
 import GrailSetup from './GrailSetup'
 import PromoterDashboard from './PromoterDashboard'
+import ArtistDashboard from './ArtistDashboard'
+import ArtistProfile from './ArtistProfile'
 import JoinPage from './JoinPage'
 import TermsPage from './TermsPage'
 import EventPage from './EventPage'
@@ -69,6 +71,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/reset-password" element={<ResetPassword />} />
         {/* Public event page */}
         <Route path="/e/:slug" element={<EventPage />} />
+        {/* Artist portal — auth gated */}
+        <Route path="/artist" element={<ArtistDashboard />} />
+        {/* Public artist profile (follow + upcoming shows) */}
+        <Route path="/a/:handle" element={<ArtistProfile />} />
         {/* Stripe Connect return URL */}
         <Route path="/stripe/return" element={<StripeReturn />} />
         {/* GRAIL — customer-facing */}
