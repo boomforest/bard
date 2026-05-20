@@ -1,0 +1,465 @@
+// LandingPortal — three-tab explainer + apply / discover surface for
+// unauthenticated visitors. Embedded inside GrailHome.
+//
+// Tabs:
+//   PROMOTER — what promoter accounts do, feature cards, mock dashboard,
+//              Apply → /request-access?kind=promoter
+//   ARTIST   — what artist accounts do, feature cards, mock dashboard,
+//              Apply → /request-access?kind=artist
+//   FAN      — artist directory (users with user_type='artist' + handle),
+//              search, suggestion form on empty-search states
+//
+// Style follows GrailDemo aesthetic: dark cards, eyebrow labels in uppercase
+// neon / orange, gradient CTAs, mini-mockups stylized as fake dashboards.
+
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from './supabase'
+import { BRAND, C, FONT, INPUT, PRIMARY_BTN } from './theme'
+
+const TABS = [
+  { key: 'promoter', label: 'Promoter' },
+  { key: 'artist',   label: 'Artist'   },
+  { key: 'fan',      label: 'Fan'      },
+]
+
+const PROMOTER_FEATURES = [
+  {
+    icon: '🎟',
+    title: 'Threshold ticketing',
+    desc: 'Pre-auth tickets that capture only when the show is real. Buyers commit early; cards never charge unless the dove count breaks dawn.',
+  },
+  {
+    icon: '✍️',
+    title: 'Multi-party contracts',
+    desc: 'Add co-producers — venue, sound, bar, artists. Everyone signs the budget before tickets open. Splits are locked, no surprises post-show.',
+  },
+  {
+    icon: '🌅',
+    title: 'First Light settlement',
+    desc: 'Revenue waterfall pays contributors back pro-rata to what they put in, before any overflow distributes. Run settlement with one click after the show.',
+  },
+  {
+    icon: '📡',
+    title: 'Geo-aware blasts',
+    desc: 'Followers sign up with zip + radius. New shows only blast to people within range. Higher signal, lower spam.',
+  },
+]
+
+const ARTIST_FEATURES = [
+  {
+    icon: '🤝',
+    title: 'Greenlight your bookings',
+    desc: 'Promoter adds you to a lineup; you confirm with one tap. Your contract is signed, the budget locks, the broadcast fires.',
+  },
+  {
+    icon: '📣',
+    title: 'Auto-broadcast to followers',
+    desc: 'When you Greenlight, the followers you have within radius of the venue get a personalized email. Off per-show or globally whenever you want.',
+  },
+  {
+    icon: '🔗',
+    title: 'Affiliate ticket links',
+    desc: 'Every booking gets a unique tracked URL. Share it on Instagram, in your story, anywhere — tickets sold via your link attribute to you.',
+  },
+  {
+    icon: '👥',
+    title: 'A profile fans can follow',
+    desc: 'Your public page at grail.mx/a/<your-handle> lists upcoming shows and lets fans subscribe with zip + radius. You build a direct line, not a feed.',
+  },
+]
+
+function Tab({ active, label, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      flex: 1, padding: '0.75rem 0.5rem', cursor: 'pointer',
+      background: active ? `linear-gradient(135deg, ${BRAND.pink}22, ${BRAND.orange}22)` : 'transparent',
+      color: active ? C.text : C.textMid,
+      border: 'none', borderBottom: `2px solid ${active ? BRAND.pink : 'transparent'}`,
+      fontSize: '0.95rem', fontWeight: 800, letterSpacing: '-0.01em', fontFamily: FONT,
+      transition: 'all 0.15s ease',
+    }}>
+      {label}
+    </button>
+  )
+}
+
+function Eyebrow({ children, color }) {
+  return (
+    <div style={{
+      fontSize: '0.68rem', color: color || BRAND.neon, textTransform: 'uppercase',
+      letterSpacing: '0.18em', fontWeight: 800, marginBottom: '0.5rem',
+    }}>{children}</div>
+  )
+}
+
+function FeatureCard({ icon, title, desc }) {
+  return (
+    <div style={{
+      background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px',
+      padding: '1.1rem 1.25rem', display: 'flex', gap: '0.85rem', alignItems: 'flex-start',
+    }}>
+      <div style={{ fontSize: '1.5rem', lineHeight: 1, flexShrink: 0 }}>{icon}</div>
+      <div>
+        <div style={{ color: C.text, fontWeight: 800, fontSize: '0.92rem', marginBottom: '0.25rem', letterSpacing: '-0.01em' }}>
+          {title}
+        </div>
+        <div style={{ color: C.textMid, fontSize: '0.82rem', lineHeight: 1.55 }}>
+          {desc}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Mock dashboard previews ─────────────────────────────────────────────────
+
+function PromoterMock() {
+  return (
+    <div style={{
+      background: '#0a0a10', border: `1px solid ${C.border}`, borderRadius: '14px',
+      padding: '1.1rem 1.2rem', marginTop: '1rem',
+    }}>
+      <Eyebrow color={BRAND.orange}>Your dashboard</Eyebrow>
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.05rem', letterSpacing: '-0.01em', marginBottom: '0.85rem' }}>
+        Astral · May 30
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.55rem', marginBottom: '0.85rem' }}>
+        <MiniStat label="Sold"    value="184 / 250" />
+        <MiniStat label="Revenue" value="$4,830"   accent={BRAND.orange} />
+        <MiniStat label="Greenlit" value="4 of 5"  accent={BRAND.neon} />
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.5rem' }}>
+        Contract
+      </div>
+      <ContractRow name="Hilda"          role="Artist"   split="35%" signed />
+      <ContractRow name="Espacio Dengue" role="Venue"    split="30%" signed />
+      <ContractRow name="Sound Co."      role="Sound"    split="20%" signed />
+      <ContractRow name="You"            role="Promoter" split="15%" signed={false} />
+    </div>
+  )
+}
+
+function ArtistMock() {
+  return (
+    <div style={{
+      background: '#0a0a10', border: `1px solid ${C.border}`, borderRadius: '14px',
+      padding: '1.1rem 1.2rem', marginTop: '1rem',
+    }}>
+      <Eyebrow color={BRAND.pink}>Your bookings</Eyebrow>
+      <div style={{
+        background: C.card, border: `1px solid ${BRAND.neon}33`, borderRadius: '10px',
+        padding: '0.85rem 1rem', marginBottom: '0.6rem',
+      }}>
+        <div style={{ color: C.text, fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.2rem' }}>
+          Astral · May 30
+        </div>
+        <div style={{ color: C.textMid, fontSize: '0.78rem', marginBottom: '0.6rem' }}>
+          Espacio Dengue · 35% split
+        </div>
+        <div style={{
+          display: 'inline-block', padding: '0.3rem 0.7rem', borderRadius: '6px',
+          background: `${BRAND.neon}1a`, color: BRAND.neon, fontSize: '0.7rem',
+          fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em',
+        }}>
+          ✓ Greenlit · Broadcast sent to 47
+        </div>
+      </div>
+      <div style={{
+        background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px',
+        padding: '0.85rem 1rem', marginBottom: '0.6rem',
+      }}>
+        <div style={{ color: C.text, fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.2rem' }}>
+          Equinoccio · Jun 18
+        </div>
+        <div style={{ color: C.textMid, fontSize: '0.78rem', marginBottom: '0.6rem' }}>
+          Foro Indie Rocks · 25% split
+        </div>
+        <div style={{
+          display: 'inline-block', padding: '0.35rem 0.85rem', borderRadius: '7px',
+          background: BRAND.gradient, color: '#000', fontSize: '0.75rem', fontWeight: 800,
+        }}>
+          ✓ Greenlight booking
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MiniStat({ label, value, accent }) {
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '0.55rem 0.7rem' }}>
+      <div style={{ fontSize: '0.6rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>{label}</div>
+      <div style={{ color: accent || C.text, fontSize: '0.9rem', fontWeight: 800 }}>{value}</div>
+    </div>
+  )
+}
+
+function ContractRow({ name, role, split, signed }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.4rem 0', borderTop: `1px solid ${C.border}` }}>
+      <div style={{ flex: 2, color: C.text, fontSize: '0.82rem', fontWeight: 700 }}>{name}</div>
+      <div style={{ flex: 1, color: C.textMid, fontSize: '0.72rem' }}>{role}</div>
+      <div style={{ width: '50px', color: C.textMid, fontSize: '0.78rem', textAlign: 'right' }}>{split}</div>
+      <div style={{
+        width: '70px', textAlign: 'center',
+        fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
+        color: signed ? BRAND.neon : C.textMid,
+      }}>
+        {signed ? '✓ Signed' : 'Pending'}
+      </div>
+    </div>
+  )
+}
+
+// ── Fan tab: directory + search + suggestion ────────────────────────────────
+
+function FanTab() {
+  const navigate = useNavigate()
+  const [q, setQ] = useState('')
+  const [artists, setArtists] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      // Suggested artists: anyone with user_type='artist' and a handle.
+      // Order by created_at desc as a stand-in for "newest" — when there
+      // are enough artists this becomes ordered by follower count or
+      // recent activity, but MVP keeps it simple.
+      const { data } = await supabase
+        .from('users')
+        .select('id, handle, username, artist_name')
+        .eq('user_type', 'artist')
+        .not('handle', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(60)
+      if (!cancelled) {
+        setArtists(data || [])
+        setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const filtered = q.trim()
+    ? artists.filter(a => {
+        const needle = q.trim().toLowerCase()
+        return (a.handle || '').toLowerCase().includes(needle)
+            || (a.artist_name || '').toLowerCase().includes(needle)
+            || (a.username || '').toLowerCase().includes(needle)
+      })
+    : artists
+
+  const noResults = q.trim() && filtered.length === 0
+
+  return (
+    <div>
+      <Eyebrow color={BRAND.pink}>Discover</Eyebrow>
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.6rem' }}>
+        Follow the artists you love
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+        Get a personal email when one of them confirms a show within your radius. No feeds, no algorithms — just the artists you actually want to hear from.
+      </div>
+
+      <input
+        type="search"
+        value={q}
+        onChange={e => setQ(e.target.value)}
+        placeholder="Search artists by name or @handle…"
+        style={{ ...INPUT, marginBottom: '1rem' }}
+      />
+
+      {loading
+        ? <div style={{ color: C.textMid, fontSize: '0.85rem', padding: '1rem 0' }}>Loading…</div>
+        : noResults
+          ? <ArtistNotFound query={q.trim()} />
+          : (
+            <>
+              {!q.trim() && (
+                <div style={{ color: C.textMid, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.5rem' }}>
+                  Suggested artists
+                </div>
+              )}
+              {filtered.length === 0
+                ? <div style={{ color: C.textMid, fontSize: '0.88rem', padding: '1rem 0' }}>
+                    No artists on GRAIL yet. Be the first to <a href="/join" style={{ color: BRAND.pink, textDecoration: 'none', fontWeight: 700 }}>sign up</a>.
+                  </div>
+                : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {filtered.map(a => (
+                      <a key={a.id} href={`/a/${a.handle}`} style={{
+                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px',
+                        padding: '0.75rem 1rem', textDecoration: 'none',
+                      }}>
+                        <div style={{
+                          width: 36, height: 36, borderRadius: '50%',
+                          background: BRAND.gradient, display: 'flex',
+                          alignItems: 'center', justifyContent: 'center',
+                          color: '#000', fontWeight: 900, fontSize: '0.85rem',
+                          flexShrink: 0,
+                        }}>
+                          {(a.artist_name || a.handle || '?').slice(0, 1).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: C.text, fontWeight: 700, fontSize: '0.92rem' }}>
+                            {a.artist_name || a.username || a.handle}
+                          </div>
+                          <div style={{ color: C.textMid, fontSize: '0.76rem' }}>@{a.handle}</div>
+                        </div>
+                        <div style={{ color: BRAND.pink, fontSize: '0.78rem', fontWeight: 700 }}>Follow →</div>
+                      </a>
+                    ))}
+                  </div>
+                )
+              }
+            </>
+          )
+      }
+    </div>
+  )
+}
+
+function ArtistNotFound({ query }) {
+  const [name,  setName]  = useState(query)
+  const [email, setEmail] = useState('')
+  const [note,  setNote]  = useState('')
+  const [done,  setDone]  = useState(false)
+  const [busy,  setBusy]  = useState(false)
+  const [err,   setErr]   = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setErr(''); setBusy(true)
+    const { error } = await supabase
+      .from('artist_suggestions')
+      .insert({
+        artist_name:        name.trim(),
+        suggested_by_email: email.trim() || null,
+        note:               note.trim() || null,
+      })
+    setBusy(false)
+    if (error) setErr(error.message)
+    else setDone(true)
+  }
+
+  return (
+    <div style={{
+      background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px',
+      padding: '1.4rem 1.3rem', marginTop: '0.5rem',
+    }}>
+      <div style={{ color: C.text, fontSize: '1.05rem', fontWeight: 800, marginBottom: '0.5rem', letterSpacing: '-0.01em' }}>
+        We're still building this out.
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.86rem', lineHeight: 1.6, marginBottom: '1rem' }}>
+        If there's an artist you'd like to see on GRAIL, let them know — or drop it in our suggestion box and we'll reach out:
+      </div>
+      {done ? (
+        <div style={{
+          background: `${BRAND.neon}11`, border: `1px solid ${BRAND.neon}44`,
+          borderRadius: '10px', padding: '0.9rem 1.1rem', color: C.text,
+          fontSize: '0.88rem', textAlign: 'center', fontWeight: 700,
+        }}>
+          Got it. Thanks for the suggestion 🕊
+        </div>
+      ) : (
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <input style={INPUT} type="text"  value={name}  onChange={e => setName(e.target.value)} placeholder="Artist name" required />
+          <input style={INPUT} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Your email (so we can let you know when they join)" />
+          <textarea
+            value={note} onChange={e => setNote(e.target.value)}
+            placeholder="Anything we should know? (city they're based, contact info, etc.)"
+            rows={3}
+            style={{ ...INPUT, resize: 'vertical', minHeight: '70px', lineHeight: 1.5 }}
+          />
+          {err && <div style={{ color: BRAND.orange, fontSize: '0.78rem' }}>{err}</div>}
+          <button type="submit" disabled={busy} style={{ ...PRIMARY_BTN, marginTop: '0.4rem', opacity: busy ? 0.6 : 1 }}>
+            {busy ? 'Sending…' : 'Suggest this artist'}
+          </button>
+        </form>
+      )}
+    </div>
+  )
+}
+
+// ── Tab content ─────────────────────────────────────────────────────────────
+
+function PromoterTab({ navigate }) {
+  return (
+    <div>
+      <Eyebrow color={BRAND.orange}>Promoter</Eyebrow>
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.6rem' }}>
+        Throw shows without losing your shirt.
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+        Threshold ticketing, signed multi-party contracts, automatic settlement. The boring post-show book becomes the platform's job — yours becomes designing the next sunrise.
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.25rem' }}>
+        {PROMOTER_FEATURES.map(f => <FeatureCard key={f.title} {...f} />)}
+      </div>
+
+      <PromoterMock />
+
+      <button onClick={() => navigate('/request-access?kind=promoter')} style={{ ...PRIMARY_BTN, width: '100%', marginTop: '1.5rem' }}>
+        Apply to become a promoter →
+      </button>
+      <div style={{ color: C.textDim, fontSize: '0.72rem', textAlign: 'center', marginTop: '0.5rem' }}>
+        We approve promoters individually right now — protects the network quality early.
+      </div>
+    </div>
+  )
+}
+
+function ArtistTab({ navigate }) {
+  return (
+    <div>
+      <Eyebrow color={BRAND.pink}>Artist</Eyebrow>
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.6rem' }}>
+        Your followers, your link, your line to the door.
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
+        Greenlight a booking and your followers in radius hear about it. Share your affiliate link, get credit for every ticket it drives. Get paid via the contract you signed, automatically.
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.25rem' }}>
+        {ARTIST_FEATURES.map(f => <FeatureCard key={f.title} {...f} />)}
+      </div>
+
+      <ArtistMock />
+
+      <button onClick={() => navigate('/request-access?kind=artist')} style={{ ...PRIMARY_BTN, width: '100%', marginTop: '1.5rem' }}>
+        Apply to become an artist →
+      </button>
+      <div style={{ color: C.textDim, fontSize: '0.72rem', textAlign: 'center', marginTop: '0.5rem' }}>
+        Same approval flow as promoters — keeps the directory tight while we're early.
+      </div>
+    </div>
+  )
+}
+
+// ── Main ────────────────────────────────────────────────────────────────────
+
+export default function LandingPortal() {
+  const navigate = useNavigate()
+  const [tab, setTab] = useState('promoter')
+
+  return (
+    <div style={{ width: '100%' }}>
+      <div style={{
+        display: 'flex', background: C.surface, border: `1px solid ${C.border}`,
+        borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem',
+      }}>
+        {TABS.map(t => (
+          <Tab key={t.key} active={tab === t.key} label={t.label} onClick={() => setTab(t.key)} />
+        ))}
+      </div>
+
+      {tab === 'promoter' && <PromoterTab navigate={navigate} />}
+      {tab === 'artist'   && <ArtistTab navigate={navigate} />}
+      {tab === 'fan'      && <FanTab />}
+    </div>
+  )
+}

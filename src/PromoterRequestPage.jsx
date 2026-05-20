@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PRIMARY_BTN, PAGE, eyebrowStyle, LogoMark } from './theme'
 import { useT } from './i18n'
@@ -7,6 +7,10 @@ import { useT } from './i18n'
 export default function PromoterRequestPage() {
   const navigate = useNavigate()
   const t = useT()
+  const [searchParams] = useSearchParams()
+  const kind = searchParams.get('kind') === 'artist' ? 'artist' : 'promoter'
+  const isArtist = kind === 'artist'
+
   const [name,  setName]  = useState('')
   const [email, setEmail] = useState('')
   const [city,  setCity]  = useState('')
@@ -26,7 +30,7 @@ export default function PromoterRequestPage() {
     try {
       const { data: inserted, error: insertErr } = await supabase
         .from('promoter_requests')
-        .insert({ name, email, city: city || null, description: desc })
+        .insert({ name, email, city: city || null, description: desc, kind })
         .select('id')
         .single()
       if (insertErr) throw insertErr
@@ -35,7 +39,7 @@ export default function PromoterRequestPage() {
       fetch('/.netlify/functions/notify-promoter-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ request_id: inserted.id, name, email, city, description: desc }),
+        body: JSON.stringify({ request_id: inserted.id, name, email, city, description: desc, kind }),
       }).catch(() => {})
 
       setDone(true)
@@ -44,6 +48,34 @@ export default function PromoterRequestPage() {
     }
     setLoading(false)
   }
+
+  // Copy varies by kind. Artist copy is hardcoded EN here (the existing
+  // i18n keys cover promoter only); JP can extract to i18n later.
+  const ART = {
+    eyebrow:  'Apply — Artist',
+    heading:  'Tell us about your set',
+    body:     'Quick intro. We approve artists individually right now so the directory stays tight while we\'re early.',
+    namePh:   'Your artist name (or full name)',
+    cityPh:   'Where you\'re based (city)',
+    descPh:   'Genre, where you\'ve played recently, links (SoundCloud / IG / etc.)',
+    cta:      'Send application',
+    doneHead: 'Got it.',
+    doneBody: 'We\'ll review and email you at the address you gave. If we approve you, you\'ll get a link to set up your artist profile.',
+    doneCta:  'Back to home',
+  }
+  const PROM = {
+    eyebrow:  t('request.eyebrow'),
+    heading:  t('request.heading'),
+    body:     t('request.body'),
+    namePh:   t('request.namePh'),
+    cityPh:   t('request.cityPh'),
+    descPh:   t('request.descPh'),
+    cta:      t('request.cta'),
+    doneHead: t('request.done.heading', { first: name.split(' ')[0] }),
+    doneBody: t('request.done.body'),
+    doneCta:  t('request.done.cta'),
+  }
+  const COPY = isArtist ? ART : PROM
 
   return (
     <div style={{ ...PAGE, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1.5rem', position: 'relative', overflow: 'hidden' }}>
@@ -71,31 +103,31 @@ export default function PromoterRequestPage() {
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕊</div>
             <div style={{ ...eyebrowStyle(BRAND.neon) }}>{t('request.done.eyebrow')}</div>
             <div style={{ color: C.text, fontSize: '1.5rem', fontWeight: '900', letterSpacing: '-0.02em', marginBottom: '0.6rem' }}>
-              {t('request.done.heading', { first: name.split(' ')[0] })}
+              {COPY.doneHead}
             </div>
             <div style={{ color: C.textMid, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-              {t('request.done.body')}
+              {COPY.doneBody}
             </div>
             <button onClick={() => navigate('/')} style={{ ...PRIMARY_BTN }}>
-              {t('request.done.cta')}
+              {COPY.doneCta}
             </button>
           </div>
         ) : (
           <>
-            <div style={eyebrowStyle()}>{t('request.eyebrow')}</div>
+            <div style={eyebrowStyle(isArtist ? BRAND.pink : undefined)}>{COPY.eyebrow}</div>
             <div style={{ color: C.text, fontSize: '1.6rem', fontWeight: '900', letterSpacing: '-0.02em', marginBottom: '0.6rem', lineHeight: 1.2 }}>
-              {t('request.heading')}
+              {COPY.heading}
             </div>
             <div style={{ color: C.textMid, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '1.75rem' }}>
-              {t('request.body')}
+              {COPY.body}
             </div>
 
             <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <input style={INPUT} type="text" placeholder={t('request.namePh')} value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
+              <input style={INPUT} type="text" placeholder={COPY.namePh} value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
               <input style={INPUT} type="email" placeholder={t('common.email')} value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
-              <input style={INPUT} type="text" placeholder={t('request.cityPh')} value={city} onChange={e => setCity(e.target.value)} />
+              <input style={INPUT} type="text" placeholder={COPY.cityPh} value={city} onChange={e => setCity(e.target.value)} />
               <textarea
-                placeholder={t('request.descPh')}
+                placeholder={COPY.descPh}
                 value={desc}
                 onChange={e => setDesc(e.target.value)}
                 rows={5}
@@ -104,7 +136,7 @@ export default function PromoterRequestPage() {
               />
               {error && <div style={{ color: BRAND.orange, fontSize: '0.82rem' }}>{error}</div>}
               <button type="submit" disabled={loading} style={{ ...PRIMARY_BTN, marginTop: '0.5rem', opacity: loading ? 0.6 : 1 }}>
-                {loading ? t('request.sending') : t('request.cta')}
+                {loading ? t('request.sending') : COPY.cta}
               </button>
             </form>
           </>
