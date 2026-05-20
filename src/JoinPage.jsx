@@ -10,10 +10,11 @@ const RADII = ['10', '25', '50', '100']
 export default function JoinPage() {
   const t = useT()
   const [searchParams] = useSearchParams()
-  const inviteToken = searchParams.get('invite')
+  const inviteToken     = searchParams.get('invite')
+  const coInviteToken   = searchParams.get('co_invite')
 
   const [step, setStep]         = useState('auth') // auth | role | fan-setup
-  const [authMode, setAuthMode] = useState(inviteToken ? 'signup' : 'login')
+  const [authMode, setAuthMode] = useState((inviteToken || coInviteToken) ? 'signup' : 'login')
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
@@ -23,10 +24,11 @@ export default function JoinPage() {
   const [radius, setRadius]     = useState('25')
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [invite, setInvite]     = useState(null)   // resolved invite row, or null
+  const [coInvite, setCoInvite] = useState(null)   // resolved event_producers row + event_slug
   const [inviteErr, setInviteErr] = useState('')
   const navigate = useNavigate()
 
-  // Resolve the invite token (if any) and pre-fill email
+  // Resolve the promoter invite token (if any) and pre-fill email
   useEffect(() => {
     if (!inviteToken) return
     let cancelled = false
@@ -56,6 +58,33 @@ export default function JoinPage() {
     return () => { cancelled = true }
   }, [inviteToken])
 
+  // Resolve the co-producer invite token (if any). Joins to events for the
+  // post-signup redirect to /promoter/event/:slug.
+  useEffect(() => {
+    if (!coInviteToken) return
+    let cancelled = false
+    async function load() {
+      const { data, error } = await supabase
+        .from('event_producers')
+        .select('id, name, role, split_pct, email, user_id, invite_token, events!inner(slug, name)')
+        .eq('invite_token', coInviteToken)
+        .maybeSingle()
+      if (cancelled) return
+      if (error || !data) {
+        setInviteErr(t('join.inviteInvalid'))
+        return
+      }
+      if (data.user_id) {
+        setInviteErr(t('join.inviteUsed'))
+        return
+      }
+      setCoInvite(data)
+      if (data.email && !email) setEmail(data.email)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [coInviteToken])
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) checkProfile(session)
@@ -63,7 +92,37 @@ export default function JoinPage() {
   }, [])
 
   const checkProfile = async (s) => {
-    // Invite path: skip the role picker, mark user as promoter, redeem invite
+    // Co-producer invite path: link event_producers.user_id via the
+    // security-definer redeem_co_invite RPC (the standard RLS policy only
+    // lets the event's promoter update producer rows; this caller is a
+    // co-producer, not the promoter).
+    //
+    // Branch on the invited role: Artist invites create artist accounts
+    // and land on /artist; everyone else is treated as a promoter co-producer.
+    // We only flip user_type when the user is brand-new — existing accounts
+    // keep whatever they already are (don't demote a promoter to an artist).
+    if (coInvite) {
+      const isArtistInvite = (coInvite.role || '').trim().toLowerCase() === 'artist'
+      const { data: existingMe } = await supabase
+        .from('users').select('user_type').eq('id', s.user.id).maybeSingle()
+      const defaultType = isArtistInvite ? 'artist' : 'promoter'
+      await supabase.from('users').upsert({
+        id:        s.user.id,
+        email:     s.user.email,
+        username:  s.user.email.split('@')[0].toUpperCase(),
+        user_type: existingMe?.user_type || defaultType,
+      })
+      const { data: redeemed } = await supabase.rpc('redeem_co_invite', { p_token: coInviteToken })
+      const slug = redeemed?.[0]?.event_slug || coInvite.events?.slug
+      if (isArtistInvite) {
+        navigate('/artist')
+      } else {
+        navigate(slug ? `/promoter/event/${slug}` : '/promoter')
+      }
+      return
+    }
+
+    // Promoter invite path: skip the role picker, mark user as promoter, redeem invite
     if (invite) {
       await supabase.from('users').upsert({
         id:        s.user.id,
@@ -174,6 +233,18 @@ export default function JoinPage() {
           </div>
           <div style={{ color: C.text, fontSize: '0.85rem' }}>
             {t('join.inviteAcceptedBody')}
+          </div>
+        </div>
+      )}
+      {coInvite && !inviteErr && (
+        <div style={{ background: 'rgba(221,34,170,0.07)', border: `1px solid ${BRAND.pink}55`, borderRadius: '10px', padding: '0.7rem 1rem', marginBottom: '1rem', textAlign: 'center' }}>
+          <div style={{ fontSize: '0.7rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: '700', marginBottom: '0.2rem' }}>
+            Co-producer invite
+          </div>
+          <div style={{ color: C.text, fontSize: '0.85rem' }}>
+            {coInvite.events?.name
+              ? `Sign up to review the contract for ${coInvite.events.name}.`
+              : 'Sign up to review your contract.'}
           </div>
         </div>
       )}
