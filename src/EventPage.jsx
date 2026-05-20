@@ -106,7 +106,10 @@ export default function EventPage() {
     const params = new URLSearchParams(window.location.search)
     const ref = params.get('ref') || params.get('src') || params.get('utm_source')
     if (ref) {
-      try { sessionStorage.setItem(`grail.ref.${slug}`, ref.slice(0, 32)) } catch {}
+      // 64-char cap accommodates artist affiliate refs in `artist:<uuid>`
+      // form (~43 chars) while still bounding storage. Plain string refs
+      // like `ig` or `email_campaign_jun` are well under.
+      try { sessionStorage.setItem(`grail.ref.${slug}`, ref.slice(0, 64)) } catch {}
     }
     const code = params.get('code')
     if (code) {

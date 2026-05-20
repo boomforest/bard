@@ -53,8 +53,10 @@ exports.handler = async (event) => {
     }
     const buyerLang = lang === 'en' ? 'en' : 'es'
     const cleanCode = (promo_code || '').trim().toLowerCase()
-    // Source: short alphanumeric/dash slug, max 32 chars. Drop anything weird.
-    const cleanSource = (source || '').toString().trim().toLowerCase().replace(/[^a-z0-9_\-]/g, '').slice(0, 32) || null
+    // Source: short slug (alphanumeric / dash / underscore / colon), max 64.
+    // Colon + 64-char cap accommodates artist affiliate refs in the form
+    // `artist:<uuid>` (~43 chars). Plain string refs like `ig` still fit.
+    const cleanSource = (source || '').toString().trim().toLowerCase().replace(/[^a-z0-9_\-:]/g, '').slice(0, 64) || null
 
     const stripe = Stripe(process.env.STRIPE_SECRET_KEY)
     const supabase = createClient(

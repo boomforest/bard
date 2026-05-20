@@ -50,6 +50,14 @@ const DICTS = {
     'attendeeMsg.greeting':    'Hi {name},',
     'attendeeMsg.viewTicket':  'View your ticket →',
     'attendeeMsg.footer':      "You're getting this because you bought a ticket to {event}.",
+
+    // ─── Artist greenlight broadcast (send-artist-greenlight-notification) ──
+    'artistGreenlight.subject':  '{artist} just confirmed a show',
+    'artistGreenlight.eyebrow':  'Just confirmed',
+    'artistGreenlight.greeting': 'Hi {name},',
+    'artistGreenlight.body':     '{artist} is playing {event}. Here are the details:',
+    'artistGreenlight.cta':      'Get tickets →',
+    'artistGreenlight.footer':   "You're getting this because you follow {artist} on GRAIL.",
   },
   es: {
     // ─── Event ticket confirmation ───────────────────────────────────────
@@ -94,6 +102,14 @@ const DICTS = {
     'attendeeMsg.greeting':    'Hola {name},',
     'attendeeMsg.viewTicket':  'Ver tu boleto →',
     'attendeeMsg.footer':      'Recibes esto porque compraste un boleto para {event}.',
+
+    // ─── Artist greenlight broadcast ─────────────────────────────────────
+    'artistGreenlight.subject':  '{artist} acaba de confirmar un show',
+    'artistGreenlight.eyebrow':  'Acaba de confirmar',
+    'artistGreenlight.greeting': 'Hola {name},',
+    'artistGreenlight.body':     '{artist} se presenta en {event}. Aquí están los detalles:',
+    'artistGreenlight.cta':      'Conseguir boletos →',
+    'artistGreenlight.footer':   'Recibes esto porque sigues a {artist} en GRAIL.',
   },
 }
 
