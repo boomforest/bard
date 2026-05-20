@@ -26,13 +26,21 @@ export default function HandleRedirect() {
 
       const { data: user } = await supabase
         .from('users')
-        .select('id')
+        .select('id, user_type')
         .eq('handle', handle)
         .maybeSingle()
 
       if (cancelled) return
       if (!user) {
         setError(`@${handle} hasn't claimed this handle yet.`)
+        return
+      }
+
+      // Artist handles go to their public profile page, not the latest
+      // event. Promoters still get redirected to their most recent / next
+      // event for backwards compatibility with existing shared URLs.
+      if (user.user_type === 'artist') {
+        navigate(`/a/${handle}`, { replace: true })
         return
       }
 

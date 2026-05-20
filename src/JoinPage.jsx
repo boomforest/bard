@@ -96,16 +96,29 @@ export default function JoinPage() {
     // security-definer redeem_co_invite RPC (the standard RLS policy only
     // lets the event's promoter update producer rows; this caller is a
     // co-producer, not the promoter).
+    //
+    // Branch on the invited role: Artist invites create artist accounts
+    // and land on /artist; everyone else is treated as a promoter co-producer.
+    // We only flip user_type when the user is brand-new — existing accounts
+    // keep whatever they already are (don't demote a promoter to an artist).
     if (coInvite) {
+      const isArtistInvite = (coInvite.role || '').trim().toLowerCase() === 'artist'
+      const { data: existingMe } = await supabase
+        .from('users').select('user_type').eq('id', s.user.id).maybeSingle()
+      const defaultType = isArtistInvite ? 'artist' : 'promoter'
       await supabase.from('users').upsert({
         id:        s.user.id,
         email:     s.user.email,
         username:  s.user.email.split('@')[0].toUpperCase(),
-        user_type: 'promoter',
+        user_type: existingMe?.user_type || defaultType,
       })
       const { data: redeemed } = await supabase.rpc('redeem_co_invite', { p_token: coInviteToken })
       const slug = redeemed?.[0]?.event_slug || coInvite.events?.slug
-      navigate(slug ? `/promoter/event/${slug}` : '/promoter')
+      if (isArtistInvite) {
+        navigate('/artist')
+      } else {
+        navigate(slug ? `/promoter/event/${slug}` : '/promoter')
+      }
       return
     }
 

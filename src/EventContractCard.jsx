@@ -300,7 +300,23 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
             <div style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <input value={form.name}  onChange={e => setForm({ ...form, name:  e.target.value })} placeholder="Name"  style={INPUT} required />
               <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="Email" type="email" style={INPUT} required />
-              <input value={form.role}  onChange={e => setForm({ ...form, role:  e.target.value })} placeholder="Role (Venue / Promoter / etc.)" style={INPUT} required />
+              <input
+                value={form.role}
+                onChange={e => setForm({ ...form, role: e.target.value })}
+                placeholder="Role (Artist / Venue / Promoter / etc.)"
+                list="grail-producer-roles"
+                style={INPUT}
+                required
+              />
+              <datalist id="grail-producer-roles">
+                <option value="Artist" />
+                <option value="Venue" />
+                <option value="Promoter" />
+                <option value="Sound" />
+                <option value="Bar" />
+                <option value="Door" />
+                <option value="Production" />
+              </datalist>
               <input
                 value={form.split_pct}
                 onChange={e => setForm({ ...form, split_pct: e.target.value })}
@@ -406,6 +422,7 @@ function RoleBadge({ role }) {
   const map = {
     'Promoter': { bg: '#0d0820', border: '#3d1a6e', text: '#b57bff' },
     'Venue':    { bg: '#0a1200', border: '#1a3a0a', text: '#6abf4b' },
+    'Artist':   { bg: '#1a0a14', border: '#5e1a3d', text: '#ff7bb5' },
   }
   const rc = map[role] || { bg: C.surface, border: C.border, text: C.textMid }
   return (
