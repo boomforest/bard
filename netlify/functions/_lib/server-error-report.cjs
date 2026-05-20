@@ -11,6 +11,7 @@
 // Never throws — silent failure beats a crash inside the crash logger.
 
 const { createClient } = require('@supabase/supabase-js')
+const { notifyAdminOfError } = require('./admin-error-notify.cjs')
 
 async function reportServerError({
   message,
@@ -31,7 +32,7 @@ async function reportServerError({
 
     const truncate = (s, n) => (s && typeof s === 'string') ? s.slice(0, n) : null
 
-    await supabase.from('error_reports').insert({
+    const { data: inserted } = await supabase.from('error_reports').insert({
       user_id,
       user_email,
       message:    truncate(String(message || 'Unknown error'), 2000),
@@ -39,7 +40,9 @@ async function reportServerError({
       url:        truncate(url, 500),
       user_agent: 'netlify-function',
       context:    context && typeof context === 'object' ? context : null,
-    })
+    }).select().single()
+
+    if (inserted) await notifyAdminOfError(supabase, inserted)
   } catch {/* never throw from the reporter */}
 }
 
