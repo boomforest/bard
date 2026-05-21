@@ -9,10 +9,11 @@
 // a lang for the blast — it's not their preference, it's the
 // follower's preference.
 //
-// v1: blasts ALL followers regardless of zip/radius. The schema stores
-// zip + radius_miles for v2 distance filtering once a zip→geo dataset
-// is in place. Emails say "you signed up for {promoter}'s announcements"
-// so recipients understand why they got it.
+// Filtered by radius: followers_in_event_radius(event_id) RPC returns
+// only the followers whose declared radius covers the event's venue.
+// Falls back to "include the follower" when either side has no coords
+// — over-deliver, never miss. Migration 033 added the helper; the
+// geocode-zip function fills the lat/lng columns.
 
 const { createClient } = require('@supabase/supabase-js')
 const { t, pickLang } = require('./_lib/email-i18n.cjs')
@@ -98,9 +99,7 @@ exports.handler = async (event) => {
     const promoterName = promoterRow?.username || promoterRow?.handle || 'A promoter'
 
     const { data: rows, error: flErr } = await admin
-      .from('promoter_followers')
-      .select('id, email, name, lang')
-      .eq('promoter_id', ev.promoter_id)
+      .rpc('followers_in_event_radius', { p_event_id: ev.id })
     if (flErr) throw new Error(flErr.message)
     if (!rows || rows.length === 0) {
       return { statusCode: 200, body: JSON.stringify({ ok: true, sent: 0, total: 0, errors: [] }) }

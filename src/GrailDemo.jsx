@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useT } from './i18n'
 
 // ─── BRAND ────────────────────────────────────────────────────────────────────
 const BRAND = {
@@ -105,6 +106,7 @@ function Section({ children, style = {} }) {
 
 // ─── WHAT IF ENGINE (inline, Alleycat-branded) ────────────────────────────────
 function WhatIfBlock() {
+  const t = useT()
   const [ticketPct, setTicketPct] = useState(75)
   const [barPct,    setBarPct]    = useState(50)
   const [extraCost, setExtraCost] = useState(0)
@@ -128,7 +130,7 @@ function WhatIfBlock() {
         justifyContent: 'space-between',
       }}>
         <div>
-          <div style={{ color: C.text, fontWeight: '800', fontSize: '0.95rem' }}>What If? Engine</div>
+          <div style={{ color: C.text, fontWeight: '800', fontSize: '0.95rem' }}>{t('demo.whatIf.title')}</div>
           <div style={{ color: C.textMid, fontSize: '0.75rem' }}>{EVENT.name} · {EVENT.venue}</div>
         </div>
         <div style={{
@@ -141,16 +143,16 @@ function WhatIfBlock() {
           fontWeight: '700',
           letterSpacing: '0.06em',
         }}>
-          LIVE SIM
+          {t('demo.whatIf.live')}
         </div>
       </div>
 
       <div style={{ padding: '1.4rem' }}>
         {/* Sliders */}
         {[
-          { label: 'Ticket Sales', val: ticketPct, set: setTicketPct, display: `${ticketPct}%  (${Math.round(EVENT.tickets.reduce((s,t)=>s+t.qty,0)*ticketPct/100)} tickets)`, max: 100 },
-          { label: 'Bar Performance', val: barPct, set: setBarPct, display: `${barPct}%`, max: 100 },
-          { label: 'Extra Costs', val: extraCost, set: setExtraCost, display: fmt(extraCost), max: 5000, step: 100 },
+          { label: t('demo.whatIf.ticketSales'), val: ticketPct, set: setTicketPct, display: t('demo.whatIf.ticketsCount', { pct: ticketPct, n: Math.round(EVENT.tickets.reduce((s,t)=>s+t.qty,0)*ticketPct/100) }), max: 100 },
+          { label: t('demo.whatIf.barPerf'),     val: barPct,    set: setBarPct,    display: `${barPct}%`, max: 100 },
+          { label: t('demo.whatIf.extraCosts'),  val: extraCost, set: setExtraCost, display: fmt(extraCost), max: 5000, step: 100 },
         ].map(({ label, val, set, display, max, step = 1 }) => (
           <div key={label} style={{ marginBottom: '1.1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
@@ -168,10 +170,10 @@ function WhatIfBlock() {
         {/* Results grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginTop: '0.5rem' }}>
           {[
-            { label: 'Ticket Revenue', val: result.ticketRev, color: C.text },
-            { label: `Bar (${EVENT.barPct}% cut)`, val: result.barCut, color: C.text },
-            { label: 'Total Costs',    val: result.totalCost, color: C.red },
-            { label: 'Net Profit',     val: result.profit,    color: profitColor, large: true },
+            { label: t('demo.whatIf.ticketRev'),                              val: result.ticketRev, color: C.text },
+            { label: t('demo.whatIf.barCut', { pct: EVENT.barPct }),          val: result.barCut,    color: C.text },
+            { label: t('demo.whatIf.totalCosts'),                             val: result.totalCost, color: C.red },
+            { label: t('demo.whatIf.netProfit'),                              val: result.profit,    color: profitColor, large: true },
           ].map(({ label, val, color, large }) => (
             <div key={label} style={{
               background: C.surface,
@@ -189,7 +191,7 @@ function WhatIfBlock() {
         {result.profit > 0 && (
           <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: `1px solid ${C.border}` }}>
             <div style={{ fontSize: '0.68rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
-              If you hit this — you get
+              {t('demo.whatIf.youGet')}
             </div>
             <div style={{ display: 'flex', gap: '0.6rem' }}>
               {result.shares.map(sh => (
@@ -245,6 +247,7 @@ function FeatureCard({ emoji, title, desc, tag }) {
 
 // ─── CONTRACT PREVIEW ─────────────────────────────────────────────────────────
 function ContractPreview() {
+  const t = useT()
   return (
     <div style={{
       background: C.card,
@@ -276,13 +279,13 @@ function ContractPreview() {
           color: BRAND.orange,
           fontWeight: '700',
         }}>
-          DRAFT
+          {t('demo.contract.draft')}
         </div>
       </div>
 
       {/* Ticket tiers */}
       <div style={{ padding: '1rem 1.2rem', borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: '0.65rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>Revenue — Tickets</div>
+        <div style={{ fontSize: '0.65rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>{t('demo.contract.revenue')}</div>
         {EVENT.tickets.map(t => (
           <div key={t.tier} style={{
             display: 'flex',
@@ -301,12 +304,12 @@ function ContractPreview() {
 
       {/* Costs */}
       <div style={{ padding: '1rem 1.2rem', borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: '0.65rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>Costs — Fixed</div>
+        <div style={{ fontSize: '0.65rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>{t('demo.contract.costs')}</div>
         {[
-          { name: 'DJ / Talent',   amount: EVENT.costs.dj,       by: 'Promoter' },
-          { name: 'Sound System',  amount: EVENT.costs.sound,    by: 'Venue' },
-          { name: 'Security',      amount: EVENT.costs.security, by: 'Promoter' },
-          { name: 'Venue',         amount: EVENT.costs.venue,    by: 'Venue' },
+          { name: t('demo.contract.cost.dj'),       amount: EVENT.costs.dj,       by: t('demo.contract.role.promoter') },
+          { name: t('demo.contract.cost.sound'),    amount: EVENT.costs.sound,    by: t('demo.contract.role.venue') },
+          { name: t('demo.contract.cost.security'), amount: EVENT.costs.security, by: t('demo.contract.role.promoter') },
+          { name: t('demo.contract.cost.venue'),    amount: EVENT.costs.venue,    by: t('demo.contract.role.venue') },
         ].map(c => (
           <div key={c.name} style={{
             display: 'flex',
@@ -330,6 +333,7 @@ function ContractPreview() {
 }
 
 function GreenlightPanel() {
+  const t = useT()
   const [signed, setSigned] = useState([false, false])
   const allSigned = signed.every(Boolean)
 
@@ -338,11 +342,14 @@ function GreenlightPanel() {
     'Venue':    { bg: '#0a1200', border: '#1a3a0a', text: '#6abf4b' },
   }
 
+  // Producer roles in EVENT use English keys for color lookup; display uses translation.
+  const roleLabel = role => role === 'Promoter' ? t('demo.contract.role.promoter') : t('demo.contract.role.venue')
+
   return (
     <div style={{ padding: '1rem 1.2rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
         <div style={{ fontSize: '0.65rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          Producers &amp; Approval
+          {t('demo.greenlight.heading')}
         </div>
         <div style={{
           fontSize: '0.65rem', fontWeight: '700', padding: '0.15rem 0.5rem', borderRadius: '99px',
@@ -350,7 +357,7 @@ function GreenlightPanel() {
           border: `1px solid ${allSigned ? '#2a5a1a' : '#4a2a0a'}`,
           color: allSigned ? '#6abf4b' : BRAND.orange,
         }}>
-          {signed.filter(Boolean).length}/{signed.length} signed
+          {t('demo.greenlight.signed', { done: signed.filter(Boolean).length, total: signed.length })}
         </div>
       </div>
 
@@ -374,19 +381,19 @@ function GreenlightPanel() {
                 borderRadius: '5px', background: rc.bg, border: `1px solid ${rc.border}`,
                 color: rc.text, flexShrink: 0, letterSpacing: '0.04em',
               }}>
-                {p.role.toUpperCase()}
+                {roleLabel(p.role).toUpperCase()}
               </div>
 
               {/* Name + split */}
               <div style={{ flex: 1 }}>
                 <div style={{ color: C.text, fontWeight: '700', fontSize: '0.85rem' }}>{p.name}</div>
-                <div style={{ color: C.textMid, fontSize: '0.7rem' }}>{p.split}% of net</div>
+                <div style={{ color: C.textMid, fontSize: '0.7rem' }}>{t('demo.greenlight.netShare', { pct: p.split })}</div>
               </div>
 
               {/* Status / button */}
               {signed[i] ? (
                 <div style={{ fontSize: '0.75rem', color: '#6abf4b', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  ✓ Greenlighted
+                  {t('demo.greenlight.greenlit')}
                 </div>
               ) : (
                 <button
@@ -399,7 +406,7 @@ function GreenlightPanel() {
                     flexShrink: 0,
                   }}
                 >
-                  Greenlight
+                  {t('demo.greenlight.cta')}
                 </button>
               )}
             </div>
@@ -414,7 +421,7 @@ function GreenlightPanel() {
           fontSize: '0.78rem', color: '#6abf4b', fontWeight: '600',
           display: 'flex', alignItems: 'center', gap: '0.5rem',
         }}>
-          <span>🔒</span> Contract locked. All parties agreed. Payouts will run automatically.
+          <span>🔒</span> {t('demo.greenlight.locked')}
         </div>
       )}
     </div>
@@ -423,11 +430,12 @@ function GreenlightPanel() {
 
 // ─── TIMELINE ─────────────────────────────────────────────────────────────────
 function Timeline() {
+  const t = useT()
   const steps = [
-    { icon: '📋', label: 'Build the Contract', desc: 'Everyone fills in revenue, costs, and split — together, before the show.' },
-    { icon: '✅', label: 'Greenlight',          desc: 'Every producer taps Greenlight. The contract locks. That\'s the agreement.' },
-    { icon: '🌅', label: 'Run the Show',        desc: 'Bar orders via Doves. Door scans tickets. Live tracking throughout.' },
-    { icon: '💰', label: 'Settlement',          desc: 'Math runs automatically. Everyone gets paid. No debate.' },
+    { icon: '📋', label: t('demo.timeline.s1.label'), desc: t('demo.timeline.s1.desc') },
+    { icon: '✅', label: t('demo.timeline.s2.label'), desc: t('demo.timeline.s2.desc') },
+    { icon: '🌅', label: t('demo.timeline.s3.label'), desc: t('demo.timeline.s3.desc') },
+    { icon: '💰', label: t('demo.timeline.s4.label'), desc: t('demo.timeline.s4.desc') },
   ]
   return (
     <div style={{ position: 'relative' }}>
@@ -470,6 +478,7 @@ const TICKER_SALES = [
 ]
 
 function StripeConnectDemo() {
+  const t = useT()
   const [connected, setConnected]   = useState(false)
   const [balance,   setBalance]     = useState(0)
   const [feed,      setFeed]        = useState([])
@@ -498,27 +507,9 @@ function StripeConnectDemo() {
   useEffect(() => () => clearInterval(intervalRef.current), [])
 
   const STEPS = [
-    {
-      n: '01',
-      title: 'Connect your Stripe account',
-      body: 'One OAuth flow. Takes 3 minutes. GRAIL never touches your money — it goes straight to your Stripe balance.',
-      done: connected,
-      active: !connected,
-    },
-    {
-      n: '02',
-      title: 'Tickets go on sale',
-      body: 'Every purchase routes directly to you via Stripe Connect. Your balance grows in real time as tickets sell.',
-      done: connected && balance > 0,
-      active: connected,
-    },
-    {
-      n: '03',
-      title: 'Pay deposits the same day',
-      body: 'Venue deposit due? You have the money. Lighting vendor needs 50% upfront? Covered. No float required.',
-      done: false,
-      active: connected && balance >= 150,
-    },
+    { n: '01', title: t('demo.money.s1.title'), body: t('demo.money.s1.body'), done: connected,                   active: !connected },
+    { n: '02', title: t('demo.money.s2.title'), body: t('demo.money.s2.body'), done: connected && balance > 0,    active: connected },
+    { n: '03', title: t('demo.money.s3.title'), body: t('demo.money.s3.body'), done: false,                       active: connected && balance >= 150 },
   ]
 
   return (
@@ -526,14 +517,13 @@ function StripeConnectDemo() {
       {/* Left — copy + steps */}
       <div>
         <div style={{ fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700', marginBottom: '0.5rem' }}>
-          The Money
+          {t('demo.money.eyebrow')}
         </div>
         <div style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: '800', marginBottom: '0.8rem', lineHeight: 1.2 }}>
-          Ticket revenue hits your account as it's sold.
+          {t('demo.money.heading')}
         </div>
         <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.7, marginBottom: '2rem' }}>
-          No more fronting deposits out of pocket and praying you sell enough to cover it.
-          Connect once via Stripe — every ticket sold goes straight to you. Pay your vendors the same week you go on sale.
+          {t('demo.money.body')}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
@@ -570,21 +560,21 @@ function StripeConnectDemo() {
         <div style={{ padding: '1.1rem 1.3rem', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontSize: '0.82rem', color: C.textMid, fontWeight: '600' }}>The Rooftop</div>
           {connected
-            ? <div style={{ fontSize: '0.72rem', background: BRAND.neon + '18', color: BRAND.neon, border: `1px solid ${BRAND.neon}44`, borderRadius: '99px', padding: '0.2rem 0.7rem', fontWeight: '700' }}>● Connected</div>
-            : <div style={{ fontSize: '0.72rem', background: '#1a0a00', color: BRAND.orange, border: `1px solid ${BRAND.orange}44`, borderRadius: '99px', padding: '0.2rem 0.7rem', fontWeight: '700' }}>Not connected</div>
+            ? <div style={{ fontSize: '0.72rem', background: BRAND.neon + '18', color: BRAND.neon, border: `1px solid ${BRAND.neon}44`, borderRadius: '99px', padding: '0.2rem 0.7rem', fontWeight: '700' }}>{t('demo.money.connected')}</div>
+            : <div style={{ fontSize: '0.72rem', background: '#1a0a00', color: BRAND.orange, border: `1px solid ${BRAND.orange}44`, borderRadius: '99px', padding: '0.2rem 0.7rem', fontWeight: '700' }}>{t('demo.money.notConnected')}</div>
           }
         </div>
 
         {/* Balance */}
         <div style={{ padding: '1.5rem 1.3rem 1rem', borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: '0.72rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>Available balance</div>
+          <div style={{ fontSize: '0.72rem', color: C.textMid, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>{t('demo.money.balance')}</div>
           <div style={{ fontSize: '2.4rem', fontWeight: '900', letterSpacing: '-0.03em', color: connected ? BRAND.neon : C.textMid, transition: 'color 0.4s' }}>
             ${balance.toLocaleString()}
             <span style={{ fontSize: '1rem', fontWeight: '400', color: C.textMid, marginLeft: '0.3rem' }}>USD</span>
           </div>
           {connected && balance > 0 && (
             <div style={{ fontSize: '0.78rem', color: C.textMid, marginTop: '0.3rem' }}>
-              {idxRef.current} ticket{idxRef.current !== 1 ? 's' : ''} sold · updating live
+              {t('demo.money.ticketsSold', { n: idxRef.current })}
             </div>
           )}
         </div>
@@ -609,24 +599,24 @@ function StripeConnectDemo() {
                 {connecting ? (
                   <>
                     <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>↻</span>
-                    Connecting to Stripe…
+                    {t('demo.money.connecting')}
                   </>
                 ) : (
                   <>
                     <span style={{ fontSize: '1.1rem' }}>S</span>
-                    Connect with Stripe
+                    {t('demo.money.connect')}
                   </>
                 )}
               </button>
               <div style={{ color: C.textMid, fontSize: '0.75rem', marginTop: '0.8rem', lineHeight: 1.5 }}>
-                Your payout account. GRAIL takes 2% of all sales — tickets and bar. Nothing else.
+                {t('demo.money.payoutNote')}
               </div>
             </div>
           ) : (
             <div>
               {feed.length === 0 && (
                 <div style={{ padding: '2rem 1.3rem', textAlign: 'center', color: C.textMid, fontSize: '0.82rem' }}>
-                  Waiting for first sale…
+                  {t('demo.money.waitingFirst')}
                 </div>
               )}
               {feed.map((sale, i) => (
@@ -647,7 +637,7 @@ function StripeConnectDemo() {
                     </div>
                     <div>
                       <div style={{ fontSize: '0.82rem', color: C.text, fontWeight: '600' }}>{sale.name}</div>
-                      <div style={{ fontSize: '0.7rem', color: C.textMid }}>{sale.tier} Ticket</div>
+                      <div style={{ fontSize: '0.7rem', color: C.textMid }}>{t('demo.money.tierSuffix', { tier: sale.tier })}</div>
                     </div>
                   </div>
                   <div style={{ color: BRAND.neon, fontWeight: '800', fontSize: '0.9rem' }}>+${sale.amount}</div>
@@ -662,7 +652,7 @@ function StripeConnectDemo() {
           <div style={{ padding: '0.9rem 1.3rem', borderTop: `1px solid ${C.border}`, background: '#0a1400', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <span style={{ fontSize: '1rem' }}>🏦</span>
             <div style={{ fontSize: '0.78rem', color: BRAND.neon, lineHeight: 1.4 }}>
-              <strong>Venue deposit paid.</strong> ${Math.floor(balance * 0.4).toLocaleString()} transferred to promoter's account.
+              <strong>{t('demo.money.depositLabel')}</strong> {t('demo.money.depositPaid', { amount: '$' + Math.floor(balance * 0.4).toLocaleString() })}
             </div>
           </div>
         )}
@@ -680,6 +670,7 @@ const BAR_MENU = [
 ]
 
 function AlleycatBar() {
+  const t = useT()
   const [cart, setCart]       = useState({})   // { id: qty }
   const [screen, setScreen]   = useState('menu') // menu | confirm
   const [name, setName]       = useState('')
@@ -705,12 +696,14 @@ function AlleycatBar() {
   if (screen === 'confirm') return (
     <div style={{ background: '#0a0a0a', minHeight: '100%', padding: '2.5rem 2rem', textAlign: 'center' }}>
       <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🎉</div>
-      <div style={{ fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700', marginBottom: '0.4rem' }}>Order placed</div>
+      <div style={{ fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700', marginBottom: '0.4rem' }}>{t('demo.bar.orderPlaced')}</div>
       <div style={{ fontSize: '3.5rem', fontWeight: '900', color: BRAND.neon, letterSpacing: '-0.02em', lineHeight: 1 }}>
         #{orderNum}
       </div>
       <div style={{ color: '#8a8098', fontSize: '0.85rem', margin: '0.6rem 0 1.5rem' }}>
-        {name ? `${name} — ` : ''}${total} · {itemCount} item{itemCount !== 1 ? 's' : ''}
+        {name
+          ? t('demo.bar.orderSummary.named', { name, total, n: itemCount })
+          : t('demo.bar.orderSummary.anon',  { total, n: itemCount })}
       </div>
       <div style={{ background: '#111', borderRadius: '12px', padding: '0.9rem 1.1rem', marginBottom: '1.5rem' }}>
         {BAR_MENU.filter(i => cart[i.id]).map(i => (
@@ -721,7 +714,7 @@ function AlleycatBar() {
         ))}
       </div>
       <button onClick={reset} style={{ background: 'transparent', border: `1px solid #333`, color: '#8a8098', borderRadius: '8px', padding: '0.6rem 1.4rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-        Start new order
+        {t('demo.bar.startNew')}
       </button>
     </div>
   )
@@ -731,12 +724,12 @@ function AlleycatBar() {
       {/* Bar header */}
       <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid #1a1a24', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#e8e0d0' }}>Rooftop Bar</div>
-          <div style={{ fontSize: '0.72rem', color: '#8a8098' }}>May 2 · The Rooftop</div>
+          <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#e8e0d0' }}>{t('demo.bar.title')}</div>
+          <div style={{ fontSize: '0.72rem', color: '#8a8098' }}>{t('demo.bar.dateVenue')}</div>
         </div>
         {itemCount > 0 && (
           <div style={{ background: BRAND.pink, color: '#fff', borderRadius: '99px', fontSize: '0.72rem', fontWeight: '800', padding: '0.2rem 0.6rem' }}>
-            {itemCount} in cart
+            {t('demo.bar.inCart', { n: itemCount })}
           </div>
         )}
       </div>
@@ -765,7 +758,7 @@ function AlleycatBar() {
                     background: BRAND.gradientAngle, color: '#000', border: 'none',
                     borderRadius: '6px', padding: '0.25rem 0.7rem', fontSize: '0.8rem',
                     fontWeight: '700', cursor: 'pointer',
-                  }}>ADD</button>
+                  }}>{t('demo.bar.add')}</button>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <button onClick={() => remove(item.id)} style={{ background: '#222', border: 'none', color: '#e8e0d0', borderRadius: '4px', width: '24px', height: '24px', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>−</button>
@@ -787,7 +780,7 @@ function AlleycatBar() {
             <input
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Your name (optional)"
+              placeholder={t('demo.bar.namePh')}
               style={{ background: 'transparent', border: 'none', outline: 'none', width: '100%', fontSize: '0.88rem', color: '#e8e0d0' }}
             />
           </div>
@@ -805,7 +798,7 @@ function AlleycatBar() {
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-            <span>Place Order</span>
+            <span>{t('demo.bar.placeOrder')}</span>
             <span>${total}</span>
           </button>
         </div>
@@ -816,6 +809,7 @@ function AlleycatBar() {
 
 // ─── MAIN ──────────────────────────────────────────────────────────────────────
 export default function GrailDemo() {
+  const t = useT()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
@@ -853,7 +847,7 @@ export default function GrailDemo() {
             borderRadius: '8px', padding: '0.35rem 0.7rem', fontSize: '0.78rem',
             textDecoration: 'none', fontWeight: '600',
           }}>
-            ← Back
+            {t('common.back')}
           </Link>
           <AlleycatLogo size={30} />
           <span style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem' }}>GRAIL</span>
@@ -866,7 +860,7 @@ export default function GrailDemo() {
             borderRadius: '99px',
             padding: '0.2rem 0.6rem',
           }}>
-            Powered by GRAIL
+            {t('demo.nav.poweredBy')}
           </span>
           <a
             href="mailto:jp@casadecopas.com?subject=Run my event on GRAIL"
@@ -880,7 +874,7 @@ export default function GrailDemo() {
               textDecoration: 'none',
             }}
           >
-            Let's Talk
+            {t('demo.nav.cta')}
           </a>
         </div>
       </div>
@@ -916,15 +910,15 @@ export default function GrailDemo() {
           letterSpacing: '-0.02em',
           maxWidth: '700px',
         }}>
-          Your next{' '}
+          {t('demo.hero.pre')}
           <span style={{
             background: BRAND.gradient,
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}>
-            your show
+            {t('demo.hero.highlight')}
           </span>
-          {' '}on GRAIL.
+          {t('demo.hero.post')}
         </div>
 
         <div style={{
@@ -934,8 +928,7 @@ export default function GrailDemo() {
           maxWidth: '480px',
           lineHeight: 1.6,
         }}>
-          No side deals. No spreadsheet debates. Everyone agrees on the system before the show —
-          and the system handles the rest.
+          {t('demo.hero.body')}
         </div>
 
         <div style={{ display: 'flex', gap: '0.8rem', marginTop: '2.2rem', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -951,7 +944,7 @@ export default function GrailDemo() {
               textDecoration: 'none',
             }}
           >
-            See it in action →
+            {t('demo.hero.ctaSee')}
           </a>
           <a
             href="mailto:jp@casadecopas.com?subject=Run my event on GRAIL"
@@ -965,7 +958,7 @@ export default function GrailDemo() {
               textDecoration: 'none',
             }}
           >
-            Talk to JP
+            {t('demo.hero.ctaTalk')}
           </a>
         </div>
 
@@ -979,8 +972,8 @@ export default function GrailDemo() {
         }}>
           {[
             ['ATL', 'House / Techno'],
-            ['300', 'Capacity'],
-            ['0', 'Side deals'],
+            ['300', t('demo.stats.capacity')],
+            ['0',   t('demo.stats.sideDeals')],
           ].map(([n, l]) => (
             <div key={l} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '1.6rem', fontWeight: '900', color: C.text }}>{n}</div>
@@ -995,10 +988,10 @@ export default function GrailDemo() {
         <Section>
           <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
             <div style={{ fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700', marginBottom: '0.6rem' }}>
-              The Protocol
+              {t('demo.protocol.eyebrow')}
             </div>
             <div style={{ fontSize: 'clamp(1.5rem, 4vw, 2.2rem)', fontWeight: '800', lineHeight: 1.2 }}>
-              Four steps. Zero disputes.
+              {t('demo.protocol.heading')}
             </div>
           </div>
           <div style={{ maxWidth: '520px', margin: '0 auto' }}>
@@ -1012,14 +1005,13 @@ export default function GrailDemo() {
         <Section>
           <div style={{ marginBottom: '1.5rem' }}>
             <div style={{ fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700', marginBottom: '0.5rem' }}>
-              The Contract
+              {t('demo.contract.eyebrow')}
             </div>
             <div style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: '800', marginBottom: '0.4rem' }}>
-              The Rooftop Party, pre-built.
+              {t('demo.contract.heading')}
             </div>
             <div style={{ color: C.textMid, fontSize: '0.88rem' }}>
-              This is what the promoter and venue see when they sit down together.
-              Everyone edits, everyone agrees, everyone greenlights.
+              {t('demo.contract.body')}
             </div>
           </div>
           <ContractPreview />
@@ -1031,14 +1023,13 @@ export default function GrailDemo() {
         <Section>
           <div style={{ marginBottom: '1.5rem' }}>
             <div style={{ fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700', marginBottom: '0.5rem' }}>
-              The What If? Engine
+              {t('demo.whatIf.eyebrow')}
             </div>
             <div style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: '800', marginBottom: '0.4rem' }}>
-              Run the numbers before you commit.
+              {t('demo.whatIf.heading')}
             </div>
             <div style={{ color: C.textMid, fontSize: '0.88rem', maxWidth: '520px' }}>
-              Move the sliders. Everyone in the room sees the same math.
-              You agree on the system — not the outcome.
+              {t('demo.whatIf.body')}
             </div>
           </div>
           <WhatIfBlock />
@@ -1051,19 +1042,19 @@ export default function GrailDemo() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem', alignItems: 'start' }}>
             <div>
               <div style={{ fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700', marginBottom: '0.5rem' }}>
-                The Bar
+                {t('demo.bar.eyebrow')}
               </div>
               <div style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: '800', marginBottom: '0.8rem', lineHeight: 1.2 }}>
-                Guests order from their phone. Bar sees a live queue.
+                {t('demo.bar.heading')}
               </div>
               <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.7, marginBottom: '1.2rem' }}>
-                No cash. No shouting across the bar. Attendees pre-load a Doves balance, browse the menu, and place orders from anywhere on the roof. Bartenders work a clean queue — no slips, no lost orders.
+                {t('demo.bar.body')}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {[
-                  ['🕊', 'Doves balance charged only after the show closes'],
-                  ['📋', 'Every order goes into the settlement automatically'],
-                  ['⚡', 'Works on any phone — no app download required'],
+                  ['🕊', t('demo.bar.bullet1')],
+                  ['📋', t('demo.bar.bullet2')],
+                  ['⚡', t('demo.bar.bullet3')],
                 ].map(([icon, text]) => (
                   <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', fontSize: '0.85rem', color: C.textMid }}>
                     <span style={{ fontSize: '1rem', flexShrink: 0 }}>{icon}</span>
@@ -1135,26 +1126,25 @@ export default function GrailDemo() {
           {/* Top: 2% hero */}
           <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
             <div style={{ fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700', marginBottom: '0.8rem' }}>
-              The Cut
+              {t('demo.cut.eyebrow')}
             </div>
             <div style={{ fontSize: 'clamp(4rem, 12vw, 7rem)', fontWeight: '900', lineHeight: 1, letterSpacing: '-0.04em', background: BRAND.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '0.4rem' }}>
               2%
             </div>
             <div style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: '700', color: C.text, marginBottom: '0.6rem' }}>
-              Flat. On tickets and bar. That's it.
+              {t('demo.cut.flatHeading')}
             </div>
             <div style={{ color: C.textMid, fontSize: '0.9rem', maxWidth: '460px', margin: '0 auto', lineHeight: 1.7 }}>
-              2% on tickets. 2% on bar. No per-ticket fees, no processing markup, no payout delays.
-              Built by musicians, for the ecosystem — not to extract from it.
+              {t('demo.cut.body')}
             </div>
           </div>
 
           {/* Comparison table */}
           <div style={{ maxWidth: '620px', margin: '0 auto 3.5rem', background: '#0d0d14', border: `1px solid ${C.border}`, borderRadius: '16px', overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', padding: '0.6rem 1.2rem', borderBottom: `1px solid ${C.border}`, background: '#111' }}>
-              <div style={{ fontSize: '0.72rem', color: C.textMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Platform</div>
-              <div style={{ fontSize: '0.72rem', color: C.textMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center', minWidth: '80px' }}>Fee</div>
-              <div style={{ fontSize: '0.72rem', color: C.textMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', minWidth: '100px' }}>On $35 ticket</div>
+              <div style={{ fontSize: '0.72rem', color: C.textMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{t('demo.compare.platform')}</div>
+              <div style={{ fontSize: '0.72rem', color: C.textMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center', minWidth: '80px' }}>{t('demo.compare.fee')}</div>
+              <div style={{ fontSize: '0.72rem', color: C.textMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'right', minWidth: '100px' }}>{t('demo.compare.cost')}</div>
             </div>
             {[
               { name: 'Ticketmaster',  fee: '27%', cost: '$9.45', bad: true },
@@ -1184,7 +1174,7 @@ export default function GrailDemo() {
             <div style={{ padding: '0.8rem 1.2rem', background: '#0a1400', borderTop: `1px solid ${BRAND.neon}22`, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ color: BRAND.neon, fontSize: '0.82rem', fontWeight: '700' }}>→</span>
               <span style={{ color: BRAND.neon, fontSize: '0.82rem', fontWeight: '600' }}>
-                GRAIL saves promoters 7–25% on tickets and bar vs. major platforms.
+                {t('demo.compare.savings')}
               </span>
             </div>
           </div>
@@ -1192,10 +1182,10 @@ export default function GrailDemo() {
           {/* Nonprofit mission statement */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', maxWidth: '620px', margin: '0 auto' }}>
             {[
-              { icon: '🎵', title: 'Musician-run nonprofit', body: 'GRAIL is built and governed by people who have played venues, promoted shows, and watched the money disappear into platform fees.' },
-              { icon: '⚡', title: 'Speed lane at the bar', body: 'Phone ordering removes the bottleneck. Fans order without leaving their spot — venues see bar revenue increase up to 33% compared to a traditional cash bar.' },
-              { icon: '♻️', title: 'Money stays in the ecosystem', body: 'Every dollar saved on fees is a dollar that goes to the artist, stays in the fan\'s pocket, or funds the next show.' },
-              { icon: '🔓', title: 'No lock-in', body: 'Your data, your contacts, your ticket history. Export everything. We earn your business every show.' },
+              { icon: '🎵', title: t('demo.mission.c1.title'), body: t('demo.mission.c1.body') },
+              { icon: '⚡', title: t('demo.mission.c2.title'), body: t('demo.mission.c2.body') },
+              { icon: '♻️', title: t('demo.mission.c3.title'), body: t('demo.mission.c3.body') },
+              { icon: '🔓', title: t('demo.mission.c4.title'), body: t('demo.mission.c4.body') },
             ].map((card, i) => (
               <div key={i} style={{ background: '#0d0d14', border: `1px solid ${C.border}`, borderRadius: '14px', padding: '1.3rem' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '0.6rem' }}>{card.icon}</div>
@@ -1219,37 +1209,17 @@ export default function GrailDemo() {
         <Section>
           <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
             <div style={{ fontSize: '0.72rem', color: BRAND.pink, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: '700', marginBottom: '0.5rem' }}>
-              Night-of Tools
+              {t('demo.tools.eyebrow')}
             </div>
             <div style={{ fontSize: 'clamp(1.3rem, 3vw, 1.8rem)', fontWeight: '800' }}>
-              Everything runs on one system.
+              {t('demo.tools.heading')}
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
-            <FeatureCard
-              emoji="🕊"
-              title="Doves — Cashless Bar"
-              tag="CUSTOMER"
-              desc="Attendees pre-load a balance. Order drinks from their phone. Card charged only for what they spent — 24h after the show."
-            />
-            <FeatureCard
-              emoji="🍹"
-              title="Bar Queue"
-              tag="STAFF"
-              desc="Orders come in from the Dove app and staff POS. Bartender sees a live queue, taps to advance. No paper, no chaos."
-            />
-            <FeatureCard
-              emoji="🌅"
-              title="Show Mode"
-              tag="DOOR"
-              desc="A full-screen sky display for the entrance. Stars fade and the horizon glows as each person is admitted. Dawn breaks at capacity."
-            />
-            <FeatureCard
-              emoji="💰"
-              title="Settlement"
-              tag="POST-SHOW"
-              desc="Automatic. Based on what everyone agreed to before the show. Tap any number to see how it was calculated."
-            />
+            <FeatureCard emoji="🕊"  title={t('demo.tools.f1.title')} tag={t('demo.tools.f1.tag')} desc={t('demo.tools.f1.desc')} />
+            <FeatureCard emoji="🍹"  title={t('demo.tools.f2.title')} tag={t('demo.tools.f2.tag')} desc={t('demo.tools.f2.desc')} />
+            <FeatureCard emoji="🌅"  title={t('demo.tools.f3.title')} tag={t('demo.tools.f3.tag')} desc={t('demo.tools.f3.desc')} />
+            <FeatureCard emoji="💰"  title={t('demo.tools.f4.title')} tag={t('demo.tools.f4.tag')} desc={t('demo.tools.f4.desc')} />
           </div>
         </Section>
       </div>
@@ -1264,17 +1234,17 @@ export default function GrailDemo() {
             maxWidth: '580px',
             margin: '0 auto',
           }}>
-            "We don't negotiate outcomes.<br />
+            "{t('demo.philosophy.line1')}<br />
             <span style={{
               background: BRAND.gradient,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}>
-              We agree on the system that produces them."
+              {t('demo.philosophy.line2')}"
             </span>
           </div>
           <div style={{ color: C.textMid, fontSize: '0.85rem', marginTop: '1rem' }}>
-            — The GRAIL Protocol
+            {t('demo.philosophy.attrib')}
           </div>
         </Section>
       </div>
@@ -1293,10 +1263,10 @@ export default function GrailDemo() {
           marginTop: '1.2rem',
           marginBottom: '0.5rem',
         }}>
-          Ready to run your show on GRAIL?
+          {t('demo.cta.heading')}
         </div>
         <div style={{ color: C.textMid, fontSize: '0.9rem', marginBottom: '2rem' }}>
-          Let's set up your first show. No contract, no commitment — just the conversation.
+          {t('demo.cta.body')}
         </div>
         <a
           href="mailto:jp@casadecopas.com?subject=Run my event on GRAIL — Let's talk"
@@ -1312,7 +1282,7 @@ export default function GrailDemo() {
             boxShadow: '0 4px 30px rgba(204,68,238,0.25)',
           }}
         >
-          Talk to JP →
+          {t('demo.cta.btn')}
         </a>
         <div style={{ marginTop: '1rem', color: C.textDim, fontSize: '0.75rem' }}>
           jp@casadecopas.com · GRAIL Protocol

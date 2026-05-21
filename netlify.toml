@@ -9,3 +9,21 @@
 # verification delay never leaves a buyer permanently un-refunded.
 [functions."auto-close-bar"]
   schedule = "0 12 * * *"
+
+# Weekly Supabase JSON snapshot — calls backup_all_tables() and PUTs the
+# result to boomforest/bard-backups (private). Sundays 06:00 UTC.
+[functions."weekly-backup"]
+  schedule = "0 6 * * 0"
+
+# Daily auto-settlement — finds greenlit, unsettled events whose show
+# ended >24h ago and whose bar tabs are all closed, then runs the
+# Stripe Connect transfers per the agreed splits. 1pm UTC = 1h after
+# auto-close-bar so any close-out refunds have already landed.
+[functions."auto-settle"]
+  schedule = "0 13 * * *"
+
+# Daily reminder to producers who haven't Greenlit yet on contracts
+# whose show is within 7 days. Throttled to one email per producer
+# every 48h (last_reminded_at on event_producers).
+[functions."remind-pending-greenlight"]
+  schedule = "0 15 * * *"
