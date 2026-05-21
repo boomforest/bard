@@ -5,7 +5,6 @@ import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
 import { useT } from './i18n'
 import LocaleToggle from './LocaleToggle'
-import LandingPortal from './LandingPortal'
 
 // ─── DEMO TICKET DATA ─────────────────────────────────────────────────────────
 const DEMO_TICKET = {
@@ -674,13 +673,37 @@ export default function GrailHome() {
 
         {view === 'home' && (
           <>
-            <LandingPortal />
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <RoleCard
+                eyebrow={t('home.role.promoter.eyebrow')}
+                label={t('home.role.promoter.label')}
+                desc={t('home.role.promoter.desc')}
+                cta={t('home.role.promoter.cta')}
+                accent={BRAND.orange}
+                onClick={() => navigate('/request-access')}
+              />
+              <RoleCard
+                eyebrow={t('home.role.fan.eyebrow')}
+                label={t('home.role.fan.label')}
+                desc={t('home.role.fan.desc')}
+                cta={t('home.role.fan.cta')}
+                accent={BRAND.purple}
+                onClick={() => setView('fan')}
+              />
+              <RoleCard
+                eyebrow={t('home.role.demo.eyebrow')}
+                label={t('home.role.demo.label')}
+                desc={t('home.role.demo.desc')}
+                cta={t('home.role.demo.cta')}
+                accent={BRAND.blue}
+                onClick={() => navigate('/demo')}
+              />
+            </div>
 
             <HomeLogin />
 
             <div style={{ marginTop: '1.5rem', color: C.textDim, fontSize: '0.72rem', textAlign: 'center' }}>
-              <a href="/demo" style={{ color: C.textDim, textDecoration: 'underline', marginRight: '0.6rem' }}>See demo</a>
-              · {t('home.footer')}
+              {t('home.footer')}
             </div>
           </>
         )}

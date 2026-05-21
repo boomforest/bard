@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PRIMARY_BTN, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
+import LandingPortal from './LandingPortal'
 
 const TABS = ['Tickets', 'History']
 
@@ -217,7 +218,14 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, padding: '0 1.5rem' }}>
+      {/* Post-login explore surface — Promoter / Artist / Fan tabs.
+          Above the existing Tickets / History tab bar so fans land into
+          the tabs immediately but can still scroll to their tickets. */}
+      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '2rem 1.5rem 0' }}>
+        <LandingPortal />
+      </div>
+
+      <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, padding: '0 1.5rem', marginTop: '2rem' }}>
         {TABS.map(t => (
           <button
             key={t}
