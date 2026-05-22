@@ -120,6 +120,23 @@ export default function ArtistProfile() {
   const { handle } = useParams()
   const [artist, setArtist]   = useState(undefined)  // undefined = loading, null = not found
   const [shows, setShows]     = useState([])
+  const [viewer, setViewer]   = useState(null)       // { user_type, access_token } of the visiting user
+
+  // Identify the visitor so we can show promoter-only CTAs.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user || cancelled) { setViewer(null); return }
+      const { data: me } = await supabase
+        .from('users')
+        .select('id, user_type')
+        .eq('id', session.user.id)
+        .maybeSingle()
+      if (!cancelled) setViewer({ ...me, access_token: session.access_token })
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -217,7 +234,183 @@ export default function ArtistProfile() {
           })
       }
 
+      {viewer?.user_type === 'promoter' && viewer.id !== artist.id && (
+        <BookArtistButton
+          artist={artist}
+          artistName={displayName}
+          accessToken={viewer.access_token}
+        />
+      )}
+
       <FollowForm artistId={artist.id} artistName={displayName} />
     </div>
+  )
+}
+
+// ─── Book this artist ───────────────────────────────────────────────────────
+// Shown only to logged-in promoters viewing an artist's public profile.
+// Click → modal with the promoter's open (not-yet-greenlit) events that
+// don't already include this artist. Pick one, set split %, submit →
+// invite-co-producer fires with artist_user_id (email looked up server-side).
+function BookArtistButton({ artist, artistName, accessToken }) {
+  const [open, setOpen]           = useState(false)
+  const [events, setEvents]       = useState(null)
+  const [selectedId, setSelected] = useState('')
+  const [split, setSplit]         = useState(25)
+  const [busy, setBusy]           = useState(false)
+  const [msg, setMsg]             = useState('')
+  const [done, setDone]           = useState(false)
+
+  useEffect(() => {
+    if (!open || events !== null) return
+    let cancelled = false
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
+      // Pull this promoter's not-yet-greenlit events, minus the ones
+      // that already have this artist on the lineup.
+      const { data: evs } = await supabase
+        .from('events')
+        .select(`
+          id, slug, name, artist_name, show_date, greenlit_at,
+          event_producers!event_producers_event_id_fkey ( user_id )
+        `)
+        .eq('promoter_id', session.user.id)
+        .is('greenlit_at', null)
+        .order('show_date', { ascending: true })
+        .limit(50)
+      if (cancelled) return
+      const filtered = (evs || []).filter(ev => {
+        const hasArtist = (ev.event_producers || []).some(p => p.user_id === artist.id)
+        return !hasArtist
+      })
+      setEvents(filtered)
+    })()
+    return () => { cancelled = true }
+  }, [open, events, artist.id])
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!selectedId) { setMsg('Pick an event first'); return }
+    setBusy(true); setMsg('')
+    try {
+      const res = await fetch('/.netlify/functions/invite-co-producer', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          event_id:       selectedId,
+          artist_user_id: artist.id,
+          role:           'Artist',
+          split_pct:      Number(split),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
+      setDone(true)
+    } catch (err) {
+      setMsg(err.message)
+    }
+    setBusy(false)
+  }
+
+  if (done) {
+    return (
+      <div style={{
+        background: `${BRAND.neon}11`, border: `1px solid ${BRAND.neon}55`,
+        borderRadius: '14px', padding: '1.1rem 1.3rem', marginTop: '1.5rem',
+      }}>
+        <div style={{ color: BRAND.neon, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: '0.35rem' }}>
+          Invite sent
+        </div>
+        <div style={{ color: C.text, fontSize: '0.9rem', lineHeight: 1.5 }}>
+          {artistName} has been added to the lineup. They'll get an email and need to Greenlight before the contract locks.
+        </div>
+      </div>
+    )
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{
+        marginTop: '1.5rem', width: '100%',
+        background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '12px',
+        padding: '0.95rem 1rem', fontSize: '0.92rem', fontWeight: 800,
+        cursor: 'pointer', fontFamily: FONT,
+      }}>
+        Book {artistName} for one of your shows →
+      </button>
+    )
+  }
+
+  return (
+    <form onSubmit={submit} style={{
+      background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px',
+      padding: '1.25rem 1.4rem', marginTop: '1.5rem',
+    }}>
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1rem', marginBottom: '0.3rem', letterSpacing: '-0.01em' }}>
+        Book {artistName}
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '0.85rem' }}>
+        Pick one of your upcoming shows. They'll get an email to confirm — once they Greenlight, the contract locks.
+      </div>
+
+      {events === null ? (
+        <div style={{ color: C.textMid, fontSize: '0.85rem', padding: '0.5rem 0' }}>Loading your events…</div>
+      ) : events.length === 0 ? (
+        <div style={{ color: C.textMid, fontSize: '0.85rem', padding: '0.5rem 0' }}>
+          No open events to book them on. Either every event is greenlit, or {artistName} is already on every lineup.
+        </div>
+      ) : (
+        <select
+          value={selectedId}
+          onChange={e => setSelected(e.target.value)}
+          style={{ ...INPUT, marginBottom: '0.5rem' }}
+          required
+        >
+          <option value="">Pick an event…</option>
+          {events.map(ev => (
+            <option key={ev.id} value={ev.id}>
+              {ev.name || ev.artist_name || 'Untitled'} · {ev.show_date ? new Date(ev.show_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}
+            </option>
+          ))}
+        </select>
+      )}
+
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.85rem' }}>
+        <span style={{ color: C.textMid, fontSize: '0.82rem' }}>Split %</span>
+        <input
+          type="number" min="0" max="100" step="1"
+          value={split}
+          onChange={e => setSplit(e.target.value)}
+          style={{ ...INPUT, width: '90px' }}
+          required
+        />
+        <span style={{ color: C.textDim, fontSize: '0.72rem' }}>
+          (their cut of net revenue — adjustable until everyone signs)
+        </span>
+      </div>
+
+      {msg && <div style={{ color: BRAND.orange, fontSize: '0.78rem', marginBottom: '0.5rem' }}>{msg}</div>}
+
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button type="submit" disabled={busy || !events?.length} style={{
+          flex: 1,
+          background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '10px',
+          padding: '0.7rem 1rem', fontSize: '0.88rem', fontWeight: 800,
+          cursor: busy ? 'wait' : 'pointer', fontFamily: FONT, opacity: busy ? 0.6 : 1,
+        }}>
+          {busy ? 'Sending invite…' : 'Send invite'}
+        </button>
+        <button type="button" onClick={() => { setOpen(false); setMsg('') }} style={{
+          background: 'transparent', color: C.textMid, border: `1px solid ${C.border}`, borderRadius: '10px',
+          padding: '0.7rem 1rem', fontSize: '0.85rem', cursor: 'pointer', fontFamily: FONT,
+        }}>
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }

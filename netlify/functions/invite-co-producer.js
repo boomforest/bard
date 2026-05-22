@@ -28,12 +28,11 @@ exports.handler = async (event) => {
     if (!token) throw new Error('Missing auth token')
 
     const body = JSON.parse(event.body || '{}')
-    const { event_id, name, email, role } = body
+    const { event_id, role, artist_user_id } = body
+    let { name, email } = body
     const split_pct = Number(body.split_pct)
 
     if (!event_id) throw new Error('event_id required')
-    if (!name?.trim()) throw new Error('Producer name required')
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) throw new Error('Valid email required')
     if (!role?.trim()) throw new Error('Role required')
     if (!Number.isFinite(split_pct) || split_pct < 0 || split_pct > 100) {
       throw new Error('split_pct must be between 0 and 100')
@@ -47,6 +46,24 @@ exports.handler = async (event) => {
 
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
     if (authErr || !user) throw new Error('Invalid session')
+
+    // New path: book-by-user-id (from /a/<handle> "Book this artist" CTA).
+    // Server-side lookup keeps the artist's email out of the promoter's
+    // browser. Falls back to the email-based path if artist_user_id is
+    // not provided (preserves the existing EventContractCard flow).
+    if (artist_user_id) {
+      const { data: artist } = await supabase
+        .from('users')
+        .select('id, email, artist_name, username, handle')
+        .eq('id', artist_user_id)
+        .maybeSingle()
+      if (!artist?.email) throw new Error('Artist account not found')
+      email = artist.email
+      if (!name?.trim()) name = artist.artist_name || artist.username || artist.handle || 'Artist'
+    }
+
+    if (!name?.trim()) throw new Error('Producer name required')
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) throw new Error('Valid email required')
 
     const { data: ev, error: evErr } = await supabase
       .from('events')
