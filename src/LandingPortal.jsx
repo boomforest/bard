@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PRIMARY_BTN } from './theme'
 import ArtistMap from './ArtistMap'
+import PromoterCommunityViz from './PromoterCommunityViz'
 
 const TABS = [
   { key: 'promoter', label: 'Promoter' },
@@ -50,51 +51,10 @@ function useCurrentUser() {
   return user
 }
 
-const PROMOTER_FEATURES = [
-  {
-    icon: '🎟',
-    title: 'Threshold ticketing',
-    desc: 'Pre-auth tickets that capture only when the show is real. Buyers commit early; cards never charge unless the dove count breaks dawn.',
-  },
-  {
-    icon: '✍️',
-    title: 'Multi-party contracts',
-    desc: 'Add co-producers — venue, sound, bar, artists. Everyone signs the budget before tickets open. Splits are locked, no surprises post-show.',
-  },
-  {
-    icon: '🌅',
-    title: 'First Light settlement',
-    desc: 'Revenue waterfall pays contributors back pro-rata to what they put in, before any overflow distributes. Run settlement with one click after the show.',
-  },
-  {
-    icon: '📡',
-    title: 'Geo-aware blasts',
-    desc: 'Followers sign up with zip + radius. New shows only blast to people within range. Higher signal, lower spam.',
-  },
-]
-
-const ARTIST_FEATURES = [
-  {
-    icon: '🤝',
-    title: 'Greenlight your bookings',
-    desc: 'Promoter adds you to a lineup; you confirm with one tap. Your contract is signed, the budget locks, the broadcast fires.',
-  },
-  {
-    icon: '📣',
-    title: 'Auto-broadcast to followers',
-    desc: 'When you Greenlight, the followers you have within radius of the venue get a personalized email. Off per-show or globally whenever you want.',
-  },
-  {
-    icon: '🔗',
-    title: 'Affiliate ticket links',
-    desc: 'Every booking gets a unique tracked URL. Share it on Instagram, in your story, anywhere — tickets sold via your link attribute to you.',
-  },
-  {
-    icon: '👥',
-    title: 'A profile fans can follow',
-    desc: 'Your public page at grail.mx/a/<your-handle> lists upcoming shows and lets fans subscribe with zip + radius. You build a direct line, not a feed.',
-  },
-]
+// Feature cards are intentionally minimal here — the real pitch lives in
+// the PromoterCommunityViz / ArtistMap callouts above them. These cards
+// just hint at the texture of the tool without devolving into a feature
+// dump. The mocks below show what the tool actually looks like in use.
 
 function Tab({ active, label, onClick }) {
   return (
@@ -117,25 +77,6 @@ function Eyebrow({ children, color }) {
       fontSize: '0.68rem', color: color || BRAND.neon, textTransform: 'uppercase',
       letterSpacing: '0.18em', fontWeight: 800, marginBottom: '0.5rem',
     }}>{children}</div>
-  )
-}
-
-function FeatureCard({ icon, title, desc }) {
-  return (
-    <div style={{
-      background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px',
-      padding: '1.1rem 1.25rem', display: 'flex', gap: '0.85rem', alignItems: 'flex-start',
-    }}>
-      <div style={{ fontSize: '1.5rem', lineHeight: 1, flexShrink: 0 }}>{icon}</div>
-      <div>
-        <div style={{ color: C.text, fontWeight: 800, fontSize: '0.92rem', marginBottom: '0.25rem', letterSpacing: '-0.01em' }}>
-          {title}
-        </div>
-        <div style={{ color: C.textMid, fontSize: '0.82rem', lineHeight: 1.55 }}>
-          {desc}
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -535,16 +476,14 @@ function PromoterTab({ navigate, user }) {
   return (
     <div>
       <Eyebrow color={BRAND.orange}>Promoter</Eyebrow>
-      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.6rem' }}>
-        Throw shows without losing your shirt.
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.6rem', letterSpacing: '-0.02em', marginBottom: '0.6rem', lineHeight: 1.15 }}>
+        Build your scene.
       </div>
       <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-        Threshold ticketing, signed multi-party contracts, automatic settlement. The boring post-show book becomes the platform's job — yours becomes designing the next sunrise.
+        Throw a show on Grail and you're not just running an event — you're building a community that compounds. Every fan you bring follows you. Every artist you book grows their following because of the night you gave them. The scene you build is yours, for life.
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.25rem' }}>
-        {PROMOTER_FEATURES.map(f => <FeatureCard key={f.title} {...f} />)}
-      </div>
+      <PromoterCommunityViz />
 
       <PromoterMock />
 
@@ -552,7 +491,7 @@ function PromoterTab({ navigate, user }) {
         Apply to become a promoter →
       </button>
       <div style={{ color: C.textDim, fontSize: '0.72rem', textAlign: 'center', marginTop: '0.5rem' }}>
-        We approve promoters individually right now — protects the network quality early.
+        We approve promoters individually right now — keeps the scene tight while we're early.
       </div>
     </div>
   )
@@ -674,18 +613,14 @@ function ArtistTab({ navigate, user }) {
   return (
     <div>
       <Eyebrow color={BRAND.pink}>Artist</Eyebrow>
-      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.6rem' }}>
-        Your followers, your link, your line to the door.
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.6rem', letterSpacing: '-0.02em', marginBottom: '0.6rem', lineHeight: 1.15 }}>
+        Build the audience you keep.
       </div>
       <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-        Greenlight a booking and your followers in radius hear about it. Share your affiliate link, get credit for every ticket it drives. Get paid via the contract you signed, automatically.
+        Every show you play on Grail recruits followers who stay followed — for life. The audience you build doesn't just come back to your shows. It makes promoters want to book you. We never message your followers outside the radius they chose; the relationship is yours, not the platform's.
       </div>
 
       <ArtistMap />
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.25rem' }}>
-        {ARTIST_FEATURES.map(f => <FeatureCard key={f.title} {...f} />)}
-      </div>
 
       <ArtistMock />
 
