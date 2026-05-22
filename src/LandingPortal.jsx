@@ -16,6 +16,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PRIMARY_BTN } from './theme'
+import ArtistMap from './ArtistMap'
 
 const TABS = [
   { key: 'promoter', label: 'Promoter' },
@@ -679,6 +680,8 @@ function ArtistTab({ navigate, user }) {
       <div style={{ color: C.textMid, fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
         Greenlight a booking and your followers in radius hear about it. Share your affiliate link, get credit for every ticket it drives. Get paid via the contract you signed, automatically.
       </div>
+
+      <ArtistMap />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.25rem' }}>
         {ARTIST_FEATURES.map(f => <FeatureCard key={f.title} {...f} />)}
