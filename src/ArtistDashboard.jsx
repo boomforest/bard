@@ -180,7 +180,7 @@ export default function ArtistDashboard() {
 
       const { data: meRow } = await supabase
         .from('users')
-        .select('id, username, handle, artist_name, user_type, broadcast_default')
+        .select('id, username, handle, artist_name, user_type, broadcast_default, open_to_bookings')
         .eq('id', uid).maybeSingle()
       if (cancelled) return
       setMe(meRow)
@@ -225,6 +225,13 @@ export default function ArtistDashboard() {
     if (!error) setMe({ ...me, broadcast_default: next })
   }
 
+  const toggleOpenToBookings = async () => {
+    if (!me) return
+    const next = !me.open_to_bookings
+    const { error } = await supabase.from('users').update({ open_to_bookings: next }).eq('id', me.id)
+    if (!error) setMe({ ...me, open_to_bookings: next })
+  }
+
   if (session === undefined) return <div style={{ ...PAGE, padding: '2rem', color: C.textMid }}>Loading…</div>
   if (!session) return <LoginPanel />
 
@@ -262,12 +269,21 @@ export default function ArtistDashboard() {
       }
 
       <div style={{ ...eyebrowStyle(), marginTop: '2rem' }}>Settings</div>
+
       <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: C.text, fontSize: '0.88rem', marginTop: '0.5rem', cursor: 'pointer' }}>
         <input type="checkbox" checked={!!me?.broadcast_default} onChange={toggleBroadcastDefault} />
         Auto-broadcast my Greenlights to followers in radius
       </label>
       <div style={{ color: C.textMid, fontSize: '0.74rem', marginTop: '0.3rem', marginLeft: '1.6rem' }}>
         When off, each booking is broadcast-disabled by default. You can still flip it per-show before Greenlighting.
+      </div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: C.text, fontSize: '0.88rem', marginTop: '1.2rem', cursor: 'pointer' }}>
+        <input type="checkbox" checked={!!me?.open_to_bookings} onChange={toggleOpenToBookings} />
+        List me in the promoter Find Artists directory
+      </label>
+      <div style={{ color: C.textMid, fontSize: '0.74rem', marginTop: '0.3rem', marginLeft: '1.6rem' }}>
+        Promoters building lineups will see your name and follower count when searching for acts. Off by default — only listed if you opt in.
       </div>
     </div>
   )

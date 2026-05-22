@@ -69,7 +69,7 @@ function LoginForm() {
 
 export default function PromoterDashboard() {
   const [session, setSession] = useState(undefined)
-  const [view, setView]       = useState('events')   // events | new
+  const [view, setView]       = useState('events')   // events | new | find
   const [stripeReady, setStripeReady] = useState(null)  // null = unknown, false/true once checked
   const [refreshKey, setRefreshKey] = useState(0)
   const navigate = useNavigate()
@@ -147,7 +147,7 @@ export default function PromoterDashboard() {
           <span style={{ color: C.text, fontWeight: '700', fontSize: '0.9rem' }}>GRAIL</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          {view === 'new' && (
+          {(view === 'new' || view === 'find') && (
             <button onClick={() => { setView('events'); setRefreshKey(k => k + 1) }} style={{
               background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
               borderRadius: '6px', padding: '0.4rem 0.85rem', cursor: 'pointer',
@@ -177,6 +177,7 @@ export default function PromoterDashboard() {
             onCreateEvent={() => setView('new')}
           />
           <FollowersStrip promoterId={session.user.id} />
+          <FindArtistsTeaser onClick={() => setView('find')} />
           <PromoterEvents
             key={refreshKey}
             promoterId={session.user.id}
@@ -187,6 +188,141 @@ export default function PromoterDashboard() {
         </>
       )}
       {view === 'new' && <GrailSetup />}
+      {view === 'find' && <FindArtists />}
+    </div>
+  )
+}
+
+// ─── FIND ARTISTS TEASER (in events view) ────────────────────────────────────
+function FindArtistsTeaser({ onClick }) {
+  return (
+    <div style={{ maxWidth: '720px', margin: '0 auto', padding: '1rem 1.5rem 0' }}>
+      <button onClick={onClick} style={{
+        width: '100%', background: 'transparent',
+        border: `1px solid ${BRAND.pink}55`, borderRadius: '12px',
+        padding: '1rem 1.2rem', cursor: 'pointer', fontFamily: FONT,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
+      }}>
+        <div style={{ textAlign: 'left' }}>
+          <div style={{ color: C.text, fontWeight: 800, fontSize: '0.92rem', letterSpacing: '-0.01em' }}>
+            🔍 Find artists for your next lineup
+          </div>
+          <div style={{ color: C.textMid, fontSize: '0.78rem', marginTop: '0.2rem' }}>
+            Browse Grail artists open to bookings, sorted by local follower count.
+          </div>
+        </div>
+        <div style={{ color: BRAND.pink, fontSize: '0.85rem', fontWeight: 800, flexShrink: 0 }}>→</div>
+      </button>
+    </div>
+  )
+}
+
+// ─── FIND ARTISTS VIEW ───────────────────────────────────────────────────────
+// Lists every artist with open_to_bookings=true, sorted by follower count
+// desc. Click → /a/<handle> for full profile. V2 will add genre tags +
+// geo-radius filtering, plus an "add to this event" action that wires
+// directly into the existing invite-co-producer flow.
+function FindArtists() {
+  const [artists, setArtists] = useState(null)
+  const [q, setQ] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('users')
+        .select('id, handle, artist_name, username, city, artist_followers(id)')
+        .eq('user_type', 'artist')
+        .eq('open_to_bookings', true)
+        .not('handle', 'is', null)
+        .limit(200)
+      if (cancelled) return
+      const enriched = (data || [])
+        .map(a => ({ ...a, follower_count: (a.artist_followers || []).length }))
+        .sort((a, b) => b.follower_count - a.follower_count)
+      setArtists(enriched)
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const filtered = q.trim()
+    ? (artists || []).filter(a => {
+        const needle = q.trim().toLowerCase()
+        return (a.handle       || '').toLowerCase().includes(needle)
+            || (a.artist_name  || '').toLowerCase().includes(needle)
+            || (a.username     || '').toLowerCase().includes(needle)
+            || (a.city         || '').toLowerCase().includes(needle)
+      })
+    : (artists || [])
+
+  return (
+    <div style={{ maxWidth: '720px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <div style={{ color: C.textMid, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 800, marginBottom: '0.4rem' }}>
+        Find artists
+      </div>
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.02em', marginBottom: '0.4rem', lineHeight: 1.2 }}>
+        Pick your next lineup.
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.86rem', lineHeight: 1.55, marginBottom: '1.25rem' }}>
+        Every artist below opted in to be discoverable. Sorted by follower count — the higher the number, the more local fans you reach by booking them.
+      </div>
+
+      <input
+        type="search"
+        value={q}
+        onChange={e => setQ(e.target.value)}
+        placeholder="Search by name, @handle, or city…"
+        style={{ ...INPUT, marginBottom: '1.25rem' }}
+      />
+
+      {artists === null
+        ? <div style={{ color: C.textMid, fontSize: '0.85rem', padding: '1rem 0' }}>Loading…</div>
+        : filtered.length === 0
+          ? <div style={{
+              background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px',
+              padding: '1.4rem', color: C.textMid, fontSize: '0.88rem', textAlign: 'center',
+            }}>
+              {q.trim()
+                ? `No artists matching "${q.trim()}". Try a different name or city.`
+                : 'No artists open to bookings yet. As more artists opt in, this directory fills up.'}
+            </div>
+          : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {filtered.map(a => (
+                <a key={a.id} href={`/a/${a.handle}`} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.85rem',
+                  background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px',
+                  padding: '0.85rem 1.1rem', textDecoration: 'none',
+                }}>
+                  <div style={{
+                    width: 42, height: 42, borderRadius: '50%',
+                    background: BRAND.gradient, display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    color: '#000', fontWeight: 900, fontSize: '0.95rem', flexShrink: 0,
+                  }}>
+                    {(a.artist_name || a.handle || '?').slice(0, 1).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: C.text, fontWeight: 800, fontSize: '0.95rem', letterSpacing: '-0.01em' }}>
+                      {a.artist_name || a.username || a.handle}
+                    </div>
+                    <div style={{ color: C.textMid, fontSize: '0.76rem' }}>
+                      @{a.handle}{a.city ? ` · ${a.city}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ color: BRAND.neon, fontWeight: 800, fontSize: '1rem' }}>
+                      {a.follower_count.toLocaleString()}
+                    </div>
+                    <div style={{ color: C.textMid, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      follower{a.follower_count === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )
+      }
     </div>
   )
 }
