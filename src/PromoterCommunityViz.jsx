@@ -63,6 +63,11 @@ const POINTS = [
     desc: "Every artist you book grows their reach because of the night you gave them — and they keep those new followers forever. Six months from now, when an artist says 'this promoter put me on,' that's your reputation. The best promoters in any city are the ones whose roster's careers credit them.",
   },
   {
+    icon: '🎫',
+    title: 'Turn your artists into co-promoters.',
+    desc: "Pay them in tickets they can sell or comp themselves. Hand each one a unique affiliate link. Every name on your lineup suddenly has a real financial reason to share the show with their audience. Your marketing burden splits across the whole bill.",
+  },
+  {
     icon: '🤝',
     title: 'Fair money, zero spreadsheet drama.',
     desc: "Everyone signs the budget before tickets open. After the show, the money distributes automatically based on what everyone agreed to — no 'I forgot we agreed to that' moments. The boring stuff handles itself; the booking and the curation stay human.",
