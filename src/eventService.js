@@ -34,6 +34,22 @@ export async function generateUniqueSlug(name) {
   return `${base}-${Date.now()}`
 }
 
+// ─── Avatar upload ────────────────────────────────────────────────────────────
+// Uploads to the existing `profile-pictures` bucket. Path is keyed by
+// user id so re-uploads overwrite the same file (no orphan accumulation).
+
+export async function uploadAvatar(file, userId) {
+  if (!file || !userId) return null
+  const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase()
+  const path = `${userId}/avatar-${Date.now()}.${ext}`
+  const { error } = await supabase.storage
+    .from('profile-pictures')
+    .upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' })
+  if (error) throw error
+  const { data } = supabase.storage.from('profile-pictures').getPublicUrl(path)
+  return data?.publicUrl || null
+}
+
 // ─── Flyer upload ─────────────────────────────────────────────────────────────
 
 export async function uploadFlyer(file, slug) {

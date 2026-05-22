@@ -143,7 +143,7 @@ export default function ArtistProfile() {
     ;(async () => {
       const { data: user } = await supabase
         .from('users')
-        .select('id, username, handle, artist_name, user_type')
+        .select('id, username, handle, artist_name, user_type, bio, avatar_url')
         .eq('handle', handle).maybeSingle()
       if (cancelled) return
       if (!user || user.user_type !== 'artist') {
@@ -202,13 +202,35 @@ export default function ArtistProfile() {
         <div style={LogoMark({ size: 44 })}>GRAIL</div>
       </div>
 
+      {artist.avatar_url && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <img
+            src={artist.avatar_url}
+            alt=""
+            style={{
+              width: 110, height: 110, borderRadius: '50%', objectFit: 'cover',
+              border: `2px solid ${C.border}`,
+            }}
+          />
+        </div>
+      )}
+
       <div style={{ ...eyebrowStyle(), textAlign: 'center' }}>Artist</div>
       <div style={{ color: C.text, fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.02em', textAlign: 'center' }}>
         {displayName}
       </div>
-      <div style={{ color: C.textMid, fontSize: '0.85rem', textAlign: 'center', marginBottom: '2rem' }}>
+      <div style={{ color: C.textMid, fontSize: '0.85rem', textAlign: 'center', marginBottom: artist.bio ? '1rem' : '2rem' }}>
         @{artist.handle}
       </div>
+
+      {artist.bio && (
+        <div style={{
+          color: C.text, fontSize: '0.92rem', lineHeight: 1.6, textAlign: 'center',
+          marginBottom: '2rem', padding: '0 0.5rem',
+        }}>
+          {artist.bio}
+        </div>
+      )}
 
       <div style={{ ...eyebrowStyle() }}>Upcoming</div>
       {shows.length === 0

@@ -197,7 +197,7 @@ function FanTab() {
       // recent activity, but MVP keeps it simple.
       const { data } = await supabase
         .from('users')
-        .select('id, handle, username, artist_name')
+        .select('id, handle, username, artist_name, avatar_url')
         .eq('user_type', 'artist')
         .not('handle', 'is', null)
         .order('created_at', { ascending: false })
@@ -262,15 +262,23 @@ function FanTab() {
                         background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px',
                         padding: '0.75rem 1rem', textDecoration: 'none',
                       }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: '50%',
-                          background: BRAND.gradient, display: 'flex',
-                          alignItems: 'center', justifyContent: 'center',
-                          color: '#000', fontWeight: 900, fontSize: '0.85rem',
-                          flexShrink: 0,
-                        }}>
-                          {(a.artist_name || a.handle || '?').slice(0, 1).toUpperCase()}
-                        </div>
+                        {a.avatar_url ? (
+                          <img
+                            src={a.avatar_url}
+                            alt=""
+                            style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: 36, height: 36, borderRadius: '50%',
+                            background: BRAND.gradient, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            color: '#000', fontWeight: 900, fontSize: '0.85rem',
+                            flexShrink: 0,
+                          }}>
+                            {(a.artist_name || a.handle || '?').slice(0, 1).toUpperCase()}
+                          </div>
+                        )}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ color: C.text, fontWeight: 700, fontSize: '0.92rem' }}>
                             {a.artist_name || a.username || a.handle}

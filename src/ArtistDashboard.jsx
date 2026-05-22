@@ -10,6 +10,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { BRAND, C, FONT, INPUT, PRIMARY_BTN, PAGE, eyebrowStyle, LogoMark } from './theme'
+import { uploadAvatar } from './eventService'
 
 function LoginPanel() {
   const [email, setEmail] = useState('')
@@ -40,6 +41,99 @@ function LoginPanel() {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// Avatar + bio editor on the Artist Portal. Avatar uploads to the
+// existing profile-pictures bucket; bio is a plain textarea. Saves on
+// blur for bio, immediately on upload for avatar.
+function ProfileEditor({ me, onChange }) {
+  const [bio, setBio]         = useState(me?.bio || '')
+  const [busy, setBusy]       = useState(false)
+  const [msg, setMsg]         = useState('')
+  useEffect(() => { setBio(me?.bio || '') }, [me?.bio])
+
+  const saveBio = async () => {
+    if ((me?.bio || '') === bio) return
+    setBusy(true); setMsg('')
+    const { error } = await supabase.from('users').update({ bio: bio || null }).eq('id', me.id)
+    setBusy(false)
+    if (error) setMsg(error.message)
+    else { onChange({ bio: bio || null }); setMsg('Saved') }
+  }
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBusy(true); setMsg('Uploading…')
+    try {
+      const url = await uploadAvatar(file, me.id)
+      if (!url) throw new Error('Upload returned no URL')
+      const { error } = await supabase.from('users').update({ avatar_url: url }).eq('id', me.id)
+      if (error) throw error
+      onChange({ avatar_url: url })
+      setMsg('Updated')
+    } catch (err) {
+      setMsg(err.message)
+    }
+    setBusy(false)
+  }
+
+  const initial = (me?.artist_name || me?.handle || me?.username || '?').slice(0, 1).toUpperCase()
+
+  return (
+    <div style={{
+      background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px',
+      padding: '1.1rem 1.25rem', marginBottom: '0.85rem',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.85rem' }}>
+        {me?.avatar_url ? (
+          <img
+            src={me.avatar_url}
+            alt=""
+            style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: `1px solid ${C.border}` }}
+          />
+        ) : (
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: BRAND.gradient, display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            color: '#000', fontWeight: 900, fontSize: '1.5rem', flexShrink: 0,
+          }}>
+            {initial}
+          </div>
+        )}
+        <div style={{ flex: 1 }}>
+          <label style={{
+            display: 'inline-block', cursor: 'pointer', fontFamily: FONT,
+            background: 'transparent', color: C.textMid, border: `1px solid ${C.border}`,
+            borderRadius: '8px', padding: '0.5rem 0.85rem', fontSize: '0.8rem', fontWeight: 700,
+          }}>
+            {me?.avatar_url ? 'Change photo' : 'Upload photo'}
+            <input type="file" accept="image/*" onChange={handleFile} disabled={busy} style={{ display: 'none' }} />
+          </label>
+          <div style={{ color: C.textDim, fontSize: '0.72rem', marginTop: '0.3rem' }}>
+            Square works best. Shown on your public profile + the promoter directory.
+          </div>
+        </div>
+      </div>
+
+      <textarea
+        value={bio}
+        onChange={(e) => setBio(e.target.value.slice(0, 500))}
+        onBlur={saveBio}
+        placeholder="A short bio. Genre, where you're from, anything that helps a promoter know if you're a fit. (500 chars max)"
+        rows={3}
+        style={{
+          ...INPUT, width: '100%', resize: 'vertical', minHeight: '70px',
+          lineHeight: 1.5, fontFamily: FONT,
+        }}
+      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.3rem' }}>
+        <span style={{ color: C.textDim, fontSize: '0.7rem' }}>{bio.length} / 500</span>
+        <span style={{ color: C.textMid, fontSize: '0.72rem' }}>{msg}</span>
       </div>
     </div>
   )
@@ -180,7 +274,7 @@ export default function ArtistDashboard() {
 
       const { data: meRow } = await supabase
         .from('users')
-        .select('id, username, handle, artist_name, user_type, broadcast_default, open_to_bookings')
+        .select('id, username, handle, artist_name, user_type, broadcast_default, open_to_bookings, bio, avatar_url')
         .eq('id', uid).maybeSingle()
       if (cancelled) return
       setMe(meRow)
@@ -267,6 +361,9 @@ export default function ArtistDashboard() {
         ? <div style={{ color: C.textMid, fontSize: '0.85rem', marginBottom: '1.5rem' }}>None yet.</div>
         : greenlit.map(b => <BookingCard key={b.id} booking={b} onChange={() => setRefreshKey(k => k + 1)} accessToken={session.access_token} />)
       }
+
+      <div style={{ ...eyebrowStyle(), marginTop: '2rem' }}>Profile</div>
+      <ProfileEditor me={me} onChange={(patch) => setMe({ ...me, ...patch })} />
 
       <div style={{ ...eyebrowStyle(), marginTop: '2rem' }}>Settings</div>
 

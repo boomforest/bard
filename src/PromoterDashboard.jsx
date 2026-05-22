@@ -231,7 +231,7 @@ function FindArtists() {
     ;(async () => {
       const { data } = await supabase
         .from('users')
-        .select('id, handle, artist_name, username, city, artist_followers(id)')
+        .select('id, handle, artist_name, username, city, avatar_url, bio, artist_followers(id)')
         .eq('user_type', 'artist')
         .eq('open_to_bookings', true)
         .not('handle', 'is', null)
@@ -294,14 +294,22 @@ function FindArtists() {
                   background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px',
                   padding: '0.85rem 1.1rem', textDecoration: 'none',
                 }}>
-                  <div style={{
-                    width: 42, height: 42, borderRadius: '50%',
-                    background: BRAND.gradient, display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                    color: '#000', fontWeight: 900, fontSize: '0.95rem', flexShrink: 0,
-                  }}>
-                    {(a.artist_name || a.handle || '?').slice(0, 1).toUpperCase()}
-                  </div>
+                  {a.avatar_url ? (
+                    <img
+                      src={a.avatar_url}
+                      alt=""
+                      style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 42, height: 42, borderRadius: '50%',
+                      background: BRAND.gradient, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      color: '#000', fontWeight: 900, fontSize: '0.95rem', flexShrink: 0,
+                    }}>
+                      {(a.artist_name || a.handle || '?').slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: C.text, fontWeight: 800, fontSize: '0.95rem', letterSpacing: '-0.01em' }}>
                       {a.artist_name || a.username || a.handle}
