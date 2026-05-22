@@ -23,6 +23,32 @@ const TABS = [
   { key: 'fan',      label: 'Fan'      },
 ]
 
+// Loads the current authenticated user's profile row. Returns:
+//   undefined → still loading
+//   null      → no session (anonymous visitor)
+//   object    → users-table row (id, user_type, etc.)
+// Tab components branch on user.user_type to show either the explainer-
+// plus-Apply flow (default) or the role-specific status widget.
+function useCurrentUser() {
+  const [user, setUser] = useState(undefined)
+  useEffect(() => {
+    let cancelled = false
+    const load = async (session) => {
+      if (!session?.user) { if (!cancelled) setUser(null); return }
+      const { data } = await supabase
+        .from('users')
+        .select('id, user_type, username, handle, artist_name')
+        .eq('id', session.user.id)
+        .maybeSingle()
+      if (!cancelled) setUser(data || null)
+    }
+    supabase.auth.getSession().then(({ data: { session } }) => load(session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => load(s))
+    return () => { cancelled = true; subscription.unsubscribe() }
+  }, [])
+  return user
+}
+
 const PROMOTER_FEATURES = [
   {
     icon: '🎟',
@@ -386,7 +412,125 @@ function ArtistNotFound({ query }) {
 
 // ── Tab content ─────────────────────────────────────────────────────────────
 
-function PromoterTab({ navigate }) {
+// Status widget shown to approved promoters in the Promoter tab.
+// Lists their most recent events with quick stats + a deep-link into
+// the full promoter dashboard.
+function PromoterStatusWidget({ user, navigate }) {
+  const [events, setEvents] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from('events')
+        .select('id, slug, name, artist_name, show_date, capacity, tickets_sold, greenlit_at')
+        .eq('promoter_id', user.id)
+        .order('show_date', { ascending: false })
+        .limit(5)
+      if (!cancelled) setEvents(data || [])
+    })()
+    return () => { cancelled = true }
+  }, [user.id])
+
+  const displayName = user.artist_name || user.username || user.handle || 'Promoter'
+  const today = new Date().toISOString().slice(0, 10)
+  const upcoming = (events || []).filter(e => (e.show_date || '') >= today)
+  const past     = (events || []).filter(e => (e.show_date || '') <  today)
+
+  return (
+    <div>
+      <Eyebrow color={BRAND.orange}>Your promoter portal</Eyebrow>
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.3rem' }}>
+        Welcome back, {displayName}.
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.55, marginBottom: '1.25rem' }}>
+        Your shows at a glance. Open the full dashboard for contracts, settlement, and edits.
+      </div>
+
+      {events === null ? (
+        <div style={{ color: C.textMid, fontSize: '0.85rem', padding: '0.8rem 0' }}>Loading…</div>
+      ) : events.length === 0 ? (
+        <div style={{
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px',
+          padding: '1.1rem 1.25rem', color: C.textMid, fontSize: '0.88rem', textAlign: 'center', marginBottom: '0.9rem',
+        }}>
+          No shows yet. Hit the dashboard to design your first sunrise.
+        </div>
+      ) : (
+        <>
+          {upcoming.length > 0 && (
+            <>
+              <div style={{ color: C.textMid, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.5rem' }}>
+                Upcoming
+              </div>
+              {upcoming.slice(0, 3).map(ev => <EventStatRow key={ev.id} ev={ev} navigate={navigate} />)}
+            </>
+          )}
+          {past.length > 0 && (
+            <>
+              <div style={{ color: C.textMid, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.12em', margin: '1rem 0 0.5rem' }}>
+                Recent
+              </div>
+              {past.slice(0, 3).map(ev => <EventStatRow key={ev.id} ev={ev} navigate={navigate} />)}
+            </>
+          )}
+        </>
+      )}
+
+      <button onClick={() => navigate('/promoter')} style={{ ...PRIMARY_BTN, width: '100%', marginTop: '1.25rem' }}>
+        Open promoter dashboard →
+      </button>
+    </div>
+  )
+}
+
+function EventStatRow({ ev, navigate }) {
+  const dateStr = ev.show_date
+    ? new Date(ev.show_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    : 'TBD'
+  const sold = ev.tickets_sold || 0
+  const cap  = ev.capacity || 0
+  const pct  = cap > 0 ? Math.min(100, Math.round((sold / cap) * 100)) : 0
+  return (
+    <a
+      onClick={() => navigate(`/promoter/event/${ev.slug}`)}
+      style={{
+        display: 'block', cursor: 'pointer', textDecoration: 'none',
+        background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px',
+        padding: '0.85rem 1rem', marginBottom: '0.55rem',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.35rem' }}>
+        <div style={{ color: C.text, fontWeight: 700, fontSize: '0.95rem', letterSpacing: '-0.01em' }}>
+          {ev.name || ev.artist_name || 'Untitled'}
+        </div>
+        <div style={{ color: C.textMid, fontSize: '0.78rem' }}>{dateStr}</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', fontSize: '0.78rem' }}>
+        <div style={{ color: C.textMid }}>
+          <strong style={{ color: C.text }}>{sold}</strong>{cap > 0 ? <>{' / '}{cap}</> : ''} sold
+        </div>
+        {cap > 0 && (
+          <div style={{ flex: 1, height: '4px', background: '#1a1a24', borderRadius: '99px', overflow: 'hidden' }}>
+            <div style={{ width: `${pct}%`, height: '100%', background: BRAND.gradient }} />
+          </div>
+        )}
+        <div style={{
+          fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
+          color: ev.greenlit_at ? BRAND.neon : C.textMid,
+        }}>
+          {ev.greenlit_at ? '✓ Greenlit' : 'Pending'}
+        </div>
+      </div>
+    </a>
+  )
+}
+
+function PromoterTab({ navigate, user }) {
+  // Approved promoter → status widget. Everyone else → the explainer + Apply.
+  if (user?.user_type === 'promoter') {
+    return <PromoterStatusWidget user={user} navigate={navigate} />
+  }
   return (
     <div>
       <Eyebrow color={BRAND.orange}>Promoter</Eyebrow>
@@ -413,7 +557,119 @@ function PromoterTab({ navigate }) {
   )
 }
 
-function ArtistTab({ navigate }) {
+// Status widget shown to approved artists in the Artist tab. Pending
+// Greenlights are surfaced prominently because they're the next-action
+// the artist needs to take.
+function ArtistStatusWidget({ user, navigate }) {
+  const [bookings, setBookings] = useState(null)
+  const [followerCount, setFollowerCount] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: bks } = await supabase
+        .from('event_producers')
+        .select(`
+          id, signed, signed_at, last_broadcast_at,
+          events:event_id ( id, slug, name, artist_name, show_date, venue_hint )
+        `)
+        .eq('user_id', user.id)
+        .eq('role', 'Artist')
+        .order('signed_at', { ascending: false })
+        .limit(10)
+      if (!cancelled) setBookings(bks || [])
+
+      const { count } = await supabase
+        .from('artist_followers')
+        .select('id', { count: 'exact', head: true })
+        .eq('artist_id', user.id)
+      if (!cancelled) setFollowerCount(count ?? 0)
+    })()
+    return () => { cancelled = true }
+  }, [user.id])
+
+  const displayName = user.artist_name || user.username || user.handle || 'Artist'
+  const pending   = (bookings || []).filter(b => !b.signed)
+  const confirmed = (bookings || []).filter(b =>  b.signed)
+
+  return (
+    <div>
+      <Eyebrow color={BRAND.pink}>Your artist portal</Eyebrow>
+      <div style={{ color: C.text, fontWeight: 800, fontSize: '1.4rem', letterSpacing: '-0.02em', marginBottom: '0.3rem' }}>
+        Welcome back, {displayName}.
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.85rem', lineHeight: 1.55, marginBottom: '1.25rem' }}>
+        {followerCount === null ? '' : `${followerCount} follower${followerCount === 1 ? '' : 's'} · `}
+        Greenlight bookings + share your affiliate links from the full dashboard.
+      </div>
+
+      {bookings === null ? (
+        <div style={{ color: C.textMid, fontSize: '0.85rem', padding: '0.8rem 0' }}>Loading…</div>
+      ) : (
+        <>
+          {pending.length > 0 && (
+            <div style={{
+              background: `${BRAND.orange}10`, border: `1px solid ${BRAND.orange}66`,
+              borderRadius: '12px', padding: '1rem 1.2rem', marginBottom: '0.85rem',
+            }}>
+              <div style={{ color: BRAND.orange, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: '0.4rem' }}>
+                {pending.length} pending your Greenlight
+              </div>
+              {pending.slice(0, 2).map(b => (
+                <div key={b.id} style={{ color: C.text, fontSize: '0.88rem', marginBottom: '0.2rem' }}>
+                  {b.events?.name || b.events?.artist_name || 'Booking'} · {b.events?.show_date
+                    ? new Date(b.events.show_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : 'TBD'}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {confirmed.length > 0 && (
+            <>
+              <div style={{ color: C.textMid, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.5rem' }}>
+                Confirmed
+              </div>
+              {confirmed.slice(0, 3).map(b => (
+                <div key={b.id} style={{
+                  background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px',
+                  padding: '0.75rem 1rem', marginBottom: '0.5rem',
+                }}>
+                  <div style={{ color: C.text, fontSize: '0.92rem', fontWeight: 700, marginBottom: '0.2rem' }}>
+                    {b.events?.name || b.events?.artist_name || 'Show'}
+                  </div>
+                  <div style={{ color: C.textMid, fontSize: '0.76rem' }}>
+                    {b.events?.show_date ? new Date(b.events.show_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD'}
+                    {b.events?.venue_hint ? ` · ${b.events.venue_hint}` : ''}
+                    {b.last_broadcast_at ? ' · Broadcast sent' : ''}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {pending.length === 0 && confirmed.length === 0 && (
+            <div style={{
+              background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px',
+              padding: '1.1rem 1.25rem', color: C.textMid, fontSize: '0.88rem', textAlign: 'center', marginBottom: '0.9rem',
+            }}>
+              No bookings yet. Once a promoter adds you to a lineup, you'll see it here.
+            </div>
+          )}
+        </>
+      )}
+
+      <button onClick={() => navigate('/artist')} style={{ ...PRIMARY_BTN, width: '100%', marginTop: '1.25rem' }}>
+        Open artist dashboard →
+      </button>
+    </div>
+  )
+}
+
+function ArtistTab({ navigate, user }) {
+  if (user?.user_type === 'artist') {
+    return <ArtistStatusWidget user={user} navigate={navigate} />
+  }
   return (
     <div>
       <Eyebrow color={BRAND.pink}>Artist</Eyebrow>
@@ -444,7 +700,26 @@ function ArtistTab({ navigate }) {
 
 export default function LandingPortal() {
   const navigate = useNavigate()
-  const [tab, setTab] = useState('promoter')
+  const user = useCurrentUser()
+
+  // Default tab follows the user's role so a logged-in promoter lands on
+  // their portal, an artist on theirs, and anyone else on the Fan tab.
+  // Anonymous visitors default to Promoter (the most "what is this?" intro).
+  const defaultTab =
+    user?.user_type === 'artist'   ? 'artist'
+  : user?.user_type === 'promoter' ? 'promoter'
+  : user?.user_type === 'fan'      ? 'fan'
+  : 'promoter'
+
+  const [tab, setTab] = useState(defaultTab)
+  const [touched, setTouched] = useState(false)
+  // Once user loads, re-default the tab — but only if they haven't already
+  // clicked one themselves (touched=true means manual override).
+  useEffect(() => {
+    if (user !== undefined && !touched) setTab(defaultTab)
+  }, [user, defaultTab, touched])
+
+  const selectTab = (k) => { setTouched(true); setTab(k) }
 
   return (
     <div style={{ width: '100%' }}>
@@ -453,12 +728,12 @@ export default function LandingPortal() {
         borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem',
       }}>
         {TABS.map(t => (
-          <Tab key={t.key} active={tab === t.key} label={t.label} onClick={() => setTab(t.key)} />
+          <Tab key={t.key} active={tab === t.key} label={t.label} onClick={() => selectTab(t.key)} />
         ))}
       </div>
 
-      {tab === 'promoter' && <PromoterTab navigate={navigate} />}
-      {tab === 'artist'   && <ArtistTab navigate={navigate} />}
+      {tab === 'promoter' && <PromoterTab navigate={navigate} user={user} />}
+      {tab === 'artist'   && <ArtistTab   navigate={navigate} user={user} />}
       {tab === 'fan'      && <FanTab />}
     </div>
   )
