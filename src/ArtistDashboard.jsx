@@ -46,6 +46,101 @@ function LoginPanel() {
   )
 }
 
+// Allotment panel — shown on greenlit bookings where the promoter
+// set ticket_allotment > 0. Surfaces: total / used / remaining + a
+// "Comp a guest" inline form that POSTs mint-comp-tickets with
+// producer_id (artist auth path).
+function AllotmentPanel({ booking, accessToken, onChange }) {
+  const total     = booking.ticket_allotment || 0
+  const used      = booking.allotment_used ?? 0
+  const remaining = Math.max(0, total - used)
+  const [open, setOpen]   = useState(false)
+  const [name, setName]   = useState('')
+  const [email, setEmail] = useState('')
+  const [busy, setBusy]   = useState(false)
+  const [msg, setMsg]     = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (remaining <= 0) { setMsg('No tickets left in your allotment'); return }
+    setBusy(true); setMsg('')
+    try {
+      const res = await fetch('/.netlify/functions/mint-comp-tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          producer_id: booking.id,
+          name:        name.trim(),
+          email:       email.trim(),
+          qty:         1,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`)
+      setMsg(`Sent to ${email.trim()} 🎟`)
+      setName(''); setEmail('')
+      onChange()  // re-query parent to refresh used count
+    } catch (err) {
+      setMsg(err.message)
+    }
+    setBusy(false)
+  }
+
+  return (
+    <div style={{
+      background: '#0a0a10', border: `1px solid ${C.border}`, borderRadius: '10px',
+      padding: '0.75rem 0.9rem', marginBottom: '0.7rem',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+        <div style={{ color: C.textMid, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 700 }}>
+          Your ticket allotment
+        </div>
+        <div style={{ color: C.text, fontSize: '0.82rem' }}>
+          <strong style={{ color: BRAND.neon }}>{remaining}</strong> of {total} left
+          <span style={{ color: C.textDim }}> · {used} used</span>
+        </div>
+      </div>
+      <div style={{ color: C.textMid, fontSize: '0.72rem', lineHeight: 1.5, marginBottom: '0.5rem' }}>
+        Comp them to friends below, or share your link (above) to sell them. Sales and comps both count toward the allotment.
+      </div>
+
+      {!open ? (
+        <button onClick={() => setOpen(true)} disabled={remaining <= 0} style={{
+          background: 'transparent', color: BRAND.neon, border: `1px solid ${BRAND.neon}55`,
+          borderRadius: '7px', padding: '0.4rem 0.85rem', fontSize: '0.78rem',
+          fontWeight: 700, cursor: remaining > 0 ? 'pointer' : 'not-allowed',
+          opacity: remaining > 0 ? 1 : 0.4, fontFamily: FONT,
+        }}>
+          {remaining > 0 ? `+ Comp a guest (${remaining} left)` : 'Allotment used'}
+        </button>
+      ) : (
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+            <input type="text"  value={name}  onChange={e => setName(e.target.value)}  placeholder="Guest name" style={{ ...INPUT, fontSize: '0.82rem' }} required />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email"      style={{ ...INPUT, fontSize: '0.82rem' }} required />
+          </div>
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button type="submit" disabled={busy} style={{
+              flex: 1, background: BRAND.gradient, color: '#000', border: 'none', borderRadius: '7px',
+              padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', fontFamily: FONT,
+              opacity: busy ? 0.6 : 1,
+            }}>
+              {busy ? 'Sending…' : 'Send comp'}
+            </button>
+            <button type="button" onClick={() => { setOpen(false); setMsg('') }} style={{
+              background: 'transparent', color: C.textMid, border: `1px solid ${C.border}`, borderRadius: '7px',
+              padding: '0.45rem 0.85rem', fontSize: '0.78rem', cursor: 'pointer', fontFamily: FONT,
+            }}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+      {msg && <div style={{ color: msg.startsWith('Sent') ? BRAND.neon : BRAND.orange, fontSize: '0.74rem', marginTop: '0.4rem' }}>{msg}</div>}
+    </div>
+  )
+}
+
 // Avatar + bio editor on the Artist Portal. Avatar uploads to the
 // existing profile-pictures bucket; bio is a plain textarea. Saves on
 // blur for bio, immediately on upload for avatar.
@@ -227,6 +322,11 @@ function BookingCard({ booking, onChange, accessToken }) {
           <div style={{ color: BRAND.neon, fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
             ✓ Greenlit{booking.last_broadcast_at ? ' · Broadcast sent' : (booking.broadcast_disabled ? ' · Broadcast off' : '')}
           </div>
+
+          {booking.ticket_allotment > 0 && (
+            <AllotmentPanel booking={booking} accessToken={accessToken} onChange={onChange} />
+          )}
+
           <div style={{ color: C.textMid, fontSize: '0.74rem', marginBottom: '0.3rem' }}>Your link</div>
           <div style={{
             background: '#0a0a10', border: `1px solid ${C.border}`, borderRadius: '8px',
@@ -282,7 +382,7 @@ export default function ArtistDashboard() {
       const { data: bks } = await supabase
         .from('event_producers')
         .select(`
-          id, signed, signed_at, split_pct, role, broadcast_disabled, last_broadcast_at, event_id,
+          id, signed, signed_at, split_pct, role, broadcast_disabled, last_broadcast_at, event_id, ticket_allotment,
           events:event_id ( id, slug, name, artist_name, show_date, venue_hint, venue_address )
         `)
         .eq('user_id', uid)
@@ -291,13 +391,14 @@ export default function ArtistDashboard() {
       if (cancelled) return
 
       // Attribution counts: tickets where source = 'artist:<producer_id>'.
+      // The same count doubles as allotment_used (comps + sales both consume).
       const enriched = await Promise.all((bks || []).map(async (b) => {
         const { count } = await supabase
           .from('tickets')
           .select('id', { count: 'exact', head: true })
           .eq('source', `artist:${b.id}`)
           .eq('refunded', false)
-        return { ...b, attributedCount: count ?? 0 }
+        return { ...b, attributedCount: count ?? 0, allotment_used: count ?? 0 }
       }))
       if (cancelled) return
       setBookings(enriched)

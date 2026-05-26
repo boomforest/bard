@@ -21,7 +21,7 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
   const [costsDirty,setCostsDirty]= useState(false)
   const [costsSaving,setCostsSaving] = useState(false)
   const [adding,    setAdding]    = useState(false)
-  const [form,      setForm]      = useState({ name: '', email: '', role: 'Venue', split_pct: 30 })
+  const [form,      setForm]      = useState({ name: '', email: '', role: 'Venue', split_pct: 30, ticket_allotment: 0 })
   const [posting,   setPosting]   = useState(false)
   const [error,     setError]     = useState('')
   const [signing,   setSigning]   = useState(null)
@@ -91,16 +91,17 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({
-          event_id: event.id,
-          name:     form.name.trim(),
-          email:    form.email.trim(),
-          role:     form.role.trim(),
-          split_pct: Number(form.split_pct),
+          event_id:         event.id,
+          name:             form.name.trim(),
+          email:            form.email.trim(),
+          role:             form.role.trim(),
+          split_pct:        Number(form.split_pct),
+          ticket_allotment: Number(form.ticket_allotment) || 0,
         }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || `Invite failed (${res.status})`)
-      setForm({ name: '', email: '', role: 'Venue', split_pct: 30 })
+      setForm({ name: '', email: '', role: 'Venue', split_pct: 30, ticket_allotment: 0 })
       setAdding(false)
       await loadProducers()
       onUpdate?.()
@@ -323,6 +324,14 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
                 placeholder="Split %"
                 type="number" min="0" max="100" step="any"
                 style={INPUT} required
+              />
+              <input
+                value={form.ticket_allotment}
+                onChange={e => setForm({ ...form, ticket_allotment: e.target.value })}
+                placeholder="Tickets (artists)"
+                type="number" min="0" max="500" step="1"
+                style={INPUT}
+                title="Number of tickets this person can sell or comp from their allotment — typically used for artists getting paid in tickets"
               />
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.3rem' }}>

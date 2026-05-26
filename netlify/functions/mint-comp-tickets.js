@@ -28,13 +28,14 @@ exports.handler = async (event) => {
     if (!token) throw new Error('Missing auth token')
 
     const body = JSON.parse(event.body || '{}')
-    const { event_id, name, email, tier_id } = body
+    const { name, email, tier_id, producer_id } = body
+    let { event_id } = body
     const qty = Math.max(1, Math.min(50, Math.floor(Number(body.qty) || 1)))
     const lang = body.lang === 'en' ? 'en' : 'es'
 
-    if (!event_id) throw new Error('event_id required')
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) throw new Error('Valid email required')
     if (!name?.trim()) throw new Error('Guest name required')
+    if (!event_id && !producer_id) throw new Error('event_id or producer_id required')
 
     const supabase = createClient(
       process.env.SUPABASE_URL,
@@ -45,13 +46,49 @@ exports.handler = async (event) => {
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
     if (authErr || !user) throw new Error('Invalid session')
 
+    // Artist path: producer_id provided. Verify the caller is the
+    // artist on that producer row, check remaining allotment, derive
+    // event_id from the producer row. Set source='artist:<producer_id>'
+    // so the count + attribution match the affiliate-link pattern.
+    let allotmentSource = null  // when set, becomes tickets.source
+    if (producer_id) {
+      const { data: producer } = await supabase
+        .from('event_producers')
+        .select('id, event_id, user_id, role, ticket_allotment')
+        .eq('id', producer_id)
+        .maybeSingle()
+      if (!producer) throw new Error('Producer row not found')
+      if (producer.user_id !== user.id) throw new Error('Not authorized for this allotment')
+      if (producer.role !== 'Artist') throw new Error('Allotment minting is artist-only')
+      if (!producer.ticket_allotment || producer.ticket_allotment <= 0) {
+        throw new Error('No ticket allotment on this booking')
+      }
+      // Count tickets already consumed from the allotment (comps + sales).
+      const { count: used } = await supabase
+        .from('tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('source', `artist:${producer.id}`)
+        .eq('refunded', false)
+      const remaining = producer.ticket_allotment - (used || 0)
+      if (remaining < qty) {
+        throw new Error(`Only ${Math.max(0, remaining)} ticket(s) left in your allotment`)
+      }
+      event_id = producer.event_id
+      allotmentSource = `artist:${producer.id}`
+    }
+
     const { data: ev, error: evErr } = await supabase
       .from('events')
       .select('id, slug, promoter_id, tickets_sold, capacity')
       .eq('id', event_id)
       .maybeSingle()
     if (evErr || !ev) throw new Error('Event not found')
-    if (ev.promoter_id !== user.id) throw new Error('Not authorized for this event')
+
+    // Authorization: promoter path requires owning the event. Artist
+    // path was already authorized above via producer ownership check.
+    if (!producer_id && ev.promoter_id !== user.id) {
+      throw new Error('Not authorized for this event')
+    }
 
     // Capacity guard — comps eat capacity like paid tickets.
     if (ev.capacity && (ev.tickets_sold || 0) + qty > ev.capacity) {
@@ -101,7 +138,7 @@ exports.handler = async (event) => {
           lang,
           is_comp:                  true,
           discount_cents:           tier.price_cents,
-          source:                   'comp',
+          source:                   allotmentSource || 'comp',
         })
         .select('id, ticket_number')
         .single()

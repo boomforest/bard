@@ -279,6 +279,7 @@ function BookArtistButton({ artist, artistName, accessToken }) {
   const [events, setEvents]       = useState(null)
   const [selectedId, setSelected] = useState('')
   const [split, setSplit]         = useState(25)
+  const [allotment, setAllotment] = useState(0)
   const [busy, setBusy]           = useState(false)
   const [msg, setMsg]             = useState('')
   const [done, setDone]           = useState(false)
@@ -323,10 +324,11 @@ function BookArtistButton({ artist, artistName, accessToken }) {
           'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          event_id:       selectedId,
-          artist_user_id: artist.id,
-          role:           'Artist',
-          split_pct:      Number(split),
+          event_id:         selectedId,
+          artist_user_id:   artist.id,
+          role:             'Artist',
+          split_pct:        Number(split),
+          ticket_allotment: Number(allotment) || 0,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -401,8 +403,8 @@ function BookArtistButton({ artist, artistName, accessToken }) {
         </select>
       )}
 
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.85rem' }}>
-        <span style={{ color: C.textMid, fontSize: '0.82rem' }}>Split %</span>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <span style={{ color: C.textMid, fontSize: '0.82rem', width: '72px' }}>Split %</span>
         <input
           type="number" min="0" max="100" step="1"
           value={split}
@@ -411,7 +413,20 @@ function BookArtistButton({ artist, artistName, accessToken }) {
           required
         />
         <span style={{ color: C.textDim, fontSize: '0.72rem' }}>
-          (their cut of net revenue — adjustable until everyone signs)
+          their cut of net revenue
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.85rem' }}>
+        <span style={{ color: C.textMid, fontSize: '0.82rem', width: '72px' }}>Tickets</span>
+        <input
+          type="number" min="0" max="500" step="1"
+          value={allotment}
+          onChange={e => setAllotment(e.target.value)}
+          style={{ ...INPUT, width: '90px' }}
+        />
+        <span style={{ color: C.textDim, fontSize: '0.72rem' }}>
+          allotment they can sell or comp (optional)
         </span>
       </div>
 

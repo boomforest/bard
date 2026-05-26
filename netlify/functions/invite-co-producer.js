@@ -31,6 +31,7 @@ exports.handler = async (event) => {
     const { event_id, role, artist_user_id } = body
     let { name, email } = body
     const split_pct = Number(body.split_pct)
+    const ticket_allotment = Math.max(0, Math.min(500, Math.floor(Number(body.ticket_allotment) || 0)))
 
     if (!event_id) throw new Error('event_id required')
     if (!role?.trim()) throw new Error('Role required')
@@ -130,15 +131,16 @@ exports.handler = async (event) => {
       .from('event_producers')
       .insert({
         event_id,
-        name:         name.trim(),
-        role:         role.trim(),
+        name:             name.trim(),
+        role:             role.trim(),
         split_pct,
-        signed:       false,
-        email:        normalizedEmail,
-        user_id:      existingProfile?.id || null,
-        invite_token: inviteToken,
+        ticket_allotment,
+        signed:           false,
+        email:            normalizedEmail,
+        user_id:          existingProfile?.id || null,
+        invite_token:     inviteToken,
       })
-      .select('id, name, role, split_pct, signed, email, user_id')
+      .select('id, name, role, split_pct, ticket_allotment, signed, email, user_id')
       .single()
     if (insertErr) throw insertErr
 
