@@ -68,6 +68,40 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
     setCosts(next); setCostsDirty(true)
   }
   const addCost = () => { setCosts([...costs, { name: '', amount_cents: 0 }]); setCostsDirty(true) }
+  const [ocrBusy, setOcrBusy] = useState(false)
+  const [ocrMsg,  setOcrMsg]  = useState('')
+
+  // Snap a photo of a receipt → Claude Vision extracts total + label →
+  // appended as a new fixed_costs row. Image never persisted; only the
+  // OCR result is kept. Disabled once greenlit (server also rejects).
+  const ocrReceipt = async (file) => {
+    if (!file || greenlit) return
+    if (file.size > 8 * 1024 * 1024) { setOcrMsg('Image too large (max 8 MB)'); return }
+    setOcrBusy(true); setOcrMsg('Reading receipt…')
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(String(r.result).split(',')[1] || '')
+        r.onerror = () => reject(r.error)
+        r.readAsDataURL(file)
+      })
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/.netlify/functions/ocr-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ event_id: event.id, image_base64: base64, mime_type: file.type || 'image/jpeg' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok)    throw new Error(data?.error || `OCR failed (${res.status})`)
+      if (data.error) throw new Error(data.error)
+      setCosts([...costs, { name: data.description, amount_cents: data.amount_cents }])
+      setCostsDirty(true)
+      setOcrMsg(`Added: ${data.description} — ${(data.amount_cents / 100).toFixed(2)} ${data.currency}`)
+    } catch (err) {
+      setOcrMsg(err.message)
+    }
+    setOcrBusy(false)
+  }
   const removeCost = (i) => { setCosts(costs.filter((_, j) => j !== i)); setCostsDirty(true) }
   const saveCosts = async () => {
     setCostsSaving(true); setError('')
@@ -270,11 +304,29 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
                 }}>×</button>
               </div>
             ))}
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
               <button onClick={addCost} type="button" style={{
                 background: 'transparent', border: `1px solid ${C.border}`, color: C.textMid,
                 borderRadius: '7px', padding: '0.4rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600',
               }}>+ Add cost</button>
+
+              <label style={{
+                background: 'transparent', border: `1px solid ${BRAND.pink}55`, color: BRAND.pink,
+                borderRadius: '7px', padding: '0.4rem 0.85rem', fontSize: '0.8rem', cursor: ocrBusy ? 'wait' : 'pointer',
+                fontWeight: '600', fontFamily: FONT, display: 'inline-flex', alignItems: 'center',
+                opacity: ocrBusy ? 0.5 : 1,
+              }}>
+                {ocrBusy ? 'Reading receipt…' : '📸 From receipt'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) ocrReceipt(f) }}
+                  disabled={ocrBusy}
+                  style={{ display: 'none' }}
+                />
+              </label>
+
               {costsDirty && (
                 <button onClick={saveCosts} disabled={costsSaving} type="button" style={{
                   background: BRAND.neon, color: '#000', border: 'none',
@@ -283,6 +335,14 @@ export default function EventContractCard({ event, tiers, currentUserId, onUpdat
                 }}>{costsSaving ? 'Saving…' : 'Save costs'}</button>
               )}
             </div>
+            {ocrMsg && (
+              <div style={{
+                marginTop: '0.4rem', fontSize: '0.75rem',
+                color: ocrMsg.startsWith('Added:') ? BRAND.neon : (ocrBusy ? C.textMid : BRAND.orange),
+              }}>
+                {ocrMsg}
+              </div>
+            )}
           </>
         )}
       </Section>
