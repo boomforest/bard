@@ -253,7 +253,7 @@ export default {
 
   // ─── TermsPage ───────────────────────────────────────────────────────────
   'terms.title':                'Términos del servicio',
-  'terms.lastUpdated':          'Última actualización: Abril 2026',
+  'terms.lastUpdated':          'Última actualización: Mayo 2026',
   'terms.section.what.title':   'Qué es Grail',
   'terms.section.what.body':    'Grail es una plataforma de software que ofrece herramientas de boletaje, control de entrada y administración de barra a promotores de eventos. Grail cobra una tarifa fija por el acceso a estas herramientas. Grail no es promotor, co-anfitrión, co-organizador ni socio de ningún evento producido en esta plataforma.',
   'terms.section.resp.title':   'Responsabilidades del promotor',
@@ -272,6 +272,7 @@ export default {
   'terms.section.payments.title':  'Pagos',
   'terms.section.payments.body1':  'Grail cobra una tarifa de plataforma del 2% sobre la venta de boletos, recolectada al momento de la compra vía Stripe. Esta tarifa cubre el procesamiento de pagos y el acceso a la plataforma únicamente para boletaje. El acceso a la administración de barra y a las funciones de entrada rápida se cobra como una tarifa fija aparte.',
   'terms.section.payments.body2':  'Todos los ingresos de boletos, después de la tarifa del 2%, fluyen directamente a la cuenta de Stripe conectada del Promotor. Grail no retiene fondos del Promotor y no es responsable de ninguna transacción entre el Promotor y sus clientes. El Promotor es el único responsable de emitir reembolsos desde su propia cuenta.',
+  'terms.section.payments.body3':  'Los ingresos por boletos (menos la tarifa de plataforma de Grail y la comisión de procesamiento de Stripe) fluyen a la cuenta Stripe conectada del Promotor al momento de cada venta — antes de que se realice el evento. Esto le da al Promotor acceso a los ingresos de preventa para cubrir gastos del evento como depósitos, renta de equipo y pagos a colaboradores. La consecuencia: cualquier reembolso emitido antes del evento se descuenta del mismo saldo de Stripe. Si el Promotor ya gastó parte de esos fondos y no tiene saldo suficiente para cubrir un reembolso, el Promotor es responsable de recargar su cuenta Stripe desde su banco para procesarlo. Grail no actúa como reserva de reembolsos en nombre del Promotor, y Grail no es responsable de ningún déficit que el Promotor incurra por usar los ingresos de preventa antes de que se realice un evento.',
   'terms.section.term.title':      'Cancelación de cuenta',
   'terms.section.term.body':       'Grail se reserva el derecho de suspender o cancelar cuentas que violen estos términos, realicen actividades fraudulentas, o expongan legalmente a la plataforma. Los Promotores que tergiversen eventos o no emitan reembolsos legalmente requeridos pueden ser bloqueados permanentemente.',
   'terms.section.privacy.title':   'Privacidad',
