@@ -15,6 +15,20 @@ const Section = ({ title, children }) => (
   </div>
 )
 
+// Long-form section variant: a single i18n key whose value uses
+// blank-line paragraph breaks. Renders as multiple visual paragraphs
+// without forcing every paragraph to be its own i18n entry.
+const LongSection = ({ title, body }) => (
+  <div style={{ marginBottom: '2rem' }}>
+    <div style={{ color: BRAND.pink, fontWeight: '700', fontSize: '0.72rem', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+      {title}
+    </div>
+    <div style={{ color: C.textMid, fontSize: '0.9rem', lineHeight: '1.7', whiteSpace: 'pre-line' }}>
+      {body}
+    </div>
+  </div>
+)
+
 export default function TermsPage() {
   const t = useT()
   const navigate = useNavigate()
@@ -70,6 +84,16 @@ export default function TermsPage() {
           <br /><br />
           {t('terms.section.payments.body3')}
         </Section>
+
+        <LongSection
+          title={t('terms.section.firstLight.title')}
+          body={t('terms.section.firstLight.body')}
+        />
+
+        <LongSection
+          title={t('terms.section.artist.title')}
+          body={t('terms.section.artist.body')}
+        />
 
         <Section title={t('terms.section.term.title')}>
           {t('terms.section.term.body')}
