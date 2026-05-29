@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
-import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { fmtPriceCents } from './currencies'
 import { BRAND, C, FONT, INPUT, PAGE, eyebrowStyle, LogoMark, badgeStyle } from './theme'
@@ -9,10 +8,7 @@ import { useT, useLocale } from './i18n'
 import LocaleToggle from './LocaleToggle'
 import GrailOptIn from './GrailOptIn'
 import { subscribeToLists } from './eventService'
-
-const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
-  : null
+import { getStripePromise } from './lib/stripeClient'
 
 const localeTag = (l) => (l === 'es' ? 'es-MX' : 'en-US')
 
@@ -81,6 +77,11 @@ function downloadIcs(event, locale = 'en') {
 }
 
 export default function EventPage() {
+  // Initialize Stripe inside the component so the bundle-parse doesn't
+  // fire loadStripe() on pages that never render this component (home, /me).
+  // See src/lib/stripeClient.js for the full rationale.
+  const stripePromise = getStripePromise()
+
   const { slug } = useParams()
   const navigate = useNavigate()
   const t = useT()

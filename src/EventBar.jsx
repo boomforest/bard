@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
-import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { imageFor, descFor } from './featuredDrinks'
 import { BRAND } from './theme'
@@ -9,10 +8,7 @@ import { useT, useLocale } from './i18n'
 import LocaleToggle from './LocaleToggle'
 import GrailOptIn from './GrailOptIn'
 import { subscribeToLists } from './eventService'
-
-const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
-  : null
+import { getStripePromise } from './lib/stripeClient'
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
 const C = {
@@ -987,6 +983,12 @@ function StaffPinGate({ pin: correctPin, onUnlock }) {
 
 // ─── MAIN: EVENT BAR ──────────────────────────────────────────────────────────
 export default function EventBar({ staffMode = false }) {
+  // Lazy Stripe init — see src/lib/stripeClient.js. Keeps loadStripe()
+  // off pages that never render Elements, killing the spurious
+  // "Failed to load Stripe.js" inbox spam from homepage visitors with
+  // tracker blockers.
+  const stripePromise = getStripePromise()
+
   const t = useT()
   const { slug } = useParams()
   const navigate = useNavigate()
