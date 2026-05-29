@@ -118,9 +118,23 @@ export default function PromoterRequestPage() {
             <div style={{ color: C.text, fontSize: '1.6rem', fontWeight: '900', letterSpacing: '-0.02em', marginBottom: '0.6rem', lineHeight: 1.2 }}>
               {COPY.heading}
             </div>
-            <div style={{ color: C.textMid, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '1.75rem' }}>
+            <div style={{ color: C.textMid, fontSize: '0.92rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
               {COPY.body}
             </div>
+
+            {!isArtist && (
+              <div style={{
+                background: 'rgba(240,112,32,0.06)', border: `1px solid ${BRAND.orange}55`,
+                borderRadius: '12px', padding: '0.95rem 1.1rem', marginBottom: '1.5rem',
+              }}>
+                <div style={{ color: BRAND.orange, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.14em', fontWeight: 800, marginBottom: '0.4rem' }}>
+                  How payments work
+                </div>
+                <div style={{ color: C.text, fontSize: '0.85rem', lineHeight: 1.55 }}>
+                  Ticket revenue lands in your Stripe account at sale time, ready to spend on whatever the show needs — deposits, ice, DJ pay. Refunds before the show pull from that same account. If you've spent some of it already and don't have the balance to cover a refund, you'll need to top up from your bank to process it. That's normal — every promoter on every platform deals with this. We just want you to know up front.
+                </div>
+              </div>
+            )}
 
             <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <input style={INPUT} type="text" placeholder={COPY.namePh} value={name} onChange={e => setName(e.target.value)} required autoComplete="name" />
