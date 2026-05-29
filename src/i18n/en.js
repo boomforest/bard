@@ -253,7 +253,7 @@ export default {
 
   // ─── TermsPage ───────────────────────────────────────────────────────────
   'terms.title':                'Terms of Service',
-  'terms.lastUpdated':          'Last updated: April 2026',
+  'terms.lastUpdated':          'Last updated: May 2026',
   'terms.section.what.title':   'What Grail Is',
   'terms.section.what.body':    'Grail is a software platform that provides ticketing, entry management, and bar-tab tooling to event promoters. Grail charges a flat fee for access to these tools. Grail is not an event promoter, co-host, co-organizer, or partner in any event produced using this platform.',
   'terms.section.resp.title':   'Promoter Responsibilities',
@@ -272,6 +272,7 @@ export default {
   'terms.section.payments.title':  'Payments',
   'terms.section.payments.body1':  'Grail charges a 2% platform fee on ticket sales, collected at the time of purchase via Stripe. This fee covers payment processing and platform access for ticketing only. Access to bar management and fast-pass entry features is charged as a separate flat fee.',
   'terms.section.payments.body2':  "All ticket revenue beyond the 2% platform fee flows directly to the Promoter's connected Stripe account. Grail does not hold Promoter funds and is not responsible for any transaction between a Promoter and their customers. The Promoter is solely responsible for issuing refunds from their own account.",
+  'terms.section.payments.body3':  "Ticket revenue (less Grail's platform fee and Stripe's processing fee) flows to the Promoter's connected Stripe account at the time of each sale — before the show takes place. This gives the Promoter access to pre-sale revenue to cover show incidentals such as deposits, gear rental, and contributor pay. The corollary: any refund issued before the show pulls from that same Stripe balance. If the Promoter has already spent some of those funds and does not have the balance to cover a refund, the Promoter is responsible for topping up their Stripe account from their bank in order to process it. Grail does not act as a refund float on the Promoter's behalf, and Grail is not liable for any shortfall the Promoter incurs by using pre-sale revenue before a show takes place.",
   'terms.section.term.title':      'Account Termination',
   'terms.section.term.body':       'Grail reserves the right to suspend or terminate accounts that violate these terms, engage in fraudulent activity, or create legal exposure for the platform. Promoters found to have misrepresented events or failed to issue lawfully required refunds may be permanently banned.',
   'terms.section.privacy.title':   'Privacy',

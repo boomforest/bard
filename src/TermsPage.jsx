@@ -67,6 +67,8 @@ export default function TermsPage() {
           {t('terms.section.payments.body1')}
           <br /><br />
           {t('terms.section.payments.body2')}
+          <br /><br />
+          {t('terms.section.payments.body3')}
         </Section>
 
         <Section title={t('terms.section.term.title')}>
