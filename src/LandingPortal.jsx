@@ -404,7 +404,7 @@ function PromoterStatusWidget({ user, navigate }) {
           background: C.card, border: `1px solid ${C.border}`, borderRadius: '12px',
           padding: '1.1rem 1.25rem', color: C.textMid, fontSize: '0.88rem', textAlign: 'center', marginBottom: '0.9rem',
         }}>
-          No shows yet. Hit the dashboard to design your first sunrise.
+          No shows yet. Hit the dashboard to design your first show.
         </div>
       ) : (
         <>
